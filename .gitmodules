@@ -1,0 +1,4 @@
+[submodule "cpp-backend-tests-practicum"]
+    path = cpp-backend-tests-practicum
+    url = https://github.com/cpppracticum/cpp-backend-tests-practicum.git
+    branch = november

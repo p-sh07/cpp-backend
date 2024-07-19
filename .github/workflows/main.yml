@@ -1,0 +1,382 @@
+name: autotests
+
+on:
+  pull_request:
+  push:
+  workflow_dispatch:
+
+permissions:
+  checks: write
+  contents: read
+  pull-requests: write
+  issues: read
+
+
+jobs:
+  sprint_1:
+    runs-on: ubuntu-22.04
+    container:
+      image: praktikumcpp/practicum_cpp_backend:latest
+      volumes:
+        - /var/run/docker.sock:/var/run/docker.sock
+      options: --name main-container
+    steps:
+      - name: get docker network
+        run: echo "DOCKER_NETWORK=$(docker inspect main-container -f '{{range $k, $v := .NetworkSettings.Networks}}{{printf "%s" $k}}{{end}}')" >> $GITHUB_ENV
+
+      - name: Checkout code & tests
+        uses: actions/checkout@v3
+        with:
+          submodules: true
+
+      - name: Install dependencies
+        run: |
+          pip uninstall conan -y
+          pip install -U conan==1.59.0
+          cp -R /home/forconan/.conan /github/home/.conan
+          
+      - name: run tests sprint1 sum
+        run: |
+          cd cpp-backend-tests-practicum/scripts/sprint1
+          ./sum/run.sh
+
+      - name: run tests sprint1 sync_server
+        run: |
+          cd cpp-backend-tests-practicum/scripts/sprint1
+          ./sync_server/run.sh
+
+      - name: run tests sprint1 restaurant_single_threaded
+        run: |
+          cd cpp-backend-tests-practicum/scripts/sprint1
+          ./restaurant_single_threaded/run.sh
+
+      - name: run tests sprint1 restaurant_multi_threaded
+        run: |
+          cd cpp-backend-tests-practicum/scripts/sprint1
+          ./restaurant_multi_threaded/run.sh
+
+      - name: run tests sprint1 cafeteria
+        run: |
+          cd cpp-backend-tests-practicum/scripts/sprint1
+          ./cafeteria/run.sh
+
+      - name: run tests sprint1 async_server
+        run: |
+          cd cpp-backend-tests-practicum/scripts/sprint1
+          ./async_server/run.sh
+
+      - name: run tests sprint1 map_json
+        run: |
+          cd cpp-backend-tests-practicum/scripts/sprint1
+          ./map_json/run.sh
+
+      - name: run tests sprint1 final_task
+        run: |
+          cd cpp-backend-tests-practicum/scripts/sprint1
+          ./final_task/run.sh
+
+      - name: Publish XML reports
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        if: always()
+        with:
+          junit_files: ${{ github.workspace }}/*.xml
+
+  sprint_2:
+    runs-on: ubuntu-22.04
+    container:
+      image: praktikumcpp/practicum_cpp_backend:latest
+      volumes:
+        - /var/run/docker.sock:/var/run/docker.sock
+      options: --name main-container
+    steps:
+
+      - name: get docker network
+        run: echo "DOCKER_NETWORK=$(docker inspect main-container -f '{{range $k, $v := .NetworkSettings.Networks}}{{printf "%s" $k}}{{end}}')" >> $GITHUB_ENV
+
+      - name: Checkout code & tests
+        uses: actions/checkout@v3
+        with:
+          submodules: true
+
+      - name: Install dependencies
+        run: |
+          pip uninstall conan -y
+          pip install -U conan==1.59.0
+          cp -R /home/forconan/.conan /github/home/.conan
+
+      - name: run tests sprint2 static_content
+        run: |
+          cd cpp-backend-tests-practicum/scripts/sprint2
+          ./static_content/run.sh
+
+      - name: run tests sprint2 logger
+        run: |
+          ./cpp-backend-tests-practicum/scripts/sprint2/logger/run.sh
+
+      - name: run tests sprint2 server_logging
+        run: |
+          cd cpp-backend-tests-practicum/scripts/sprint2
+          ./server_logging/run.sh
+
+      - name: run tests sprint2 join_game
+        run: |
+          cd cpp-backend-tests-practicum/scripts/sprint2
+          ./join_game/run.sh
+
+      - name: run tests sprint2 game_state
+        run: |
+          cd cpp-backend-tests-practicum/scripts/sprint2
+          ./game_state/run.sh
+
+      - name: run tests sprint2 move_players
+        run: |
+          cd cpp-backend-tests-practicum/scripts/sprint2
+          ./move_players/run.sh
+
+      - name: run tests sprint2 time_control
+        run: |
+          cd cpp-backend-tests-practicum/scripts/sprint2
+          ./time_control/run.sh
+
+      - name: run tests sprint2 command_line
+        run: |
+          cd cpp-backend-tests-practicum/scripts/sprint2
+          ./command_line/run.sh
+
+
+  sprint_3:
+    runs-on: ubuntu-22.04
+    steps:
+
+      - name: Checkout code & tests
+        uses: actions/checkout@v3
+        with:
+          submodules: true
+
+      - name: Install dependencies
+        run: |
+          pip uninstall conan -y
+          pip install -U conan==1.59.0
+          pip install -r requirements.txt
+          pip show pytest
+
+      - name: run tests sprint3 instrumentation
+        run: |
+          cd cpp-backend-tests-practicum/scripts/sprint3
+          ./instrumentation/run.sh
+
+#      - name: Load map_json binary
+#        uses: actions/download-artifact@v3
+#        with:
+#          name: game_server
+#          path: ${{ github.workspace }}/sprint1/problems/map_json/solution/build/bin
+
+#      - run: chmod +x ${GITHUB_WORKSPACE}/sprint1/problems/map_json/solution/build/bin/game_server
+
+      - name: Load FlameGraph
+        uses: actions/checkout@v3
+        with:
+          repository: 'brendangregg/FlameGraph'
+          path: ${{ github.workspace }}/sprint3/problems/flamegraph/solution/FlameGraph
+
+      - name: run tests sprint3 flamegraph
+        run: |
+          ./cpp-backend-tests-practicum/scripts/sprint1/map_json/build.sh
+          cd cpp-backend-tests-practicum/scripts/sprint3
+          ./flamegraph/run.sh
+
+      - name: run tests sprint3 gen_objects
+        run: |
+          cd cpp-backend-tests-practicum/scripts/sprint3
+          ./gen_objects/run.sh
+
+      - name: run tests sprint3 static_lib
+        run: |
+          cd cpp-backend-tests-practicum/scripts/sprint3
+          pip show pytest
+          ./static_lib/run.sh
+
+      - name: run tests sprint3 gather-tests
+        run: |
+          cd cpp-backend-tests-practicum/scripts/sprint3
+          ./gather-tests/run.sh
+
+      - name: run tests sprint3 gather-tests_wrong1
+        run: |
+          cd cpp-backend-tests-practicum/scripts/sprint3
+          ./gather-tests_wrong1/run.sh
+
+      - name: run tests sprint3 gather-tests_wrong2
+        run: |
+          cd cpp-backend-tests-practicum/scripts/sprint3
+          ./gather-tests_wrong2/run.sh
+
+      - name: run tests sprint3 gather-tests_wrong3
+        run: |
+          cd cpp-backend-tests-practicum/scripts/sprint3
+          ./gather-tests_wrong3/run.sh
+
+      - name: run tests sprint3 gather-tests_wrong4
+        run: |
+          cd cpp-backend-tests-practicum/scripts/sprint3
+          ./gather-tests_wrong4/run.sh
+
+      - name: run tests sprint3 gather-tests_wrong5
+        run: |
+          cd cpp-backend-tests-practicum/scripts/sprint3
+          ./gather-tests_wrong5/run.sh
+
+      - name: run tests sprint3 gather
+        run: |
+          cd cpp-backend-tests-practicum/scripts/sprint3
+          ./gather/run.sh
+
+      - name: run tests sprint3 find_return
+        run: |
+          cd cpp-backend-tests-practicum/scripts/sprint3
+          ./find_return/run.sh
+
+      - name: run tests sprint3 scores
+        run: |
+          cd cpp-backend-tests-practicum/scripts/sprint3
+          ./scores/run.sh
+
+      - name: run tests sprint3 ammo
+        run: |
+          cd cpp-backend-tests-practicum/scripts/sprint3
+          ./ammo/run.sh
+
+      - name: run tests sprint3 load
+        run: |
+          cd cpp-backend-tests-practicum/scripts/sprint3
+          ./load/run.sh
+
+      - name: Publish XML reports
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        if: always()
+        with:
+          junit_files: ${{ github.workspace }}/*.xml
+
+  sprint_4:
+    runs-on: ubuntu-22.04
+    steps:
+
+      - name: Checkout code & tests
+        uses: actions/checkout@v3
+        with:
+          submodules: true
+
+      - name: Install dependencies
+        run: |
+          pip uninstall conan -y
+          pip install -U conan==1.59.0
+          pip install -r requirements.txt
+          pip show pytest
+
+      - name: run tests sprint4 state_serialization
+        run: |
+          cd cpp-backend-tests-practicum/scripts/sprint4
+          ./state_serialization/run.sh
+
+      - name: Publish XML reports
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        if: always()
+        with:
+          junit_files: ${{ github.workspace }}/*.xml
+
+  sprint_3_with_server:
+    runs-on: ubuntu-22.04
+    container:
+      image: praktikumcpp/practicum_cpp_backend_server:latest
+      options: --privileged
+    services:
+      cppserver:
+        image: praktikumcpp/game_server:latest
+        ports:
+          - 8080:8080
+    steps:
+
+      - name: Checkout code & tests
+        uses: actions/checkout@v3
+        with:
+          submodules: true
+
+      - name: run tests sprint3 ammo
+        run: |
+          cd cpp-backend-tests-practicum/scripts/sprint3
+          ./ammo/run_ci.sh
+
+      - name: run tests sprint3 load
+        run: |
+          cd cpp-backend-tests-practicum/scripts/sprint3
+          ./load/run_ci.sh
+
+##      - name: run tests sprint3 stress
+##        run: |
+##          cd sprint3/problems/stress/solution
+##          yandex-tank -c ${GITHUB_WORKSPACE}/sprint3/problems/stress/solution/load.yaml ${GITHUB_WORKSPACE}/sprint3/problems/stress/solution/ammo.txt
+##          pytest --junitxml=${GITHUB_WORKSPACE}/stress.xml ${GITHUB_WORKSPACE}/cpp-backend-tests-practicum/tests/test_s03_stress.py
+##        env:
+##          DIRECTORY: ${{ github.workspace }}/sprint3/problems/stress/solution/logs
+#
+      - name: Publish XML reports
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        if: always()
+        with:
+          junit_files: ${{ github.workspace }}/*.xml
+
+
+  sprint_4_with_postgress:
+    runs-on: ubuntu-22.04
+    container:
+      image: praktikumcpp/practicum_cpp_backend:latest
+      volumes:
+        - /var/run/docker.sock:/var/run/docker.sock
+      options: --name main-container
+    services:
+      postgres:
+        image: ubuntu/postgres:14-22.04_beta
+        env:
+          POSTGRES_PASSWORD: Mys3Cr3t
+          POSTGRES_HOST: postgres
+          POSTGRES_PORT: 5432
+
+    steps:
+      - name: get docker network
+        run: |
+          echo "DOCKER_NETWORK=$(docker inspect main-container -f '{{range $k, $v := .NetworkSettings.Networks}}{{printf "%s" $k}}{{end}}')" >> $GITHUB_ENV
+
+      - name: Checkout code & tests
+        uses: actions/checkout@v3
+        with:
+          submodules: true
+
+      - name: Install dependencies
+        run: |
+          cp -R /home/forconan/.conan /github/home/.conan
+
+      - name: run tests sprint4 db_of_books
+        run: |
+          cd cpp-backend-tests-practicum/scripts/sprint4
+          ./db_of_books/run_postgresless.sh
+
+      - name: run tests sprint4 bookypedia-1
+        run: |
+          cd cpp-backend-tests-practicum/scripts/sprint4
+          ./bookypedia-1/run_postgresless.sh
+
+      - name: run tests sprint4 bookypedia-2
+        run: |
+          cd cpp-backend-tests-practicum/scripts/sprint4
+          ./bookypedia-2/run_postgresless.sh
+
+      - name: run tests sprint4 leave_game
+        run: |
+          cd cpp-backend-tests-practicum/scripts/sprint4
+          ./leave_game/run_postgresless.sh
+
+      - name: Publish XML reports
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        if: always()
+        with:
+          junit_files: ${{ github.workspace }}/*.xml
