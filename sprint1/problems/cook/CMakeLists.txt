@@ -6,13 +6,17 @@ set(CMAKE_CXX_STANDARD 20)
 
 #find_file(CONAN_BUILDINFO conanbuildinfo.cmake)
 
-if(${CMAKE_BINARY_DIR} MATCHES "Qt")
-    set(CONNAN_FILE_DIR ${CMAKE_BINARY_DIR}/..)
-else()
-    set(CONNAN_FILE_DIR ${CMAKE_BINARY_DIR})
-endif()
+#if(${CMAKE_BINARY_DIR} MATCHES "Qt")
+#    set(CONNAN_FILE_DIR ${CMAKE_BINARY_DIR}/..)
+#else if(${CMAKE_BINARY_DIR} MATCHES "cmake-build-debug")
+#
+#else()
+#    set(CONNAN_FILE_DIR ${CMAKE_BINARY_DIR})
+#endif()
 
-message(STATUS "CONAN_DIR is: ${CONNAN_FILE_DIR}")
+set(CONNAN_FILE_DIR "${PROJECT_SOURCE_DIR}/build")
+
+message(STATUS "CONAN_FILE_DIR is: ${CONNAN_FILE_DIR}")
 
 include(${CONNAN_FILE_DIR}/conanbuildinfo.cmake)
 conan_basic_setup()
