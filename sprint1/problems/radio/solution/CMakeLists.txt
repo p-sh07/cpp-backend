@@ -24,9 +24,12 @@ if(WIN32)
 endif()
 
 add_executable(radio src/main.cpp src/audio.h)
+target_link_libraries(radio PRIVATE Threads::Threads)
 
-# AudioUnit, CoreAudio [and possibly AudioToolbox, compiles without]
-target_link_libraries(radio PRIVATE Threads::Threads "-framework CoreFoundation" "-framework AudioUnit" "-framework CoreAudio")
+#For MacOS AudioUnit, CoreAudio [and possibly AudioToolbox, compiles without]
+if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+    target_link_libraries(radio PRIVATE "-framework CoreFoundation" "-framework AudioUnit" "-framework CoreAudio")
+endif()
 
 #Needed or not
 #set_target_properties(radio PROPERTIES LINK_FLAGS "-Wl,-F/Library/Frameworks")

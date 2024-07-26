@@ -17,11 +17,12 @@ void StartServer(uint16_t port) {
         boost::asio::io_context io_context;
 
         udp::socket socket(io_context, udp::endpoint(udp::v4(), port));
+        std::cout << "Server started, waiting for message..." << std::endl;
 
         //Message recieving loop:
         for (;;) {
             // Создаём буфер достаточного размера, чтобы вместить датаграмму.
-            std::vector<char> recv_buf;
+            std::array<char, max_udp_buffer_size> recv_buf;
             udp::endpoint remote_endpoint;
 
             // Получаем не только данные, но и endpoint клиента
@@ -51,10 +52,12 @@ void StartClient(uint16_t port) {
         for(;;) {
             std::cout << "Enter Server ip and press Enter to start Recording..."s << std::endl;
 
-            std::string server_ip = "127.0.0.1"s;
+            std::string server_ip;
+            std::cin >> server_ip;
 
-            std::string str;
-            std::cin >> str;
+            if(server_ip == "lh"s) {
+                server_ip = "127.0.0.1"s;
+            }
 
             auto rec_result = recorder.Record(max_udp_buffer_size, 1.5s);
 
@@ -62,16 +65,9 @@ void StartClient(uint16_t port) {
 
             auto endpoint = udp::endpoint(net::ip::make_address(server_ip, ec), port);
 
-            //std::vector<uint8_t> recorded_data(rec_result.data.begin(), rec_result.data.end());
+            socket.send_to(net::buffer(rec_result.data), endpoint);
 
-            std::vector<char> test(50000, ' ');
-
-            const auto buff = net::buffer(test);
-            std::cout << "buff sz is: " << buff.size() << std::endl;
-
-            socket.send_to(buff, endpoint);
-
-            std::cout << "Package Sent!"s << std::endl;
+            std::cout << "Package Sent"s << std::endl;
         }
 
     } catch (std::exception& e) {
