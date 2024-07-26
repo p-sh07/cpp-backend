@@ -1,6 +1,0 @@
-[requires]
-boost/1.78.0
-miniaudio/0.11.9
-
-[generators]
-cmake
