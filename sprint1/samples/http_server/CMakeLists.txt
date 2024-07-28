@@ -4,6 +4,8 @@ set(QT_CREATOR_SKIP_CONAN_SETUP ON)
 project(http_server CXX)
 set(CMAKE_CXX_STANDARD 20)
 
+add_compile_definitions(BOOST_BEAST_USE_STD_STRING_VIEW)
+
 #Serch project folder recursively for the conanbuildinfo file
 file(GLOB_RECURSE CONNAN_FILE_PATH "conanbuildinfo.cmake"  ${PROJECT_SOURCE_DIR})
 #message(STATUS ${CONNAN_FILE_PATH})
