@@ -27,12 +27,16 @@ add_executable(radio src/main.cpp src/audio.h)
 target_link_libraries(radio PRIVATE Threads::Threads ${CMAKE_DL_LIBS})
 
 #For MacOS AudioUnit, CoreAudio [and possibly AudioToolbox, compiles without]
-if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+#if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+
+if(APPLE)
     target_link_libraries(radio PRIVATE "-framework CoreFoundation" "-framework AudioUnit" "-framework CoreAudio")
 endif()
 
-#Needed or not
+#Needed or not? - nope
 #set_target_properties(radio PROPERTIES LINK_FLAGS "-Wl,-F/Library/Frameworks")
+
+#example of another way
 #find_library(AUDIO_UNIT AudioUnit)
 #if (NOT AUDIO_UNIT)
 #    message(FATAL_ERROR "AudioUnit not found")
