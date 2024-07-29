@@ -94,10 +94,10 @@ using OrderHandler = std::function<void(sys::error_code ec, int id, Hamburger* h
 class Order : public std::enable_shared_from_this<Order> {
 public:
     Order(as::io_context& io, int id, bool with_onion, OrderHandler handler)
-            : io_{io}
-            , id_{id}
-            , with_onion_{with_onion}
-            , handler_{std::move(handler)} {
+            : io_(io)
+            , id_(id)
+            , with_onion_(with_onion)
+            , handler_(std::move(handler)) {
     }
 
     // Запускает асинхронное выполнение заказа
@@ -152,21 +152,30 @@ private:
 
     void OnOnionDone(sys::error_code ec) {
         logger_.LogMessage("On Onion done"sv);
+        if (ec) {
+            logger_.LogMessage("Marinate onion error: "s + ec.what());
+        } else {
+            logger_.LogMessage("Onion has been marinated."sv);
+            onion_done_ = true;
+        }
+        CheckReadiness(ec);
     }
 
     void CheckReadiness(sys::error_code ec) {
         if (delivered_) {
+            logger_.LogMessage("Hamburger Delivered! *end*");
             // Выходим, если заказ уже доставлен либо клиента уведомили об ошибке
             return;
         }
         if (ec) {
+            logger_.LogMessage("Hamburger Failed! *sent error*");
             // В случае ошибки уведомляем клиента о невозможности выполнить заказ
             return Deliver(ec);
         }
 
         // Самое время добавить лук
         if (CanAddOnion()) {
-            logger_.LogMessage("Add onion"sv);
+            logger_.LogMessage("Adding onion..."sv);
             hamburger_.AddOnion();
         }
 
@@ -194,7 +203,7 @@ private:
     }
 
     void Pack() {
-        logger_.LogMessage("Packing"sv);
+        logger_.LogMessage("Packing..."sv);
 
         // Просто потребляем ресурсы процессора в течение 0,5 с.
         auto start = steady_clock::now();
