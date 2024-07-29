@@ -8,7 +8,7 @@
 #include <memory>
 #include <mutex>
 #include <sstream>
-//#include <syncstream>
+#include <syncstream>
 #include <thread>
 
 namespace as = boost::asio;
@@ -68,7 +68,7 @@ namespace {
     };
 
 std::ostream& operator<<(std::ostream& os, const Hamburger& h) {
-    return os << "Hamburger: "sv << (h.IsCutletRoasted() ? "roasted cutlet"sv : " raw cutlet"sv)
+    return os << "Hamburger: "sv << (h.IsBurgerRoasted() ? "roasted cutlet"sv : " raw cutlet"sv)
               << (h.HasOnion() ? ", onion"sv : ""sv)
               << (h.IsPacked() ? ", packed"sv : ", not packed"sv);
 }
@@ -80,8 +80,8 @@ public:
     }
 
     void LogMessage(std::string_view message) const {
-        //std::osyncstream os{std::cout};
-        std::cout << id_ << "> ["sv << duration<double>(steady_clock::now() - start_time_).count()
+        std::osyncstream os{std::cout};
+        os << id_ << "> ["sv << duration<double>(steady_clock::now() - start_time_).count()
                   << "s] "sv << message << std::endl;
     }
 
