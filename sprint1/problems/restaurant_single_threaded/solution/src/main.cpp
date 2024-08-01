@@ -3,6 +3,7 @@
 #endif
 
 #include <boost/asio.hpp>
+#include <boost/bind.hpp>
 #include <chrono>
 #include <iostream>
 #include <mutex>
@@ -126,14 +127,14 @@ private:
 
 
     void RoastBurger() {
-        logger_.LogMessage("Start roasting burger..."sv);
+        logger_.LogMessage("Start roasting burger... [Async timer -> start {1 sec}]"sv);
         roast_timer_.async_wait([self = shared_from_this()](sys::error_code ec) {
             self->OnRoasted(ec);
         });
     }
 
     void MarinateOnion() {
-        logger_.LogMessage("Start marinating onion..."sv);
+        logger_.LogMessage("Start marinating onion... [Async timer -> start {2 sec}]"sv);
 
         //pass shared ptr of this class to async_wait via lambda
         marinate_timer_.async_wait([self = shared_from_this()](sys::error_code ec) {
@@ -145,18 +146,17 @@ private:
         if (ec) {
             logger_.LogMessage("Roast error : "s + ec.what());
         } else {
-            logger_.LogMessage("Burger has been roasted."sv);
+            logger_.LogMessage("Burger roasted! [Async Handler -> done]"sv);
             hamburger_.SetBurgerRoasted();
         }
         CheckReadiness(ec);
     }
 
     void OnOnionDone(sys::error_code ec) {
-        logger_.LogMessage("On Onion done"sv);
         if (ec) {
             logger_.LogMessage("Marinate onion error: "s + ec.what());
         } else {
-            logger_.LogMessage("Onion has been marinated."sv);
+            logger_.LogMessage("Onion done! [Async Handler  -> done]"sv);
             onion_done_ = true;
         }
         CheckReadiness(ec);
@@ -176,7 +176,7 @@ private:
 
         // Самое время добавить лук
         if (CanAddOnion()) {
-            logger_.LogMessage("Adding onion..."sv);
+            logger_.LogMessage("Added onion"sv);
             hamburger_.AddOnion();
         }
 
@@ -204,7 +204,7 @@ private:
     }
 
     void Pack() {
-        logger_.LogMessage("Packing..."sv);
+        logger_.LogMessage("Packing...[Sync Wait -> start {0.5 sec}]"sv);
 
         // Просто потребляем ресурсы процессора в течение 0,5 с.
         auto start = steady_clock::now();
@@ -250,15 +250,40 @@ int main() {
     };
 
     std::unordered_map<int, OrderResult> orders;
-    auto handle_result = [&orders](sys::error_code ec, int id, Hamburger* h) {
+    auto handle_result = [&](sys::error_code ec, int id, Hamburger* h) {
         orders.emplace(id, OrderResult{ec, ec ? Hamburger{} : *h});
+        logger.LogMessage("Order #"s + std::to_string(id) + " Delivered! [Async Handler -> done]"s);
     };
 
     const int id1 = restaurant.MakeHamburger(false, handle_result);
     const int id2 = restaurant.MakeHamburger(true, handle_result);
+    // const int id3 = restaurant.MakeHamburger(false, handle_result);
+    // const int id4 = restaurant.MakeHamburger(true, handle_result);
+
+    std::vector<std::thread> workers;
 
     // До вызова io.run() никакие заказы не выполняются
     assert(orders.empty());
+
+    //Launch threads - simple approach
+    // for(int i = 0; i < 1; ++i) {
+    //     // auto io_run = [&io]() {
+    //     //     io.run();
+    //     // };
+
+    //     workers.emplace_back(boost::bind(&as::io_context::run, &io));
+
+    //     std::stringstream ss;
+    //     ss << workers.back().get_id();
+
+    //     std::cout << "->Thread [" + ss.str() + "] started" << std::endl;
+
+    //     for(auto& t : workers) {
+    //         t.join();
+    //     }
+    // }
+
+    //Run Async ops.
     io.run();
 
     // После вызова io.run() все заказы быть выполнены

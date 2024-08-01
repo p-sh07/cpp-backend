@@ -112,7 +112,11 @@ using OrderHandler = std::function<void(sys::error_code ec, int id, Hamburger* h
 class Order : public std::enable_shared_from_this<Order> {
 public:
     Order(as::io_context &io, int id, bool with_onion, OrderHandler handler)
-            : io_(io), id_(id), with_onion_(with_onion), handler_(std::move(handler)) {
+        : io_(io)
+        , id_(id)
+        , with_onion_(with_onion)
+        , handler_(std::move(handler))
+        , strand(as::make_strand(io_)) {
     }
 
     // Запускает асинхронное выполнение заказа
@@ -126,10 +130,16 @@ public:
 
 private:
     as::io_context &io_;
+    //std::atomic_int counter_ = 0;
+    
+    //One way to prevent race
+    //std::mutex mutex_;
+    
     int id_;
 
-    bool with_onion_ = false, onion_done_ = false,
-            delivered_ = false;
+    bool with_onion_ = false;
+    bool onion_done_ = false;
+    bool delivered_ = false;
 
     OrderHandler handler_;
 
@@ -137,26 +147,35 @@ private:
 
     Logger logger_{std::to_string(id_)};
     Timer roast_timer_{io_, 1s};
-    Timer marinate_timer_{io_, 2s};;
+    Timer marinate_timer_{io_, 2s};
 
+    net::strand<net::io_context::executor_type> strand_;
 
     void RoastBurger() {
         logger_.LogMessage("Start roasting burger..."sv);
-        roast_timer_.async_wait([self = shared_from_this()](sys::error_code ec) {
-            self->OnRoasted(ec);
-        });
+        roast_timer_.async_wait(
+            as::bind_executor(strand_, [self = shared_from_this()](sys::error_code ec) {
+                self->OnRoasted(ec);
+        }));
     }
 
     void MarinateOnion() {
         logger_.LogMessage("Start marinating onion..."sv);
 
-        //pass shared ptr of this class to async_wait via lambda
-        marinate_timer_.async_wait([self = shared_from_this()](sys::error_code ec) {
+        //Pass shared ptr of this class to async_wait via lambda
+        marinate_timer_.async_wait(
+            as::bind_executor(strand_, [self = shared_from_this()](sys::error_code ec) {
             self->OnOnionDone(ec);
-        });
+        }));
     }
 
     void OnRoasted(sys::error_code ec) {
+        //A way to check for RaceCondition
+        //ThreadChecker checker{counter_};
+
+        //To prevent parallel mods
+        //std::lock_guard lk{mutex_};
+
         if (ec) {
             logger_.LogMessage("Roast error : "s + ec.what());
         } else {
@@ -167,6 +186,12 @@ private:
     }
 
     void OnOnionDone(sys::error_code ec) {
+        //A way to check for RaceCondition
+        //ThreadChecker checker{counter_};
+
+        //To prevent parallel mods
+        //std::lock_guard lk{mutex_};
+
         logger_.LogMessage("On Onion done"sv);
         if (ec) {
             logger_.LogMessage("Marinate onion error: "s + ec.what());
