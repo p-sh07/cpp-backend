@@ -32,7 +32,7 @@ public:
         , sausage_(store.GetSausage())
         , bread_(store.GetBread()) {
     }
-
+    
     // Запускает асинхронное выполнение заказа
     void Execute() {
         sausage_->StartFry(cooker_, [self = shared_from_this()] {

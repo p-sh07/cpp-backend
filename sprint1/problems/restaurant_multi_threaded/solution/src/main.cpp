@@ -1,3 +1,7 @@
+#ifdef WIN32
+ #include <sdkddkver.h>
+ #endif
+
 #include <boost/asio.hpp>
 #include <boost/asio/bind_executor.hpp>
 #include <chrono>
