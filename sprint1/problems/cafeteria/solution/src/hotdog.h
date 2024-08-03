@@ -2,7 +2,9 @@
 #include <chrono>
 #include <functional>
 #include <optional>
+#include <iostream>
 #include <stdexcept>
+#include <string>
 
 #include "gascooker.h"
 #include "ingredients.h"
@@ -26,14 +28,18 @@ public:
         : id_{id}
         , sausage_{std::move(sausage)}
         , bread_{std::move(bread)} {
+        if(!sausage_ || !bread_) {
+            std::cerr << "Invalid pointer passed to HotDog" << std::endl;
+        }
+
         if (sausage_->GetCookDuration() < MIN_SAUSAGE_COOK_DURATION
             || sausage_->GetCookDuration() > MAX_SAUSAGE_COOK_DURATION) {
-            throw std::invalid_argument("Invalid sausage cook duration");
+            throw std::invalid_argument("Invalid sausage cook duration!");
         }
 
         if (bread_->GetBakingDuration() < MIN_BREAD_COOK_DURATION
             || bread_->GetBakingDuration() > MAX_BREAD_COOK_DURATION) {
-            throw std::invalid_argument("Invalid bread cook duration");
+            throw std::invalid_argument("Invalid bread cook duration!");
         }
     }
 

@@ -15,32 +15,32 @@ using namespace std::literals;
 
 namespace {
 
-    class osyncstream {
-    public:
-        osyncstream(std::ostream& os) : os_(os) {}
+class osyncstream {
+public:
+    osyncstream(std::ostream& os) : os_(os) {}
 
-        template<typename T>
-        osyncstream& operator<<(const T& val) {
-            std::lock_guard<std::mutex> lock(mutex_);
-            os_ << val;
-            return *this;
-        }
+    template<typename T>
+    osyncstream& operator<<(const T& val) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        os_ << val;
+        return *this;
+    }
 
-        osyncstream& operator<<(std::ostream& (*manip)(std::ostream&)) {
-            std::lock_guard<std::mutex> lock(mutex_);
-            manip(os_);
-            return *this;
-        }
+    osyncstream& operator<<(std::ostream& (*manip)(std::ostream&)) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        manip(os_);
+        return *this;
+    }
 
-    private:
-        std::ostream& os_;
-        static std::mutex mutex_;
-    };
+private:
+    std::ostream& os_;
+    static std::mutex mutex_;
+};
 
-    std::mutex osyncstream::mutex_;
+std::mutex osyncstream::mutex_;
 
 
-    template <typename Fn>
+template <typename Fn>
 void RunWorkers(unsigned n, const Fn& fn) {
     n = std::max(1u, n);
     std::vector<std::thread> workers;
@@ -56,7 +56,7 @@ void RunWorkers(unsigned n, const Fn& fn) {
     }
 }
 
-void PrintHotDogResult(const Result<HotDog>& result, Clock::duration order_duration) {
+void PrintHotDogResult(const Result<HotDog>& result, Clock::duration order_duration = {}) {
     osyncstream os{std::cout};
     using namespace std::chrono;
 
@@ -104,7 +104,7 @@ std::vector<HotDog> PrepareHotDogs(int num_orders, unsigned num_threads) {
         // нескольких потоках
         net::dispatch(io, [&cafeteria, &hotdogs, &mut, i, start_time, &start, num_waiting_threads] {
             osyncstream{std::cout} << "Order #" << i << " is scheduled on thread #"
-                                        << std::this_thread::get_id() << std::endl;
+                                   << std::this_thread::get_id() << std::endl;
 
             // Ждём, пока все рабочие потоки зайдут в эту функцию, чтобы убедиться, что OrderHotDog
             // будет вызван из нескольких потоков
@@ -163,6 +163,16 @@ void VerifyHotDogs(const std::vector<HotDog>& hotdogs) {
 int main() {
     using namespace std::chrono;
 
+    // net::io_context io;
+    // Cafeteria cf(io);
+
+    // cf.OrderHotDog([](Result<HotDog> result) {
+    //     PrintHotDogResult(result);
+    // });
+    // std::cout << "starting one HotDog" << std::endl;
+    // io.run();
+    // std::cout << "->finished one hot dog" << std::endl;
+
     constexpr unsigned num_threads = 4;
     constexpr int num_orders = 20;
 
@@ -170,7 +180,7 @@ int main() {
     auto hotdogs = PrepareHotDogs(num_orders, num_threads);
     const auto cook_duration = Clock::now() - start_time;
 
-    std::cout << "Cook duration: " << duration_cast<duration<double>>(cook_duration).count() << 's'
+    std::cout << "->Cook duration: " << duration_cast<duration<double>>(cook_duration).count() << 's'
               << std::endl;
 
     // Все заказы должны быть выполнены
@@ -178,7 +188,7 @@ int main() {
     // Ожидаемое время приготовления 20 хот-догов на 4 рабочих потоках: от 7 до 7.5 секунд
     //
     // При пошаговой отладке время работы программы может быть больше
-    //assert(cook_duration >= 7s && cook_duration <= 7.5s);
+    assert(cook_duration >= 7s && cook_duration <= 7.5s);
 
     VerifyHotDogs(hotdogs);
 }

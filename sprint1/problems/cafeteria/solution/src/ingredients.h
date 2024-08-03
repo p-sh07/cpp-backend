@@ -2,8 +2,29 @@
 #include <functional>
 #include <optional>
 
+#include <iostream>
+#include <syncstream>
+
 #include "clock.h"
 #include "gascooker.h"
+
+using namespace std::literals;
+namespace sc = std::chrono;
+
+class DebugLog {
+public:
+    explicit DebugLog(std::string id)
+        : id_(std::move(id)) {
+    }
+
+    void LogMessage(std::string_view message) const {
+        std::osyncstream os{std::cout};
+        os << message << std::endl;
+    }
+
+private:
+    std::string id_;
+};
 
 /*
 Класс "Сосиска".
@@ -11,10 +32,12 @@
 */
 class Sausage : public std::enable_shared_from_this<Sausage> {
 public:
+
     using Handler = std::function<void()>;
 
     explicit Sausage(int id)
-        : id_{id} {
+        : id_{id}
+        , log_(std::to_string(id))  {
     }
 
     int GetId() const {
@@ -30,6 +53,8 @@ public:
 
         // Запрещаем повторный вызов StartFry
         frying_start_time_ = Clock::now();
+
+
 
         // Готовимся занять газовую плиту
         gas_cooker_lock_ = GasCookerLock{cooker.shared_from_this()};
@@ -52,6 +77,7 @@ public:
             throw std::logic_error("Frying has already stopped");
         }
         frying_end_time_ = Clock::now();
+        log_.LogMessage("->stopped frying sausage at: " + std::to_string(sc::duration_cast<sc::milliseconds>(*frying_end_time_-*frying_start_time_).count()));
         // Освобождаем горелку
         gas_cooker_lock_.Unlock();
     }
@@ -61,8 +87,10 @@ public:
     }
 
     Clock::duration GetCookDuration() const {
-        if (!frying_start_time_ || !frying_end_time_) {
-            throw std::logic_error("Sausage has not been cooked");
+        if (!frying_start_time_.has_value()) {
+            throw std::logic_error("Bread has not started been baked");
+        } else if(!frying_end_time_) {
+            return Clock::now() - *frying_start_time_;
         }
         return *frying_end_time_ - *frying_start_time_;
     }
@@ -70,6 +98,7 @@ public:
 private:
     int id_;
     GasCookerLock gas_cooker_lock_;
+    DebugLog log_;
     std::optional<Clock::time_point> frying_start_time_;
     std::optional<Clock::time_point> frying_end_time_;
 };
@@ -80,7 +109,8 @@ public:
     using Handler = std::function<void()>;
 
     explicit Bread(int id)
-        : id_{id} {
+        : id_{id}
+        , log_(std::to_string(id))    {
     }
 
     int GetId() const {
@@ -92,7 +122,7 @@ public:
     void StartBake(GasCooker& cooker, Handler handler) {
         // Реализуйте этот метод аналогично Sausage::StartFry
         if (baking_start_time_) {
-            throw std::logic_error("Frying already started");
+            throw std::logic_error("Baking already started");
         }
 
         // Запрещаем повторный вызов StartBake
@@ -112,13 +142,15 @@ public:
 
     // Останавливает приготовление хлеба и освобождает горелку.
     void StopBaking() {
+
         if (!baking_start_time_) {
-            throw std::logic_error("Frying has not started");
+            throw std::logic_error("Baking has not started");
         }
         if (baking_end_time_) {
-            throw std::logic_error("Frying has already stopped");
+            throw std::logic_error("Baking has already stopped");
         }
         baking_end_time_ = Clock::now();
+        log_.LogMessage("->stopped baking bread at: " + std::to_string(sc::duration_cast<sc::milliseconds>(*baking_end_time_-*baking_start_time_).count()));
         // Освобождаем горелку
         gas_cooker_lock_.Unlock();
     }
@@ -130,15 +162,19 @@ public:
 
     // Возвращает продолжительность выпекания хлеба. Бросает исключение, если хлеб не был испечён
     Clock::duration GetBakingDuration() const {
-        if (!baking_start_time_ || !baking_end_time_) {
-            throw std::logic_error("Sausage has not been cooked");
+        if (!baking_start_time_) {
+            //throw std::logic_error("Bread has not been baked");
+        } else if(!baking_end_time_) {
+            return Clock::now() - *baking_start_time_;
         }
+
         return *baking_end_time_ - *baking_start_time_;
     }
 
 private:
     int id_;
     GasCookerLock gas_cooker_lock_;
+    DebugLog log_;
     std::optional<Clock::time_point> baking_start_time_;
     std::optional<Clock::time_point> baking_end_time_;
 };
