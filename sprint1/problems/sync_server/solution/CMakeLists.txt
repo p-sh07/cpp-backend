@@ -10,8 +10,6 @@ include(${CMAKE_BINARY_DIR}/conanbuildinfo.cmake)
 # Выполняем макрос из conanbuildinfo.cmake, который настроит СMake на работу с библиотеками, установленными Conan
 conan_basic_setup()
 
-set(Boost_INCLUDE_DIR "/usr/local/lib")
-
 # Ищем Boost версии 1.78
 find_package(Boost 1.78.0 REQUIRED)
 if(Boost_FOUND)
