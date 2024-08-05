@@ -3,10 +3,10 @@ cmake_minimum_required(VERSION 3.11)
 project(cafeteria CXX)
 set(CMAKE_CXX_STANDARD 20)
 
-file(GLOB_RECURSE CONAN_FILE_PATH "conanbuildinfo.cmake" ${CMAKE_SOURCE_DIR})
+#file(GLOB_RECURSE CONAN_FILE_PATH "conanbuildinfo.cmake" ${CMAKE_SOURCE_DIR})
 
-include(${CONAN_FILE_PATH})
-conan_basic_setup()
+#include(${CONAN_FILE_PATH})
+#conan_basic_setup()
 
 find_package(Boost 1.78.0 REQUIRED)
 if(Boost_FOUND)

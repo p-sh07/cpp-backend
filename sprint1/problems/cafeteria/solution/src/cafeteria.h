@@ -132,7 +132,7 @@ public:
     }
 private:
     net::io_context& io_;
-    int next_order_id_ = 0;
+    std::atomic_int next_order_id_ = 0;
 
     // Используется для создания ингредиентов хот-дога
     Store store_;
