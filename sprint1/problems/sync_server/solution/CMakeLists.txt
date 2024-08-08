@@ -5,8 +5,9 @@ project(Hello CXX)
 # Исходый код будет компилироваться с поддержкой стандарта С++ 20
 set(CMAKE_CXX_STANDARD 20)
 
-# Подключаем сгенерированный скрипт conanbuildinfo.cmake, созданный Conan
-include(${CMAKE_BINARY_DIR}/conanbuildinfo.cmake)
+file(GLOB_RECURSE CONNAN_FILE_PATH "conanbuildinfo.cmake"  ${PROJECT_SOURCE_DIR})
+
+include(${CONNAN_FILE_PATH})
 # Выполняем макрос из conanbuildinfo.cmake, который настроит СMake на работу с библиотеками, установленными Conan
 conan_basic_setup()
 

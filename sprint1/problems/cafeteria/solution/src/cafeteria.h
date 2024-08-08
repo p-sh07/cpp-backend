@@ -65,7 +65,7 @@ private:
         }
         sausage_is_ready_ = true;
 
-        if (bread_is_ready_) {
+        if (bread_->IsCooked()) {
             DeliverHotDog();
         }
     }
@@ -76,7 +76,7 @@ private:
         }
         bread_is_ready_ = true;
 
-        if(sausage_is_ready_) {
+        if(sausage_->IsCooked()) {
             DeliverHotDog();
         }
     }

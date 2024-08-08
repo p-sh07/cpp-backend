@@ -18,26 +18,6 @@ using tcp = net::ip::tcp;
 
 using namespace std::literals;
 
-// Boost.Beast будет использовать std::string_view вместо boost::string_view
-//#define BOOST_BEAST_USE_STD_STRING_VIEW
-// -> конфиг перемещен в файл cmakelists.txt
-
-#include <boost/beast/core.hpp>
-#include <boost/beast/http.hpp>
-#include <boost/asio/ip/tcp.hpp>
-#include <boost/asio/write.hpp>
-
-#include <thread>
-#include <iostream>
-
-
-namespace net = boost::asio;
-using tcp = net::ip::tcp;
-namespace beast = boost::beast;
-namespace http = beast::http;
-
-using namespace std::literals;
-
 // Запрос, тело которого представлено в виде строки
 using StringRequest = http::request<http::string_body>;
 // Ответ, тело которого представлено в виде строки

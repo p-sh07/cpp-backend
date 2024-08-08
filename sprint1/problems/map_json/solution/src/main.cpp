@@ -1,6 +1,7 @@
 #include "sdk.h"
 //
 #include <boost/asio/io_context.hpp>
+#include <boost/asio/signal_set.hpp>
 #include <iostream>
 #include <thread>
 
@@ -9,6 +10,7 @@
 
 using namespace std::literals;
 namespace net = boost::asio;
+namespace sys = boost::system;
 
 namespace {
 
@@ -16,13 +18,17 @@ namespace {
 template <typename Fn>
 void RunWorkers(unsigned n, const Fn& fn) {
     n = std::max(1u, n);
-    std::vector<std::jthread> workers;
+    std::vector<std::thread> workers;
     workers.reserve(n - 1);
     // Запускаем n-1 рабочих потоков, выполняющих функцию fn
     while (--n) {
         workers.emplace_back(fn);
     }
     fn();
+
+    for(auto& t : workers) {
+        t.join();
+    }
 }
 
 }  // namespace
@@ -41,16 +47,22 @@ int main(int argc, const char* argv[]) {
         net::io_context ioc(num_threads);
 
         // 3. Добавляем асинхронный обработчик сигналов SIGINT и SIGTERM
-
+        net::signal_set signals(ioc, SIGINT, SIGTERM);
+        signals.async_wait([&ioc](const sys::error_code& ec, [[maybe_unused]] int signal_number) {
+            if (!ec) {
+                ioc.stop();
+            }
+        });
         // 4. Создаём обработчик HTTP-запросов и связываем его с моделью игры
         http_handler::RequestHandler handler{game};
 
         // 5. Запустить обработчик HTTP-запросов, делегируя их обработчику запросов
-        /*
+        const auto address = net::ip::make_address("0.0.0.0");
+        constexpr net::ip::port_type port = 8080;
+
         http_server::ServeHttp(ioc, {address, port}, [&handler](auto&& req, auto&& send) {
             handler(std::forward<decltype(req)>(req), std::forward<decltype(send)>(send));
         });
-        */
 
         // Эта надпись сообщает тестам о том, что сервер запущен и готов обрабатывать запросы
         std::cout << "Server has started..."sv << std::endl;
