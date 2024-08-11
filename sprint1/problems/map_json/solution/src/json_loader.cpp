@@ -24,6 +24,18 @@ namespace json_loader {
     //     };
     // }
 
+    std::string PrintErrorMsgJson(json::string_view code, json::string_view message) {
+        json::object err_msg_js;
+
+        err_msg_js.emplace("code", code);
+        err_msg_js.emplace("message", message);
+
+        std::stringstream ss;
+        ss << json::serialize(err_msg_js);
+
+        return ss.str();
+    }
+
     std::string PrintMapList(const Game& game) {
         json::array map_list_js;
 
