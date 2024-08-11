@@ -72,14 +72,6 @@ namespace http_handler {
 
         std::string_view request_uri = req.target();
 
-        //Contains only '/api/'
-        if (request_uri == API_PREFIX) {
-            send(to_html(http::status::bad_request,
-                         json_loader::PrintErrorMsgJson("badRequest", "Bad request"))
-            );
-            return;
-        }
-
         //Request for map list
         if (request_uri == MAP_LIST_PREFIX) {
             send(to_html(http::status::ok,
@@ -104,9 +96,9 @@ namespace http_handler {
             return;
         }
 
-        //Unknown uri
-        send(to_html(http::status::not_found,
-                     json_loader::PrintErrorMsgJson("pageNotFount", "Unknown request"))
+        //Bad request
+        send(to_html(http::status::bad_request,
+                     json_loader::PrintErrorMsgJson("badRequest", "Bad request"))
         );
     }
 } // namespace http_handler
