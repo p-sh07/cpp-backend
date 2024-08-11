@@ -1,10 +1,6 @@
 #pragma once
 #include "http_server.h"
 #include "model.h"
-
-#include <boost/json/detail/index_sequence.hpp>
-#include <ranges>
-#include <sstream>
 #include <string>
 
 #include "json_loader.h"
@@ -12,8 +8,6 @@
 namespace http_handler {
     namespace beast = boost::beast;
     namespace http = beast::http;
-    namespace view = std::views;
-    namespace json = boost::json;
 
     using namespace std::literals;
 
@@ -21,6 +15,9 @@ namespace http_handler {
     using StringRequest = http::request<http::string_body>;
     // Ответ, тело которого представлено в виде строки
     using StringResponse = http::response<http::string_body>;
+
+    static constexpr std::string_view API_PREFIX{"/api/"sv};
+    static constexpr std::string_view MAP_LIST_PREFIX{"/api/v1/maps"sv};
 
     // Структура ContentType задаёт область видимости для констант,
     // задающий значения HTTP-заголовка Content-Type
@@ -32,6 +29,8 @@ namespace http_handler {
         // При необходимости внутрь ContentType можно добавить и другие типы контента
     };
 
+    //Получить Id карты из запроса
+    model::Map::Id GetMapId(std::string_view uri);
 
     // Создаёт StringResponse с заданными параметрами
     StringResponse
@@ -54,79 +53,60 @@ namespace http_handler {
 
     private:
         model::Game &game_;
-        const std::string_view api_prefix{"/api/"sv};
-        const std::string_view maps_list_uri{"/api/v1/maps"sv};
-
-        std::vector<std::string> ParseUri(std::string_view uri);
     };
 
     template<typename Body, typename Allocator, typename Send>
-    void RequestHandler::operator()(
-        http::request<Body, http::basic_fields<Allocator> > &&req, Send &&send) {
-        // Обработать запрос request и отправить ответ, используя send
-        auto text_response = [&](http::status status, std::string_view text) {
+    void RequestHandler::operator()(http::request<Body, http::basic_fields<Allocator> > &&req, Send &&send) {
+        auto to_html = [&](http::status status, std::string_view text) {
             return MakeStringResponse(status, text, req.version(), req.keep_alive());
         };
 
-        auto request_type = req.method();
-
         // Unknown method
-        if (request_type != http::verb::get) {
-            auto response =
-                    text_response(http::status::method_not_allowed, "Invalid method"sv);
+        if (req.method() != http::verb::get) {
+            auto response = to_html(http::status::method_not_allowed, "Invalid method"sv);
             response.set(http::field::allow, "GET"sv);
 
             send(response);
             return;
         }
 
-        // URI error
-        std::string_view tg_full = req.target();
-        auto uri_tokens = ParseUri(tg_full);
+        std::string_view request_uri = req.target();
 
-        if (uri_tokens.empty()) {
-            // empty err
-        }
-
-        // starts with "/api/"
-        if (tg_full.rfind(api_prefix, 0) == 0) {
-            // contains "/api/v1/maps"
-            if (uri_tokens.size() > 2 && tg_full.rfind(maps_list_uri, 0) == 0) {
-                // /api/v1/maps/{id-карты}
-                if (uri_tokens.size() > 3) {
-                    // return Map json
-                    const auto map = game_.FindMap(model::Map::Id(uri_tokens[3]));
-                    if (!map) {
-                        send(text_response(http::status::not_found,
-                                           json_loader::PrintErrorMsgJson("mapNotFound", "Map not found"))
-                        );
-                        return;
-                    }
-
-                    // Map found
-                    send(text_response(http::status::ok,
-                                       json_loader::PrintMap(*map))
-                    );
-                    return;
-                }
-
-                // Send map list
-                send(text_response(http::status::ok,
-                                   json_loader::PrintMapList(game_))
-                );
-                return;
-            }
-
-            // contains only "/api/"
-            send(text_response(http::status::bad_request,
-                               json_loader::PrintErrorMsgJson("badRequest", "Bad request"))
+        //Contains only '/api/'
+        if (request_uri == API_PREFIX) {
+            send(to_html(http::status::bad_request,
+                         json_loader::PrintErrorMsgJson("badRequest", "Bad request"))
             );
             return;
         }
 
-        //Error handling
-        send(text_response(http::status::not_found,
-                           json_loader::PrintErrorMsgJson("notFound", "Not found"))
+        //Request for map list
+        if (request_uri == MAP_LIST_PREFIX) {
+            send(to_html(http::status::ok,
+                         json_loader::PrintMapList(game_))
+            );
+            return;
+        }
+
+        //Request a map - contains full prefix for map list
+        if (request_uri.rfind(MAP_LIST_PREFIX, 0) == 0
+            && MAP_LIST_PREFIX.size() + 1 < request_uri.size()) {
+            // /api/v1/maps/{id-карты}
+            const auto map = game_.FindMap(GetMapId(request_uri));
+
+            if (map) {
+                send(to_html(http::status::ok, json_loader::PrintMap(*map)));
+            } else {
+                send(to_html(http::status::not_found,
+                             json_loader::PrintErrorMsgJson("mapNotFound", "Map not found"))
+                );
+            }
+            return;
+        }
+
+        //Unknown uri
+        send(to_html(http::status::not_found,
+                     json_loader::PrintErrorMsgJson("pageNotFount", "Unknown request"))
         );
     }
 } // namespace http_handler
