@@ -79,7 +79,7 @@ namespace json = boost::json;
             return {Road::HORIZONTAL, start, value_to<int>(obj.at("x1"))};
         } else {
             //Vertical road
-            return {Road::HORIZONTAL, start, value_to<int>(obj.at("y1"))};
+            return {Road::VERTICAL, start, value_to<int>(obj.at("y1"))};
         }
     }
 
