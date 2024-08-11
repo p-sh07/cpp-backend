@@ -41,7 +41,8 @@ namespace json_loader {
 
         for(const auto& map : game.GetMaps()) {
             json::object map_js;
-            map_js.emplace(*map.GetId(), map.GetName());
+            map_js.emplace("id", *map.GetId());
+            map_js.emplace("name", map.GetName());
 
             map_list_js.push_back(map_js);
         }
@@ -104,7 +105,7 @@ namespace json_loader {
             buildings_js.push_back(MakeBuildingJson(bd));
         }
 
-        map_js.emplace(BUILDINGS_KEY, roads_js);
+        map_js.emplace(BUILDINGS_KEY, buildings_js);
 
         json::array offcs_js;
         for(const auto& offc : map.GetOffices()) {
