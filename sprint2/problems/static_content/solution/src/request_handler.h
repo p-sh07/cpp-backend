@@ -158,7 +158,7 @@ namespace http_handler {
             if(!request_uri.empty() && request_uri[0] == '/') {
                 request_uri.remove_prefix(1);
             }
-            requested_file = fs::weakly_canonical(static_root_ / request_uri);
+            requested_file = fs::weakly_canonical(static_root_ / ConvertFromUrl(request_uri));
         }
 
         //Error if requested file does not exist

@@ -1,5 +1,4 @@
 #include "request_handler.h"
-#include "curl/curl.h"
 
 namespace http_handler {
 
@@ -103,12 +102,23 @@ namespace http_handler {
 
     //Конвертирует URL-кодированную строку в путь
     fs::path ConvertFromUrl(std::string_view url) {
+        if(url.empty()) {
+            return {};
+        }
+
         std::string path_string;
-        int result_len;
-        char* result = curl_easy_unescape(nullptr, url.data(),
-                                                      static_cast<int>(url.length()), &result_len);
-        path_string = std::move(std::string(result, result_len));
-        curl_free(result);
+
+        for(size_t pos = 0; pos < url.size(); ) {
+            if(url[pos] == '%') {
+                //decode
+                char decoded = std::stoul(std::string(url.substr(pos+1, 2)), nullptr, 16);
+                path_string.push_back(decoded);
+                pos += 3;
+            } else {
+                path_string.push_back(url[pos++]);
+            }
+        }
+        std::cerr << "Converted: [" << url << "] to [" << path_string << "]\n";
         return path_string;
     }
 } // namespace http_handler
