@@ -24,7 +24,7 @@ namespace json_loader {
     std::string PrintMapList(const Game &game) {
         json::array map_list_js;
 
-        for (const auto &map: game.GetMaps()) {
+        for (const auto &map : game.GetMaps()) {
             map_list_js.push_back(json::value_from(map));
         }
         return json::serialize(map_list_js);
@@ -55,9 +55,12 @@ namespace json_loader {
         return map;
     }
 
+
     model::Game LoadGame(const std::filesystem::path &json_path) {
         // Загрузить содержимое файла json_path, например, в виде строки
         std::ifstream input_file(json_path);
+
+        //TODO: Add file opennign error handling
         std::string input(std::istreambuf_iterator<char>(input_file), {});
 
         // Распарсить строку как JSON, используя boost::json::parse
