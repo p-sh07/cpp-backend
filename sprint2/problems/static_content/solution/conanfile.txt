@@ -1,5 +1,6 @@
 [requires]
 boost/1.78.0
+libcurl/8.9.1
 
 [generators]
 cmake
