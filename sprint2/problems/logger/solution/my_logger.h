@@ -32,7 +32,11 @@ class Logger {
     // Для имени файла возьмите дату с форматом "%Y_%m_%d"
     std::string GetFileTimeStamp() const {
         const auto now = GetTime();
-        return std::
+        auto time_t = std::chrono::system_clock::to_time_t(now);
+
+        std::stringstream ss;
+        ss << std::put_time(std::localtime(&time_t), "%Y_%m_%d");
+        return ss.str();
     }
 
     Logger() = default;
@@ -47,10 +51,10 @@ public:
     // Выведите в поток все аргументы.
     template<class... Ts>
     void Log(const Ts&... args) {
-        std::lock_guard(m_);
+        std::lock_guard<std::mutex> lock (m_);
 
         log_file_ << GetTimeStamp() << ": "sv ;
-        cb(log_file_);
+        ((log_file_ << args), ...);
         log_file_ << std::endl;
     }
 
@@ -58,7 +62,7 @@ public:
     // параллельно с выводом в поток, вам нужно предусмотреть 
     // синхронизацию.
     void SetTimestamp(std::chrono::system_clock::time_point ts) {
-        std::lock_guard(m_);
+        std::lock_guard<std::mutex> lock(m_);
         manual_ts_.emplace(ts);
     }
 
@@ -67,5 +71,5 @@ private:
     std::optional<std::chrono::system_clock::time_point> manual_ts_;
 
     // для демонстрации пока оставим файл в текущей директории
-    std::ofstream log_file_{"sample.log"s};
+    std::ofstream log_file_{"/var/log/sample_log_" + GetFileTimeStamp()};
 };
