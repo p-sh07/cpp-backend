@@ -54,11 +54,18 @@ public:
     void Log(const Ts&... args) {
         std::lock_guard<std::mutex> lock (m_);
 
-        std::cerr << "logging msg to file: " << log_file_name << std::endl;
+        //std::cerr << "logging msg to file: " << MakeLogFileName() << std::endl;
+        log_file_.open(MakeLogFileName(), std::ios_base::app);
+
+        if(!log_file_.is_open()) {
+            throw std::runtime_error("Unable to open log file for writing!");
+        }
 
         log_file_ << GetTimeStamp() << ": "sv ;
         ((log_file_ << args), ...);
         log_file_ << std::endl;
+
+        log_file_.close();
     }
 
     // Установите manual_ts_. Учтите, что эта операция может выполняться
@@ -73,7 +80,9 @@ private:
     std::mutex m_;
     std::optional<std::chrono::system_clock::time_point> manual_ts_;
 
-    // для демонстрации пока оставим файл в текущей директории
-    std::string log_file_name = "/var/log/sample_log_" + GetFileTimeStamp() + ".log";
-    std::ofstream log_file_{log_file_name, std::ios_base::app};
+    std::ofstream log_file_{MakeLogFileName(), std::ios_base::app};
+
+    std::string MakeLogFileName() const {
+        return "/var/log/sample_log_" + GetFileTimeStamp() + ".log";
+    }
 };
