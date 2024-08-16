@@ -118,7 +118,7 @@ namespace http_handler {
                 path_string.push_back(url[pos++]);
             }
         }
-        std::cerr << "Converted: [" << url << "] to [" << path_string << "]\n";
+        //std::cerr << "Converted: [" << url << "] to [" << path_string << "]\n";
         return path_string;
     }
 } // namespace http_handler

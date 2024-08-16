@@ -12,6 +12,7 @@
 #include <thread>
 
 using namespace std::literals;
+using namespace std::chrono;
 
 #define LOG(...) Logger::GetInstance().Log(__VA_ARGS__)
 
@@ -27,7 +28,7 @@ class Logger {
     auto GetTimeStamp() const {
         const auto now = GetTime();
         const auto t_c = std::chrono::system_clock::to_time_t(now);
-        return std::put_time(std::localtime(&t_c), "%F %T");
+        return std::put_time(std::gmtime(&t_c), "%F %T");
     }
 
     // Для имени файла возьмите дату с форматом "%Y_%m_%d"
@@ -36,7 +37,7 @@ class Logger {
         auto time_t = std::chrono::system_clock::to_time_t(now);
 
         std::stringstream ss;
-        ss << std::put_time(std::localtime(&time_t), "%Y_%m_%d");
+        ss << std::put_time(std::gmtime(&time_t), "%Y_%m_%d");
         return ss.str();
     }
 
@@ -66,6 +67,7 @@ public:
         log_file_ << std::endl;
 
         log_file_.close();
+
     }
 
     // Установите manual_ts_. Учтите, что эта операция может выполняться
@@ -77,7 +79,7 @@ public:
     }
 
 private:
-    std::mutex m_;
+    mutable std::mutex m_;
     std::optional<std::chrono::system_clock::time_point> manual_ts_;
 
     std::ofstream log_file_{MakeLogFileName(), std::ios_base::app};
@@ -86,3 +88,33 @@ private:
         return "/var/log/sample_log_" + GetFileTimeStamp() + ".log";
     }
 };
+
+/*
+#include <chrono>
+
+int
+main()
+{
+    using namespace std::chrono;
+
+    // Get a local time_point with system_clock::duration precision
+    auto now = zoned_time{current_zone(), system_clock::now()}.get_local_time();
+
+    // Get a local time_point with days precision
+    auto ld = floor<days>(now);
+
+    // Convert local days-precision time_point to a local {y, m, d} calendar
+    year_month_day ymd{ld};
+
+    // Split time since local midnight into {h, m, s, subseconds}
+    hh_mm_ss hms{now - ld};
+
+    // This part not recommended.  Stay within the chrono type system.
+    int year{ymd.year()};
+    int month = unsigned{ymd.month()};
+    int day = unsigned{ymd.day()};
+    int hour = hms.hours().count();
+    int minute = hms.minutes().count();
+    int second = hms.seconds().count();
+}
+*/

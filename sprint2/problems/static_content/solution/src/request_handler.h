@@ -110,6 +110,7 @@ namespace http_handler {
         }
 
         std::string_view request_uri = req.target();
+        std::cerr << "Requested file: " << request_uri << std::endl;
 
         if(request_uri.starts_with(API_PREFIX)) {
             //Request for map list

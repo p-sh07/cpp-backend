@@ -15,7 +15,6 @@ endif()
 
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
-find_package(CURL REQUIRED)
 
 add_executable(game_server
 	src/main.cpp
@@ -31,4 +30,4 @@ add_executable(game_server
 	src/request_handler.cpp
 	src/request_handler.h
 )
-target_link_libraries(game_server PRIVATE Threads::Threads CURL::libcurl)
+target_link_libraries(game_server PRIVATE Threads::Threads)
