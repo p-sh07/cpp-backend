@@ -28,7 +28,7 @@ class Logger {
     auto GetTimeStamp() const {
         const auto now = GetTime();
         const auto t_c = std::chrono::system_clock::to_time_t(now);
-        return std::put_time(std::gmtime(&t_c), "%F %T");
+        return std::put_time(std::localtime(&t_c), "%F %T");
     }
 
     // Для имени файла возьмите дату с форматом "%Y_%m_%d"
@@ -37,7 +37,7 @@ class Logger {
         auto time_t = std::chrono::system_clock::to_time_t(now);
 
         std::stringstream ss;
-        ss << std::put_time(std::gmtime(&time_t), "%Y_%m_%d");
+        ss << std::put_time(std::localtime(&time_t), "%Y_%m_%d");
         return ss.str();
     }
 
@@ -55,19 +55,19 @@ public:
     void Log(const Ts&... args) {
         std::lock_guard<std::mutex> lock (m_);
 
-        //std::cerr << "logging msg to file: " << MakeLogFileName() << std::endl;
-        std::ofstream log_file_(MakeLogFileName(), std::ios_base::app);
+        auto current_date = GetFileTimeStamp();
+        if(IsNewDate(current_date)) {
+            log_file_.close();
+            log_file_.open(MakeLogFilename(current_date), std::ios_base::app);
+        }
 
         if(!log_file_.is_open()) {
-            throw std::runtime_error("Unable to open log file for writing: [" + MakeLogFileName() + "]");
+            throw std::runtime_error("Unable to open log file for writing: [" + date_string_ + "]");
         }
 
         log_file_ << GetTimeStamp() << ": "sv ;
         ((log_file_ << args), ...);
         log_file_ << std::endl;
-
-        log_file_.close();
-
     }
 
     // Установите manual_ts_. Учтите, что эта операция может выполняться
@@ -82,9 +82,14 @@ private:
     mutable std::mutex m_;
     std::optional<std::chrono::system_clock::time_point> manual_ts_;
 
-    //std::ofstream log_file_;
+    std::string date_string_ = GetFileTimeStamp();
+    std::ofstream log_file_{MakeLogFilename(date_string_), std::ios_base::app};
 
-    std::string MakeLogFileName() const {
-        return "/var/log/sample_log_" + GetFileTimeStamp() + ".log";
+    bool IsNewDate(std::string date_str) {
+        return date_string_ != date_str;
+    }
+
+    std::string MakeLogFilename(const std::string& date_str) {
+        return "sample_log_" + date_str + ".log";
     }
 };
