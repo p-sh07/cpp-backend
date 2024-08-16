@@ -90,6 +90,6 @@ private:
     }
 
     std::string MakeLogFilename(const std::string& date_str) {
-        return "sample_log_" + date_str + ".log";
+        return "/var/log/sample_log_" + date_str + ".log";
     }
 };
