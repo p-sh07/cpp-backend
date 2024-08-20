@@ -5,12 +5,11 @@
 #include <iostream>
 #include <thread>
 
+#include "boost_log.h"
 #include "json_loader.h"
 #include "request_handler.h"
 
 using namespace std::literals;
-namespace net = boost::asio;
-namespace sys = boost::system;
 
 namespace {
 
@@ -39,7 +38,15 @@ int main(int argc, const char* argv[]) {
         return EXIT_FAILURE;
     }
 
+    //for exit report log
+    json::object log_server_exit_report {
+            {"code", 0},
+            {"exception", ""}
+    };
+
     try {
+        // 0. Инициализипуем логгер
+        log::InitLogging();
         
         // 1. Загружаем карту из файла и построить модель игры
         model::Game game = json_loader::LoadGame(argv[1]);
@@ -57,26 +64,30 @@ int main(int argc, const char* argv[]) {
         });
         // 4. Создаём обработчик HTTP-запросов и связываем его с моделью игры
         http_handler::RequestHandler handler{game, argv[2]};
+        http_handler::LoggingRequestHandler logging_handler{handler};
 
         // 5. Запустить обработчик HTTP-запросов, делегируя их обработчику запросов
         const auto address = net::ip::make_address("0.0.0.0");
         constexpr net::ip::port_type port = 8080;
 
-        std::cout << "Hello! Server is starting at port " << port << ". . .\n" << std::endl;
-
-        http_server::ServeHttp(ioc, {address, port}, [&handler](auto&& req, auto&& send) {
-            handler(std::forward<decltype(req)>(req), std::forward<decltype(send)>(send));
+        http_server::ServeHttp(ioc, {address, port}, [&logging_handler](net::ip::address&& client_ip, auto&& req, auto&& send) {
+            logging_handler(std::forward<net::ip::address>(client_ip), std::forward<decltype(req)>(req), std::forward<decltype(send)>(send));
         });
 
         // Эта надпись сообщает тестам о том, что сервер запущен и готов обрабатывать запросы
-        std::cout << "Server has started..."sv << std::endl;
+        json::object additional_data{{"port", port},{"address", address.to_string()}};
+        BOOST_LOG_TRIVIAL(info) << logging::add_value(log_message, "server started")
+                                << logging::add_value(log_msg_data, additional_data);
 
         // 6. Запускаем обработку асинхронных операций
         RunWorkers(std::max(1u, num_threads), [&ioc] {
             ioc.run();
         });
     } catch (const std::exception& ex) {
-        std::cerr << ex.what() << std::endl;
-        return EXIT_FAILURE;
+        log_server_exit_report["code"] = EXIT_FAILURE;
+        log_server_exit_report["exception"] = ex.what();
     }
+
+    BOOST_LOG_TRIVIAL(info) << logging::add_value(log_message, "server exited")
+                            << logging::add_value(log_msg_data, log_server_exit_report);
 }

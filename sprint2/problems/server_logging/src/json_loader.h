@@ -5,9 +5,9 @@
 
 #include "model.h"
 
+namespace json = boost::json;
 
 namespace json_loader {
-    namespace json = boost::json;
 
     std::string PrintMap(const model::Map &map);
     std::string PrintMapList(const model::Game &game);

@@ -4,13 +4,15 @@
 #include <string>
 #include <optional>
 
+#include "boost_log.h"
 #include "json_loader.h"
 
+namespace fs = std::filesystem;
+namespace beast = boost::beast;
+namespace http = beast::http;
+namespace sys = boost::system;
+
 namespace http_handler {
-    namespace fs = std::filesystem;
-    namespace beast = boost::beast;
-    namespace http = beast::http;
-    namespace sys = boost::system;
 
     using namespace std::literals;
 
@@ -55,8 +57,8 @@ namespace http_handler {
 
     // Создаёт StringResponse с заданными параметрами
     StringResponse MakeStringResponse(http::status status, std::string_view body,
-                       unsigned http_version, bool keep_alive,
-                       std::string_view content_type = ContentType::TEXT_HTML);
+                                      unsigned http_version, bool keep_alive,
+                                      std::string_view content_type = ContentType::TEXT_HTML);
 
     http::response<http::file_body> MakeResponseFromFile(const char* file_path, unsigned http_version, bool keep_alive);
 
@@ -72,8 +74,8 @@ namespace http_handler {
     class RequestHandler {
     public:
         explicit RequestHandler(model::Game &game, fs::path path_to_root)
-        : game_{game}
-        , static_root_(std::move(path_to_root)) {
+                : game_{game}
+                , static_root_(std::move(path_to_root)) {
         }
 
         RequestHandler(const RequestHandler &) = delete;
@@ -102,7 +104,7 @@ namespace http_handler {
             auto response = to_html(http::status::method_not_allowed,
                                     "Invalid method"sv,
                                     ContentType::TEXT_HTML
-                                    );
+            );
             response.set(http::field::allow, "GET, HEAD"sv);
 
             send(response);
@@ -170,7 +172,7 @@ namespace http_handler {
             );
             return;
         }
-        //File outside filesystem root
+            //File outside filesystem root
         else if(!IsSubPath(requested_file, static_root_)) {
             send(to_html(http::status::bad_request,
                          "Access denied"s,
@@ -182,4 +184,63 @@ namespace http_handler {
         //File found, try to open & send
         send(MakeResponseFromFile(requested_file.c_str(), req.version(), req.keep_alive()));
     }
+
+    //Pattern: decorator
+    template<class RequestHandler>
+    class LoggingRequestHandler {
+        template <typename Body, typename Allocator>
+        static void LogRequest(net::ip::address&& request_ip, const http::request<Body, http::basic_fields<Allocator>>& req) {
+            json::object additional_data{
+                {"ip", request_ip.to_string()},
+                {"URI", req.target()},
+                {"method", req.method_string()}
+            };
+
+            BOOST_LOG_TRIVIAL(info) << logging::add_value(log_message, "request received"s)
+                                    << logging::add_value(log_msg_data, additional_data);
+
+        }
+
+        template <typename Body, typename Allocator>
+        static void LogResponse(const http::response<Body, http::basic_fields<Allocator>>& res) {
+
+            json::object additional_data{
+                    {"response_time", "1"},
+                    {"code", res.result_int()},
+            };
+
+            auto content_type = res[http::field::content_type];
+            if(content_type.empty()) {
+                additional_data["content_type"] = nullptr;
+            } else {
+                additional_data["content_type"] = std::string(content_type);
+            }
+
+            BOOST_LOG_TRIVIAL(info) << logging::add_value(log_message, "request received"s)
+                                    << logging::add_value(log_msg_data, additional_data);
+
+        }
+
+    public:
+
+        LoggingRequestHandler(RequestHandler& handler)
+        : handler_(handler) {
+        }
+
+        template<typename Body, typename Allocator, typename Send>
+        void operator () (net::ip::address&& request_ip, http::request<Body, http::basic_fields<Allocator>> &&req, Send &&send) {
+            LogRequest(std::forward<net::ip::address>(request_ip), req);
+
+            auto log_and_send_response = [&](auto&& response) {
+                LogResponse(response);
+                send(response);
+            };
+
+            handler_(std::move(req), log_and_send_response);
+        }
+
+    private:
+        RequestHandler& handler_;
+    };
+
 } // namespace http_handler

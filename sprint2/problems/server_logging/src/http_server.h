@@ -9,19 +9,27 @@
 #include <boost/beast/http.hpp>
 
 #include <iostream>
-
-namespace http_server {
+#include "boost_log.h"
 
 namespace net = boost::asio;
-using tcp = net::ip::tcp;
 namespace beast = boost::beast;
 namespace http = beast::http;
 namespace sys = boost::system;
 
+namespace http_server {
+    using tcp = net::ip::tcp;
+
 using namespace std::literals;
 
 inline void ReportError(beast::error_code ec, std::string_view what) {
-    std::cerr << what << ": "sv << ec.message() << std::endl;
+    json::object additional_data{
+            {"code", ec.value()},
+            {"text", ec.message()},
+            {"where", what}
+    };
+
+    BOOST_LOG_TRIVIAL(info) << logging::add_value(log_message, "error")
+                            << logging::add_value(log_msg_data, additional_data);
 }
 
 class SessionBase {
@@ -38,6 +46,10 @@ protected:
     explicit SessionBase(tcp::socket&& socket);
 
     ~SessionBase() = default;
+
+    auto GetClientIp() {
+        return stream_.socket().remote_endpoint().address();
+    }
 
     template <typename Body, typename Fields>
     void Write(http::response<Body, Fields>&& response);
@@ -91,7 +103,7 @@ private:
         // Захватываем умный указатель на текущий объект Session в лямбде,
         // чтобы продлить время жизни сессии до вызова лямбды.
         // Используется generic-лямбда функция, способная принять response произвольного типа
-        request_handler_(std::move(request), [self = this->shared_from_this()](auto&& response) {
+        request_handler_(std::move(GetClientIp()), std::move(request), [self = this->shared_from_this()](auto&& response) {
             self->Write(std::move(response));
         });
     }
@@ -129,6 +141,7 @@ private:
     net::io_context& ioc_;
     tcp::acceptor acceptor_;
     RequestHandler request_handler_;
+
     void DoAccept() {
         acceptor_.async_accept(
             // Передаём последовательный исполнитель, в котором будут вызываться обработчики
@@ -152,6 +165,9 @@ private:
         if (ec) {
             return ReportError(ec, "accept"sv);
         }
+
+        //передаем ip в handler для логирования
+        auto ip = socket.remote_endpoint().address().to_string();
 
         // Асинхронно обрабатываем сессию
         AsyncRunSession(std::move(socket));
