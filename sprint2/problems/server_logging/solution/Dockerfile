@@ -13,14 +13,14 @@ RUN apt update && \
 # копируем conanfile.txt в контейнер и запускаем conan install
 COPY conanfile.txt /app/
 RUN mkdir /app/build && cd /app/build && \
-    conan install .. --build=missing
+    conan conan install .. --build=missing -s build_type=Debug
 
 # только после этого копируем остальные иходники
 COPY ./src /app/src
 COPY CMakeLists.txt /app/
 
 RUN cd /app/build && \
-    cmake -DCMAKE_BUILD_TYPE=Release .. && \
+    cmake -DCMAKE_BUILD_TYPE=Debug .. && \
     cmake --build . 
 
 
