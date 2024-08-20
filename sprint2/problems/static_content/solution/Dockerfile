@@ -37,4 +37,9 @@ COPY --from=build /app/build/bin/game_server /app/
 COPY ./data /app/data
 
 # Запускаем игровой сервер
-ENTRYPOINT ["/app/game_server", "/app/data/config.json"]
+ENTRYPOINT ["/app/game_server", "/app/data/config.json", "app/static"]
+
+#Commands to launch:
+#sudo docker build -t my_http_server .
+#sudo docker run --rm -p 80:8080 my_http_server
+

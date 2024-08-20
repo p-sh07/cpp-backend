@@ -6,7 +6,7 @@ project(game_server CXX)
 set(CMAKE_CXX_STANDARD 20)
 
 #suppress warnings
-#add_definitions(-w)
+add_definitions(-w)
 
 file(GLOB_RECURSE CONNAN_FILE_PATH "conanbuildinfo.cmake"  ${PROJECT_SOURCE_DIR})
 

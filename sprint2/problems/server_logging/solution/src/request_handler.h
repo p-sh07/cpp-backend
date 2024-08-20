@@ -3,6 +3,7 @@
 #include "model.h"
 #include <string>
 #include <optional>
+#include <chrono>
 
 #include "boost_log.h"
 #include "json_loader.h"
@@ -185,6 +186,8 @@ namespace http_handler {
         send(MakeResponseFromFile(requested_file.c_str(), req.version(), req.keep_alive()));
     }
 
+    using namespace std::chrono;
+
     //Pattern: decorator
     template<class RequestHandler>
     class LoggingRequestHandler {
@@ -202,10 +205,13 @@ namespace http_handler {
         }
 
         template <typename Body, typename Allocator>
-        static void LogResponse(const http::response<Body, http::basic_fields<Allocator>>& res) {
+        static void LogResponse(auto start_ts, const http::response<Body, http::basic_fields<Allocator>>& res) {
+
+        steady_clock::time_point end_ts = steady_clock::now();
+        auto msec = duration_cast<milliseconds>(end_ts - start_ts).count();
 
             json::object additional_data{
-                    {"response_time", "1"},
+                    {"response_time", msec},
                     {"code", res.result_int()},
             };
 
@@ -232,7 +238,7 @@ namespace http_handler {
             LogRequest(std::forward<net::ip::address>(request_ip), req);
 
             auto log_and_send_response = [&](auto&& response) {
-                LogResponse(response);
+                LogResponse(start_ts_, response);
                 send(response);
             };
 
@@ -241,6 +247,7 @@ namespace http_handler {
 
     private:
         RequestHandler& handler_;
+        steady_clock::time_point start_ts_ = steady_clock::now();
     };
 
 } // namespace http_handler
