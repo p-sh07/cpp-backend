@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.11)
 
 #add_compile_options(Wno-enum-constexpr-conversion)
-add_compile_definitions(BOOST_NO_CXX98_FUNCTION_BASE)
+#add_compile_definitions(BOOST_NO_CXX98_FUNCTION_BASE)
 
 project(game_server CXX)
 set(CMAKE_CXX_STANDARD 20)
