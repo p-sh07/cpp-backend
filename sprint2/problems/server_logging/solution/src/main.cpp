@@ -46,7 +46,7 @@ int main(int argc, const char* argv[]) {
 
     try {
         // 0. Инициализипуем логгер
-        log::InitLogging();
+        bstlog::InitLogging();
         
         // 1. Загружаем карту из файла и построить модель игры
         model::Game game = json_loader::LoadGame(argv[1]);

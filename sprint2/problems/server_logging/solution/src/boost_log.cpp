@@ -16,14 +16,14 @@ namespace sinks = boost::log::sinks;
 namespace attrs = boost::log::attributes;
 namespace date_time = boost::posix_time;
 
-void log::InitLogging() {
+void bstlog::InitLogging() {
     logging::core::get()->set_filter(logging::trivial::severity >= logging::trivial::info);
     logging::add_common_attributes();
     logging::core::get()->add_global_attribute("TimeStamp", attrs::local_clock());
 
     logging::add_console_log(
             std::clog,
-            keywords::format = &log::JsonFormatter,
+            keywords::format = &JsonFormatter,
             keywords::auto_flush = true
     );
 
@@ -37,7 +37,7 @@ void log::InitLogging() {
 //        );
 }
 
-void log::JsonFormatter(logging::record_view const &rec, logging::formatting_ostream &strm) {
+void bstlog::JsonFormatter(logging::record_view const &rec, logging::formatting_ostream &strm) {
     json::object msg;
 
     auto ts = rec[timestamp];

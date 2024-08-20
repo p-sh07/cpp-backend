@@ -25,7 +25,7 @@ namespace logging = boost::log;
 namespace keywords = boost::log::keywords;
 namespace sinks = boost::log::sinks;
 
-namespace log {
+namespace bstlog {
     using namespace std::literals;
 
     void InitLogging();
