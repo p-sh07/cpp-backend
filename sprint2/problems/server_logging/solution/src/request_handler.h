@@ -221,7 +221,7 @@ namespace http_handler {
                 additional_data["content_type"] = std::string(content_type);
             }
 
-            BOOST_LOG_TRIVIAL(info) << logging::add_value(log_message, "request received"s)
+            BOOST_LOG_TRIVIAL(info) << logging::add_value(log_message, "response sent"s)
                                     << logging::add_value(log_msg_data, additional_data);
         }
 
