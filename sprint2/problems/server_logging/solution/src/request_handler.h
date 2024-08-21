@@ -236,17 +236,21 @@ namespace http_handler {
         void operator () (net::ip::address&& request_ip, http::request<Body, http::basic_fields<Allocator>> &&req, Send &&send) {
             LogRequest(std::forward<net::ip::address>(request_ip), req);
 
-            auto log_and_send_response = [&](auto&& response) {
-                LogResponse(start_ts_, response);
-                send(response);
+            //Start timer for response
+            start_ts_ = steady_clock::now();
+
+            auto log_and_send_response = [&](auto&& resp) {
+                LogResponse(start_ts_, resp);
+                send(std::forward<std::decltype(resp)>(resp));
             };
 
+            //End timer when logging response
             handler_(std::move(req), log_and_send_response);
         }
 
     private:
         RequestHandler& handler_;
-        steady_clock::time_point start_ts_ = steady_clock::now();
+        steady_clock::time_point start_ts_;
     };
 
 } // namespace http_handler
