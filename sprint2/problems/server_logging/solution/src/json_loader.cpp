@@ -57,6 +57,7 @@ namespace json_loader {
 
 
     model::Game LoadGame(const std::filesystem::path &json_path) {
+        try {
         // Загрузить содержимое файла json_path, например, в виде строки
         std::ifstream input_file(json_path);
 
@@ -75,14 +76,25 @@ namespace json_loader {
         // Загрузить модель игры из файла
         Game game;
 
-        //TODO: Map constructor from json?
+
         for (const auto &json_map: map_array_ptr->as_array()) {
-            try {
-                game.AddMap(ParseMap(json_map));
-            } catch (std::exception &ex) {
-                std::cerr << ex.what() << std::endl;
-            }
+            game.AddMap(ParseMap(json_map));
         }
-        return game;
+
+            return game;
+        } catch (std::exception &ex) {
+            //TODO: Switch to boost error?
+//https://www.boost.org/doc/libs/1_85_0/libs/filesystem/doc/reference.html#Class-filesystem_error
+            json::object additional_data{
+                {"code", 1},
+                {"text", ex.what()},
+                {"where", "LoadGame"}
+            };
+
+            BOOST_LOG_TRIVIAL(info) << logging::add_value(log_message, "error")
+                                    << logging::add_value(log_msg_data, additional_data);
+            return {};
+        }
+
     }
 } // namespace json_loader

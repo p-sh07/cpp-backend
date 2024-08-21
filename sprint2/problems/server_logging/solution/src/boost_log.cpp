@@ -27,14 +27,14 @@ void bstlog::InitLogging() {
             keywords::auto_flush = true
     );
 
-    //        logging::add_file_log(
-//                // NB: -> Add file timestamp
-//                keywords::file_name = "server_%N.log",
-//                keywords::format = &log::JsonFormatter,
-//                keywords::open_mode = std::ios_base::app | std::ios_base::out,
-//                keywords::rotation_size = 10 * 1024 * 1024,
-//                keywords::time_based_rotation = boost::log::sinks::file::rotation_at_time_point(12, 0, 0)
-//        );
+            logging::add_file_log(
+                // NB: -> Add file timestamp
+                keywords::file_name = "server_%N.log",
+                keywords::format = &bstlog::JsonFormatter,
+                keywords::open_mode = std::ios_base::app | std::ios_base::out,
+                keywords::rotation_size = 10 * 1024 * 1024,
+                keywords::time_based_rotation = boost::log::sinks::file::rotation_at_time_point(12, 0, 0)
+        );
 }
 
 void bstlog::JsonFormatter(logging::record_view const &rec, logging::formatting_ostream &strm) {
@@ -43,8 +43,8 @@ void bstlog::JsonFormatter(logging::record_view const &rec, logging::formatting_
     auto ts = rec[timestamp];
     msg["timestamp"] = to_iso_extended_string(*ts);
 
-    msg["message"] = *rec[log_message];
     msg["data"] = *rec[log_msg_data];
+    msg["message"] = *rec[log_message];
 
     strm << msg;
 }

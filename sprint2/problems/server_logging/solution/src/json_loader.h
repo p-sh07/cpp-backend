@@ -3,6 +3,7 @@
 #include <filesystem>
 #include <boost/json.hpp>
 
+#include "boost_log.h"
 #include "model.h"
 
 namespace json = boost::json;
