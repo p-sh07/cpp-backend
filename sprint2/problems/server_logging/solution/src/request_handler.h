@@ -206,7 +206,7 @@ namespace http_handler {
         template <typename Body, typename Allocator>
         static void LogResponse(auto start_ts, const http::response<Body, http::basic_fields<Allocator>>& res) {
 
-        steady_clock::time_point end_ts = steady_clock::now();
+        high_resolution_clock::time_point end_ts = high_resolution_clock::now();
         auto msec = duration_cast<milliseconds>(end_ts - start_ts).count();
 
             json::object additional_data{
@@ -223,7 +223,6 @@ namespace http_handler {
 
             BOOST_LOG_TRIVIAL(info) << logging::add_value(log_message, "request received"s)
                                     << logging::add_value(log_msg_data, additional_data);
-
         }
 
     public:
@@ -237,11 +236,11 @@ namespace http_handler {
             LogRequest(std::forward<net::ip::address>(request_ip), req);
 
             //Start timer for response
-            start_ts_ = steady_clock::now();
+            high_resolution_clock::time_point start_ts = high_resolution_clock::now();
 
             auto log_and_send_response = [&](auto&& resp) {
-                LogResponse(start_ts_, resp);
-                send(std::forward<std::decltype(resp)>(resp));
+                LogResponse(start_ts, resp);
+                send(std::move(resp));
             };
 
             //End timer when logging response
@@ -250,7 +249,6 @@ namespace http_handler {
 
     private:
         RequestHandler& handler_;
-        steady_clock::time_point start_ts_;
     };
 
 } // namespace http_handler
