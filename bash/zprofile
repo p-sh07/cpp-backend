@@ -1,0 +1,94 @@
+#Pyenv
+export PYENV_ROOT="$HOME/.pyenv"
+[[ -d $PYENV_ROOT/bin ]] && export PATH="$PYENV_ROOT/bin:$PATH"
+eval "$(pyenv init -)"
+
+#Brew Arm64
+eval "$(/opt/homebrew/bin/brew shellenv)"
+
+#Brew x64_x86
+#eval "$(/usr/local/bin/brew shellenv)"
+
+#Shortcuts
+#export cbb=""
+alias cbb="cd /Users/ps/dev/cpp-backend"
+alias sp2="cd /Users/ps/dev/cpp-backend/sprint2/problems"
+
+function gcm 
+{
+  git commit -a -m "$1"
+}
+
+function gcmp 
+{
+  git commit -a -m "$1"
+  git push origin
+}
+
+function mkcd
+{
+  mkdir -p -- "$1" && cd -P -- "$1"
+}
+
+#Usage: call from "solution" folder
+function preptask
+{
+    if [ -d ../precode ] ;then
+        cp -rf ../precode/* .
+
+        rm -rf build
+
+        mkdir build
+        cd build
+
+        conan install --build missing ..
+        cmake ..
+
+        cd ..
+    else
+    #Print error message 
+        RED='\033[0;31m'
+        NC='\033[0m'
+        printf "->${RED}Please call from ${NC}'task_dir/solution/'${RED} directory\n"
+    fi
+}
+
+#Usage: $gitnb <branch name>
+#Creates a new branch locally and pushes it to origin upstream
+function gitnb
+{
+  git checkout -b "$1" && git push -u origin "$1"
+}
+
+#Usage $gitdb <branch_name_1> <branch_name_2 = main>
+#Deletes branch <1> and switches to branch <2>, if specified. (default is 'main')
+#If Upstream branch <branch_name_1> exists, deletes upstream also 
+#(can type 'y' when prompted, or just press enter - default answer is Yes)
+function gitdb 
+{
+    if [ -z "$2" ] ;then
+        git checkout main
+    else 
+        git checkout "$2"
+    fi
+    git merge "$1"
+
+    printf "->Delete branch: '$1' ? [Yes/no]: "
+    read answer
+
+    if [ -z "$answer" ] || [ "$answer" != "${answer#[Yy]}" ] ;then 
+        REMOTE_EXISTS=$(git ls-remote --heads origin refs/heads/"$1")
+        if [ ! -z "$REMOTE_EXISTS" ] ;then
+            git push -d origin "$1" # Delete remote
+        fi
+        git branch -d "$1"          # Delete local
+    else
+        echo Delete canceled.
+    fi
+
+    #git fetch --all --prune
+    git pull
+}
+
+
+
