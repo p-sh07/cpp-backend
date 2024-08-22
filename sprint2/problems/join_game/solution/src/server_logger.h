@@ -3,8 +3,6 @@
 //
 #pragma once
 
-#include "request_handler.h"
-
 #include <boost/json.hpp>
 #include <boost/log/trivial.hpp>     // для BOOST_LOG_TRIVIAL
 #include <boost/log/core.hpp>        // для logging::core
@@ -14,6 +12,8 @@
 #include <boost/log/utility/setup/common_attributes.hpp> //для вывода плейсхолдеров %LineID% %TimeStamp% etc
 #include <boost/log/utility/setup/console.hpp> //для вывода в консоль
 #include <boost/log/utility/manipulators/add_value.hpp>
+
+#include <boost/beast.hpp>
 
 #include <string_view>
 
@@ -41,12 +41,11 @@ namespace server_logger {
     template <class RequestHandler>
     class LoggingRequestHandler
     {
-        template <typename Body, typename Allocator>
-        static void LogRequest(net::ip::address&& request_ip,
-                               const http::request<Body, http::basic_fields<Allocator>>& req)
+        template <typename Request>
+        static void LogRequest(const tcp::endpoint& endpoint, const Request& req)
         {
             json::object additional_data{
-                    {"ip", request_ip.to_string()},
+                    {"ip", endpoint.address().to_string()},
                     {"URI", req.target()},
                     {"method", req.method_string()}
             };
@@ -55,8 +54,8 @@ namespace server_logger {
                                     << logging::add_value(log_msg_data, additional_data);
         }
 
-        template <typename Body, typename Allocator>
-        static void LogResponse(auto start_ts, const http::response<Body, http::basic_fields<Allocator>>& res)
+        template <typename Response>
+        static void LogResponse(auto start_ts, const Response& res)
         {
             high_resolution_clock::time_point end_ts = high_resolution_clock::now();
             auto msec = duration_cast<milliseconds>(end_ts - start_ts).count();
@@ -85,12 +84,10 @@ namespace server_logger {
         : handler_(std::forward<RequestHandler>(handler)) {
         }
 
-
-        template <typename Body, typename Allocator, typename Send>
-        void operator ()(tcp::endpoint&& endpoint, http::request<Body, http::basic_fields<Allocator>>&& req, Send&& send)
+        void operator ()(tcp::endpoint&& endpoint, auto&& req, auto&& send)
         {
 
-            LogRequest(endpoint.address().to_string(), req);
+            LogRequest(endpoint, req);
 
             //Start timer for response
             high_resolution_clock::time_point start_ts = high_resolution_clock::now();
@@ -102,7 +99,7 @@ namespace server_logger {
             };
 
             //End timer when logging response
-            handler_(std::move(req), log_and_send_response);
+            handler_(std::move(endpoint), std::forward<decltype(req)>(req), log_and_send_response);
         }
 
     private:

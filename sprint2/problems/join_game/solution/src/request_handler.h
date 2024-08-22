@@ -137,7 +137,7 @@ namespace http_handler
         //TODO: switch to one strand per GameSession
         try {
             auto handle = [self = shared_from_this(), send,
-                    req = std::forward<decltype(req)>(req), version, keep_alive] {
+                    req = std::move(req), version, keep_alive] {
                 try {
                     return send(self->HandleApiRequest(req));
                 } catch (...) {
@@ -239,12 +239,12 @@ namespace http_handler
 
         try {
             AssertRequestValid(req);
-
-            if (IsSubPath(req.target(), api_prefix_)) {
-                return api_handler_(std::forward<decltype(req)>(req), send);
+            std::string_view uri = req.target();
+            if (uri.starts_with(api_prefix_)) {
+                return (*api_handler_)(std::move(req), send);
             }
             // Возвращаем результат обработки запроса к файлу
-            file_handler_(std::forward<decltype(req)>(req), send);
+            (*file_handler_)(std::move(req), send);
         } catch (ServerError& err) {
             send(ReportServerError(err, version, keep_alive));
         } catch (...) {

@@ -3,6 +3,7 @@ cmake_minimum_required(VERSION 3.11)
 project(game_server CXX)
 set(CMAKE_CXX_STANDARD 20)
 
+add_compile_definitions(BOOST_BEAST_USE_STD_STRING_VIEW)
 #suppress warnings
 add_definitions(-w)
 
@@ -38,5 +39,6 @@ IF(APPLE)
 	target_compile_options(game_server PRIVATE -Wno-enum-constexpr-conversion)
 ENDIF ()
 
+target_compile_definitions(game_server PRIVATE BOOST_BEAST_USE_STD_STRING_VIEW)
 target_include_directories(game_server PRIVATE CONAN_PKG::boost)
 target_link_libraries(game_server PRIVATE Threads::Threads CONAN_PKG::boost)
