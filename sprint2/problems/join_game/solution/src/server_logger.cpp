@@ -2,14 +2,13 @@
 // Created by Pavel on 19.08.2024.
 //
 
-#include "boost_log.h"
+#include "server_logger.h"
 
 namespace json = boost::json;
-namespace logging = boost::log::trivial;
 namespace keywords = boost::log::keywords;
 namespace attrs = boost::log::attributes;
 
-void bstlog::InitLogging() {
+void server_logger::InitLogging() {
     logging::core::get()->set_filter(logging::trivial::severity >= logging::trivial::info);
     logging::add_common_attributes();
     //logging::core::get()->add_global_attribute("TimeStamp", attrs::local_clock());
@@ -32,7 +31,7 @@ void bstlog::InitLogging() {
 #endif
 }
 
-void bstlog::JsonFormatter(logging::record_view const &rec, logging::formatting_ostream &strm) {
+void server_logger::JsonFormatter(logging::record_view const &rec, logging::formatting_ostream &strm) {
     json::object msg;
 
     auto ts = rec[timestamp];

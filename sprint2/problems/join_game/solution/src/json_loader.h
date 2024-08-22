@@ -3,7 +3,7 @@
 #include <filesystem>
 #include <boost/json.hpp>
 
-#include "boost_log.h"
+#include "server_logger.h"
 #include "model.h"
 
 namespace json_loader {

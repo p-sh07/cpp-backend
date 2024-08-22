@@ -9,7 +9,8 @@
 #include <boost/beast/http.hpp>
 
 #include <iostream>
-#include "boost_log.h"
+
+#include "server_logger.h"
 
 namespace http_server {
     namespace net = boost::asio;
@@ -17,9 +18,9 @@ namespace http_server {
 
     namespace beast = boost::beast;
     namespace http = beast::http;
+    namespace logging = boost::log;
 
     namespace json = boost::json;
-    namespace logging = boost::log;
 
     using tcp = net::ip::tcp;
     using namespace std::literals;
@@ -50,8 +51,8 @@ protected:
 
     ~SessionBase() = default;
 
-    auto GetClientIp() {
-        return stream_.socket().remote_endpoint().address();
+    tcp::endpoint GetEndpoint() {
+        return stream_.socket().remote_endpoint();
     }
 
     template <typename Body, typename Fields>
@@ -106,7 +107,7 @@ private:
         // Захватываем умный указатель на текущий объект Session в лямбде,
         // чтобы продлить время жизни сессии до вызова лямбды.
         // Используется generic-лямбда функция, способная принять response произвольного типа
-        request_handler_(std::move(GetClientIp()), std::move(request), [self = this->shared_from_this()](auto&& response) {
+        request_handler_(std::move(GetEndpoint()), std::move(request), [self = this->shared_from_this()](auto&& response) {
             self->Write(std::move(response));
         });
     }

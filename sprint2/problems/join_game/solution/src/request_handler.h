@@ -1,12 +1,15 @@
 #pragma once
-#include "http_server.h"
-#include "model.h"
-#include <string>
 #include <optional>
 #include <chrono>
+#include <utility>
+#include <variant>
+#include <string>
+#include <string_view>
 
-#include "boost_log.h"
+#include "model.h"
+#include "player_manager.h"
 #include "json_loader.h"
+#include "http_server.h"
 
 namespace http_handler
 {
@@ -16,8 +19,9 @@ namespace http_handler
     namespace beast = boost::beast;
     namespace http = beast::http;
     namespace sys = boost::system;
+
+    using tcp = net::ip::tcp;
     namespace json = boost::json;
-    namespace logging = boost::log;
 
     using namespace std::literals;
 
@@ -26,8 +30,11 @@ namespace http_handler
     // Ответ, тело которого представлено в виде строки
     using StringResponse = http::response<http::string_body>;
 
-    static constexpr std::string_view API_PREFIX{"/api/"sv};
-    static constexpr std::string_view MAP_LIST_PREFIX{"/api/v1/maps"sv};
+    //Ответ, тело которого представлено в виде содержимого файла
+    using FileResponse = http::response<http::file_body>;
+    // TODO: Пустой ответ
+    using EmptyResponse = std::monostate;
+
 
     // Структура ContentType задаёт область видимости для констант,
     // задающий значения HTTP-заголовка Content-Type
@@ -58,6 +65,28 @@ namespace http_handler
         constexpr static std::string_view AUDIO_MP3 = "audio/mpeg"sv;
     };
 
+    class ApiError : public std::runtime_error {
+        using std::runtime_error::runtime_error;
+    };
+
+    class FileError : public std::runtime_error {
+        using std::runtime_error::runtime_error;
+    };
+
+    class ServerError : public std::runtime_error {
+    public:
+        ServerError(http::status status, std::string_view message)
+        : status_(status)
+        , runtime_error(message.data()){
+        }
+
+        inline http::status status() const {
+            return status_;
+        }
+    private:
+        http::status status_;
+    };
+
     // Определить MIME-тип из расширения запрашиваемого файла
     std::string_view ParseMimeType(const std::string_view& path);
 
@@ -68,216 +97,160 @@ namespace http_handler
 
     http::response<http::file_body> MakeResponseFromFile(const char* file_path, unsigned http_version, bool keep_alive);
 
-    //Получить Id карты из запроса
-    std::optional<model::Map::Id> ExtractMapId(std::string_view uri);
-
-    //Возвращает true, если каталог p содержится внутри base_path.
+    //Возвращает true, если каталог p содержится внутри base.
     bool IsSubPath(fs::path path, fs::path base);
 
     //Конвертирует URL-кодированную строку в путь
     fs::path ConvertFromUrl(std::string_view url);
 
-    class RequestHandler
-    {
+
+    //======================= Api Request Handler ======================
+    class ApiHandler : public std::enable_shared_from_this<ApiHandler> {
     public:
-        explicit RequestHandler(model::Game& game, fs::path path_to_root)
-            : game_{game}
-              , static_root_(std::move(path_to_root))
-        {
-        }
+        using Strand = net::strand<net::io_context::executor_type>;
+        ApiHandler(Strand& api_strand, std::shared_ptr<model::Game> game, std::shared_ptr<app::Players> players);
 
-        RequestHandler(const RequestHandler&) = delete;
-
-        RequestHandler& operator=(const RequestHandler&) = delete;
+        ApiHandler(const ApiHandler &) = delete;
+        ApiHandler &operator=(const ApiHandler &) = delete;
 
         template <typename Body, typename Allocator, typename Send>
-        void operator()(http::request<Body, http::basic_fields<Allocator>>&& req,
-                        Send&& send);
+        void operator()(http::request<Body, http::basic_fields<Allocator>>&& req, Send&& send);
 
     private:
-        model::Game& game_;
-        fs::path static_root_;
+        static constexpr std::string_view map_list_prefix_{"/api/v1/maps"sv};
+
+        Strand& strand_;
+        std::shared_ptr<model::Game> game_;
+        std::shared_ptr<app::Players> players_;
+
+        std::optional<model::Map::Id> ExtractMapId(std::string_view map_list_prefix, std::string_view uri);
+        StringResponse HandleApiRequest(const StringRequest& req);
+        StringResponse ReportApiError(unsigned version, bool keep_alive) const;
     };
 
     template <typename Body, typename Allocator, typename Send>
-    void RequestHandler::operator()(http::request<Body, http::basic_fields<Allocator>>&& req, Send&& send)
-    {
-        //String response for api requests
-        auto to_html = [&](http::status status, std::string_view text, std::string_view content_type)
-        {
-            return MakeStringResponse(status, text, req.version(),
-                                      req.keep_alive(), content_type);
-        };
+    void ApiHandler::operator()(http::request<Body, http::basic_fields<Allocator>>&& req, Send&& send) {
+        auto version = req.version();
+        auto keep_alive = req.keep_alive();
 
-        // Unknown method
-        if (req.method() != http::verb::get && req.method() != http::verb::head)
-        {
-            auto response = to_html(http::status::method_not_allowed,
-                                    "Invalid method"sv,
-                                    ContentType::TEXT_HTML
-            );
-            response.set(http::field::allow, "GET, HEAD"sv);
-
-            send(response);
-            return;
-        }
-
-        std::string_view request_uri = req.target();
-
-        if (request_uri.starts_with(API_PREFIX))
-        {
-            //Request for map list
-            if (request_uri == MAP_LIST_PREFIX)
-            {
-                send(to_html(http::status::ok,
-                             json_loader::PrintMapList(game_),
-                             ContentType::APP_JSON)
-                );
-                return;
-            }
-
-            //Request a map - contains full prefix for map list
-            if (auto map_id_opt = ExtractMapId(request_uri))
-            {
-                // /api/v1/maps/{id-карты}
-                const auto map = game_.FindMap(map_id_opt.value());
-
-                if (map)
-                {
-                    send(to_html(http::status::ok,
-                                 json_loader::PrintMap(*map),
-                                 ContentType::APP_JSON)
-                    );
+        //currently all api requests performed inside one strand consecutively
+        //TODO: switch to one strand per GameSession
+        try {
+            auto handle = [self = shared_from_this(), send,
+                    req = std::forward<decltype(req)>(req), version, keep_alive] {
+                try {
+                    return send(self->HandleApiRequest(req));
+                } catch (...) {
+                    send(self->ReportApiError(version, keep_alive));
                 }
-                else
-                {
-                    send(to_html(http::status::not_found,
-                                 json_loader::PrintErrorMsgJson("mapNotFound", "Map not found"),
-                                 ContentType::APP_JSON)
-                    );
-                }
-                return;
-            }
+            };
 
-            //Bad request
-            send(to_html(http::status::bad_request,
-                         json_loader::PrintErrorMsgJson("badRequest", "Bad request"),
-                         ContentType::APP_JSON)
-            );
-            return;
+            return net::dispatch(strand_, handle);
         }
-
-        //Try filesystem request
-        fs::path requested_file;
-        if (request_uri == "/"sv || request_uri == "/index.html"sv)
-        {
-            //special case, return index.html
-            requested_file = static_root_ / fs::path("index.html"s);
+        catch (...) {
+            send(ReportApiError(version, keep_alive));
         }
-        else
-        {
-            //remove leading '/' to ensure correct splicing
-            if (!request_uri.empty() && request_uri[0] == '/')
-            {
-                request_uri.remove_prefix(1);
-            }
-            requested_file = fs::weakly_canonical(static_root_ / ConvertFromUrl(request_uri));
-        }
-
-        //Error if requested file does not exist
-        if (!fs::exists(requested_file))
-        {
-            send(to_html(http::status::not_found,
-                         "File not found"s,
-                         ContentType::TEXT_PLAIN)
-            );
-            return;
-        }
-        //File outside filesystem root
-        else if (!IsSubPath(requested_file, static_root_))
-        {
-            send(to_html(http::status::bad_request,
-                         "Access denied"s,
-                         ContentType::TEXT_PLAIN)
-            );
-            return;
-        }
-
-        //File found, try to open & send
-        send(MakeResponseFromFile(requested_file.c_str(), req.version(), req.keep_alive()));
     }
 
-    using namespace std::chrono;
 
-    //Pattern: decorator
-    template <class RequestHandler>
-    class LoggingRequestHandler
-    {
-        template <typename Body, typename Allocator>
-        static void LogRequest(net::ip::address&& request_ip,
-                               const http::request<Body, http::basic_fields<Allocator>>& req)
-        {
-            json::object additional_data{
-                {"ip", request_ip.to_string()},
-                {"URI", req.target()},
-                {"method", req.method_string()}
-            };
-
-            BOOST_LOG_TRIVIAL(info) << logging::add_value(log_message, "request received"s)
-                                    << logging::add_value(log_msg_data, additional_data);
-        }
-
-        template <typename Body, typename Allocator>
-        static void LogResponse(auto start_ts, const http::response<Body, http::basic_fields<Allocator>>& res)
-        {
-            high_resolution_clock::time_point end_ts = high_resolution_clock::now();
-            auto msec = duration_cast<milliseconds>(end_ts - start_ts).count();
-
-            json::object additional_data{
-                {"response_time", msec},
-                {"code", res.result_int()},
-            };
-
-            auto content_type = res[http::field::content_type];
-            if (content_type.empty())
-            {
-                additional_data["content_type"] = nullptr;
-            }
-            else
-            {
-                additional_data["content_type"] = std::string(content_type);
-            }
-
-            BOOST_LOG_TRIVIAL(info) << logging::add_value(log_message, "response sent"s)
-                                    << logging::add_value(log_msg_data, additional_data);
-        }
-
+    //======================= File Request Handler ======================
+    class FileHandler : public std::enable_shared_from_this<FileHandler> {
     public:
-        LoggingRequestHandler(RequestHandler& handler)
-            : handler_(handler)
-        {
-        }
+        using Strand = net::strand<net::io_context::executor_type>;
+        FileHandler(fs::path root);
 
-        template <typename Body, typename Allocator, typename Send>
-        void operator ()(net::ip::address&& request_ip, http::request<Body, http::basic_fields<Allocator>>&& req,
-                         Send&& send)
-        {
-            LogRequest(std::forward<net::ip::address>(request_ip), req);
+        FileHandler(const FileHandler &) = delete;
+        FileHandler &operator=(const FileHandler &) = delete;
 
-            //Start timer for response
-            high_resolution_clock::time_point start_ts = high_resolution_clock::now();
-
-            auto log_and_send_response = [&](auto&& resp)
-            {
-                LogResponse(start_ts, resp);
-                send(std::move(resp));
-            };
-
-            //End timer when logging response
-            handler_(std::move(req), log_and_send_response);
-        }
+        template<typename Body, typename Allocator, typename Send>
+        void operator()(http::request<Body, http::basic_fields<Allocator>> &&req, Send &&send);
 
     private:
-        RequestHandler& handler_;
+        using FileRequestResult = std::variant<EmptyResponse, StringResponse, FileResponse>;
+        fs::path root_;
+
+        FileRequestResult HandleFileRequest(const StringRequest& req) const;
+        StringResponse ReportFileError(unsigned version, bool keep_alive) const;
     };
+
+    template<typename Body, typename Allocator, typename Send>
+    void FileHandler::operator()(http::request<Body, http::basic_fields<Allocator>> &&req, Send &&send) {
+        auto version = req.version();
+        auto keep_alive = req.keep_alive();
+
+        try{
+            // Возвращаем результат обработки запроса к файлу
+            return std::visit(
+                    [&send](auto &&result) {
+                        send(std::forward<decltype(result)>(result));
+                    },
+                    HandleFileRequest(req));
+        } catch (...) {
+            //TODO: Error handling with throw?
+            send(ReportServerError(version, keep_alive));
+        }
+    }
+
+
+    //======================= Request Handling Interface ==========================
+    class RequestHandler {
+    public:
+        using Strand = net::strand<net::io_context::executor_type>;
+
+        RequestHandler(fs::path root, Strand api_strand, std::shared_ptr<model::Game> game, std::shared_ptr<app::Players> players)
+                : file_handler_(std::make_shared<FileHandler>(std::move(root)))
+                , api_handler_(std::make_shared<ApiHandler>(api_strand, std::move(game), std::move(players))) {
+        }
+
+        RequestHandler(const RequestHandler&) = delete;
+        RequestHandler& operator=(const RequestHandler&) = delete;
+
+        template <typename Body, typename Allocator, typename Send>
+        void operator()(tcp::endpoint&&, http::request<Body, http::basic_fields<Allocator>>&& req, Send&& send);
+
+    private:
+        static constexpr std::string_view api_prefix_{"/api/"sv};
+
+        std::shared_ptr<ApiHandler> api_handler_;
+        std::shared_ptr<FileHandler> file_handler_;
+
+        template<typename Request>
+        void AssertRequestValid(const Request& req);
+
+        StringResponse ReportServerError(const ServerError& err, unsigned version, bool keep_alive) const;
+        StringResponse ReportServerError(unsigned version, bool keep_alive) const;
+    };
+
+
+    template<typename Request>
+    void AssertRequestValid(const Request& req) {
+        // Unknown method
+        if (req.method() != http::verb::get && req.method() != http::verb::head) {
+            throw ServerError(http::status::method_not_allowed, "Invalid method"sv);
+        }
+
+        //NB: Can add other cases:
+    }
+
+    template <typename Body, typename Allocator, typename Send>
+    void RequestHandler::operator()(tcp::endpoint&&, http::request<Body, http::basic_fields<Allocator>>&& req, Send&& send) {
+        auto version = req.version();
+        auto keep_alive = req.keep_alive();
+
+        try {
+            AssertRequestValid(req);
+
+            if (IsSubPath(req.target(), api_prefix_)) {
+                return api_handler_(std::forward<decltype(req)>(req), send);
+            }
+            // Возвращаем результат обработки запроса к файлу
+            file_handler_(std::forward<decltype(req)>(req), send);
+        } catch (ServerError& err) {
+            send(ReportServerError(err, version, keep_alive));
+        } catch (...) {
+            send(ReportServerError(version, keep_alive));
+        }
+    }
+
+
 } // namespace http_handler

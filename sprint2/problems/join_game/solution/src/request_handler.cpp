@@ -76,15 +76,6 @@ namespace http_handler {
         return res;
     }
 
-    std::optional<model::Map::Id> ExtractMapId(std::string_view uri) {
-        //If contains pref and has a map id, remove "/api/v1/maps/"
-        if(uri.starts_with(MAP_LIST_PREFIX) && MAP_LIST_PREFIX.size() + 1 < uri.size()) {
-            uri.remove_prefix(MAP_LIST_PREFIX.size() + 1);
-            return model::Map::Id(std::string(uri));
-        }
-        return std::nullopt;
-    }
-
     // Возвращает true, если каталог p содержится внутри base_path.
     bool IsSubPath(fs::path path, fs::path base) {
         // Приводим оба пути к каноничному виду (без . и ..)
@@ -119,5 +110,125 @@ namespace http_handler {
             }
         }
         return path_string;
+    }
+
+    ApiHandler::ApiHandler(Strand& api_strand, std::shared_ptr<model::Game> game, std::shared_ptr<app::Players> players)
+    : strand_(api_strand)
+    , game_(std::move(game))
+    , players_(std::move(players)) {
+    }
+
+    std::optional<model::Map::Id> ApiHandler::ExtractMapId(std::string_view map_list_prefix, std::string_view uri) {
+        //If contains pref and has a map id, remove "/api/v1/maps/"
+        if(uri.starts_with(map_list_prefix) && map_list_prefix.size() + 1 < uri.size()) {
+            uri.remove_prefix(map_list_prefix.size() + 1);
+            return model::Map::Id(std::string(uri));
+        }
+        return std::nullopt;
+    }
+
+    StringResponse ApiHandler::HandleApiRequest(const StringRequest& req) {
+        auto to_html = [&](http::status status, std::string_view text)
+        {
+            return MakeStringResponse(status, text, req.version(),
+                                      req.keep_alive(), ContentType::APP_JSON);
+        };
+
+        std::string_view request_uri = req.target();
+
+        //Request for map list
+        if (request_uri == map_list_prefix_) {
+            return to_html(http::status::ok, json_loader::PrintMapList(*game_));
+        }
+
+        //Request a map - contains full prefix for map list
+        if (auto map_id_opt = ExtractMapId(request_uri)) {
+            const auto map = game_->FindMap(map_id_opt.value());
+
+            if (!map) {
+                return to_html(http::status::not_found,
+                               json_loader::PrintErrorMsgJson("mapNotFound", "Map not found")
+                );
+            }
+            return to_html(http::status::ok, json_loader::PrintMap(*map));
+        }
+
+        //Bad request
+        return to_html(http::status::bad_request,
+                       json_loader::PrintErrorMsgJson("badRequest", "Bad request")
+        );
+    }
+
+    FileHandler::FileHandler(fs::path root)
+    : root_(std::move(root)) {
+    }
+
+    FileHandler::FileRequestResult FileHandler::HandleFileRequest(const StringRequest& req) const {
+        //String response for api requests
+        auto to_html = [&](http::status status, std::string_view text, std::string_view content_type)
+        {
+            return MakeStringResponse(status, text, req.version(),
+                                      req.keep_alive(), content_type);
+        };
+
+        std::string_view request_uri = req.target();
+
+        //Try filesystem request
+        fs::path requested_file;
+        if (request_uri == "/"sv || request_uri == "/index.html"sv)
+        {
+            //special case, return index.html
+            requested_file = root_ / fs::path("index.html"s);
+        }
+        else
+        {
+            //remove leading '/' to ensure correct splicing
+            if (!request_uri.empty() && request_uri[0] == '/')
+            {
+                request_uri.remove_prefix(1);
+            }
+            requested_file = fs::weakly_canonical(root_ / ConvertFromUrl(request_uri));
+        }
+
+        //Error if requested file does not exist
+        if (!fs::exists(requested_file))
+        {
+            return to_html(http::status::not_found,
+                           "File not found"s,
+                           ContentType::TEXT_PLAIN);
+            ;
+        }
+            //File outside filesystem root
+        else if (!IsSubPath(requested_file, root_))
+        {
+            return to_html(http::status::bad_request,
+                           "Access denied"s,
+                           ContentType::TEXT_PLAIN);
+        }
+
+        //File found, try to open & send
+        return MakeResponseFromFile(requested_file.c_str(), req.version(), req.keep_alive());
+    }
+
+    StringResponse FileHandler::ReportFileError(unsigned version, bool keep_alive) const {
+        //TODO: Handle error
+        return {};
+    }
+
+    //======================= Request Handling Interface ==========================
+    StringResponse RequestHandler::ReportServerError(const ServerError& err, unsigned version, bool keep_alive) const {
+        auto error_report = MakeStringResponse(err.status(), err.what(), version, keep_alive);
+        if(err.status() == http::status::method_not_allowed) {
+            error_report.set(http::field::allow, "GET, HEAD"sv);
+        }
+
+        //NB: Can add other cases:
+
+
+        return error_report;
+    }
+
+    StringResponse RequestHandler::ReportServerError(unsigned version, bool keep_alive) const {
+        return MakeStringResponse(http::status::unknown, "Request handling error occured"sv, version, keep_alive);
     }
 } // namespace http_handler
