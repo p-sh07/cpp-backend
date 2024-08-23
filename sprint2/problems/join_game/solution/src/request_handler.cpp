@@ -142,7 +142,7 @@ namespace http_handler {
         }
 
         //Request a map - contains full prefix for map list
-        if (auto map_id_opt = ExtractMapId(request_uri)) {
+        if (auto map_id_opt = ExtractMapId(request_uri, map_list_prefix_)) {
             const auto map = game_->FindMap(map_id_opt.value());
 
             if (!map) {

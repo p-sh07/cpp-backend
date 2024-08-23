@@ -30,10 +30,10 @@ namespace http_handler
     // Ответ, тело которого представлено в виде строки
     using StringResponse = http::response<http::string_body>;
 
-    //Ответ, тело которого представлено в виде содержимого файла
+    // Ответ, тело которого представлено в виде содержимого файла
     using FileResponse = http::response<http::file_body>;
-    // TODO: Пустой ответ
-    using EmptyResponse = std::monostate;
+    // Пустой ответ
+    using EmptyResponse = http::response<http::empty_body>;
 
 
     // Структура ContentType задаёт область видимости для констант,
@@ -187,7 +187,7 @@ namespace http_handler
                     HandleFileRequest(req));
         } catch (...) {
             //TODO: Error handling with throw?
-            send(ReportServerError(version, keep_alive));
+            send(ReportFileError(version, keep_alive));
         }
     }
 
