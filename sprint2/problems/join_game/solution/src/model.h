@@ -2,241 +2,266 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+#include <deque>
 
 #include <boost/json.hpp>
 
 #include "tagged.h"
 
 namespace model {
-    using Dimension = int;
-    using Coord = Dimension;
+using Dimension = int;
+using Coord = Dimension;
 
-    struct Point {
-        Coord x, y;
+struct Point {
+    Coord x, y;
+};
+
+struct Size {
+    Dimension width, height;
+};
+
+struct Rectangle {
+    Point position;
+    Size size;
+};
+
+struct Offset {
+    Dimension dx, dy;
+};
+
+class Road {
+    struct HorizontalTag {
+        explicit HorizontalTag() = default;
     };
 
-    struct Size {
-        Dimension width, height;
+    struct VerticalTag {
+        explicit VerticalTag() = default;
     };
 
-    struct Rectangle {
-        Point position;
-        Size size;
-    };
+ public:
+    constexpr static HorizontalTag HORIZONTAL{};
+    constexpr static VerticalTag VERTICAL{};
 
-    struct Offset {
-        Dimension dx, dy;
-    };
+    Road(HorizontalTag, Point start, Coord end_x) noexcept
+        : start_{start}
+        , end_{end_x, start.y} {
+    }
 
-    class Road {
-        struct HorizontalTag {
-            explicit HorizontalTag() = default;
-        };
+    Road(VerticalTag, Point start, Coord end_y) noexcept
+        : start_{start}
+        , end_{start.x, end_y} {
+    }
 
-        struct VerticalTag {
-            explicit VerticalTag() = default;
-        };
+    bool IsHorizontal() const noexcept {
+        return start_.y == end_.y;
+    }
 
-    public:
-        constexpr static HorizontalTag HORIZONTAL{};
-        constexpr static VerticalTag VERTICAL{};
+    bool IsVertical() const noexcept {
+        return start_.x == end_.x;
+    }
 
-        Road(HorizontalTag, Point start, Coord end_x) noexcept
-            : start_{start}
-              , end_{end_x, start.y} {
-        }
+    Point GetStart() const noexcept {
+        return start_;
+    }
 
-        Road(VerticalTag, Point start, Coord end_y) noexcept
-            : start_{start}
-              , end_{start.x, end_y} {
-        }
+    Point GetEnd() const noexcept {
+        return end_;
+    }
 
-        bool IsHorizontal() const noexcept {
-            return start_.y == end_.y;
-        }
+ private:
+    Point start_;
+    Point end_;
+};
 
-        bool IsVertical() const noexcept {
-            return start_.x == end_.x;
-        }
+class Building {
+ public:
+    explicit Building(Rectangle bounds) noexcept
+        : bounds_{bounds} {
+    }
 
-        Point GetStart() const noexcept {
-            return start_;
-        }
+    const Rectangle& GetBounds() const noexcept {
+        return bounds_;
+    }
 
-        Point GetEnd() const noexcept {
-            return end_;
-        }
+ private:
+    Rectangle bounds_;
+};
 
-    private:
-        Point start_;
-        Point end_;
-    };
+class Office {
+ public:
+    using Id = util::Tagged<std::string, Office>;
 
-    class Building {
-    public:
-        explicit Building(Rectangle bounds) noexcept
-            : bounds_{bounds} {
-        }
+    Office(Id id, Point position, Offset offset) noexcept
+        : id_{std::move(id)}
+        , position_{position}
+        , offset_{offset} {
+    }
 
-        const Rectangle &GetBounds() const noexcept {
-            return bounds_;
-        }
+    const Id& GetId() const noexcept {
+        return id_;
+    }
 
-    private:
-        Rectangle bounds_;
-    };
+    Point GetPosition() const noexcept {
+        return position_;
+    }
 
-    class Office {
-    public:
-        using Id = util::Tagged<std::string, Office>;
+    Offset GetOffset() const noexcept {
+        return offset_;
+    }
 
-        Office(Id id, Point position, Offset offset) noexcept
-            : id_{std::move(id)}
-              , position_{position}
-              , offset_{offset} {
-        }
+ private:
+    Id id_;
+    Point position_;
+    Offset offset_;
+}
 
-        const Id &GetId() const noexcept {
-            return id_;
-        }
+class Map {
+ public:
+    using Id = util::Tagged<std::string, Map>;
+    using Roads = std::vector<Road>;
+    using Buildings = std::vector<Building>;
+    using Offices = std::vector<Office>;
 
-        Point GetPosition() const noexcept {
-            return position_;
-        }
+    Map(Id id, std::string name) noexcept
+        : id_(std::move(id))
+        , name_(std::move(name)) {
+    }
 
-        Offset GetOffset() const noexcept {
-            return offset_;
-        }
+    const Id& GetId() const noexcept {
+        return id_;
+    }
 
-    private:
-        Id id_;
-        Point position_;
-        Offset offset_;
-    };
+    const std::string& GetName() const noexcept {
+        return name_;
+    }
 
-    class Map {
-    public:
-        using Id = util::Tagged<std::string, Map>;
-        using Roads = std::vector<Road>;
-        using Buildings = std::vector<Building>;
-        using Offices = std::vector<Office>;
+    const Buildings& GetBuildings() const noexcept {
+        return buildings_;
+    }
 
-        Map(Id id, std::string name) noexcept
-            : id_(std::move(id))
-              , name_(std::move(name)) {
-        }
+    const Roads& GetRoads() const noexcept {
+        return roads_;
+    }
 
-        const Id &GetId() const noexcept {
-            return id_;
-        }
+    const Offices& GetOffices() const noexcept {
+        return offices_;
+    }
 
-        const std::string &GetName() const noexcept {
-            return name_;
-        }
+    void AddRoad(const Road& road) {
+        roads_.emplace_back(road);
+    }
 
-        const Buildings &GetBuildings() const noexcept {
-            return buildings_;
-        }
+    void AddBuilding(const Building& building) {
+        buildings_.emplace_back(building);
+    }
 
-        const Roads &GetRoads() const noexcept {
-            return roads_;
-        }
+    void AddOffice(Office office);
 
-        const Offices &GetOffices() const noexcept {
-            return offices_;
-        }
+ private:
+    using OfficeIdToIndex = std::unordered_map<Office::Id, size_t, util::TaggedHasher<Office::Id>>;
 
-        void AddRoad(const Road &road) {
-            roads_.emplace_back(road);
-        }
+    Id id_;
+    std::string name_;
+    Roads roads_;
+    Buildings buildings_;
 
-        void AddBuilding(const Building &building) {
-            buildings_.emplace_back(building);
-        }
+    OfficeIdToIndex warehouse_id_to_index_;
+    Offices offices_;
+};
 
-        void AddOffice(Office office);
+class Dog {
+ public:
+    explicit Dog(size_t id);
 
-    private:
-        using OfficeIdToIndex = std::unordered_map<Office::Id, size_t, util::TaggedHasher<Office::Id> >;
+    inline size_t GetId() const {
+        return id_;
+    }
 
-        Id id_;
-        std::string name_;
-        Roads roads_;
-        Buildings buildings_;
+ private:
+    const size_t id_;
+    //what is a dog?
+};
 
-        OfficeIdToIndex warehouse_id_to_index_;
-        Offices offices_;
-    };
+class Session {
+ public:
+    explicit Session(size_t id, const Map::Id map_id, const Map*game_map) noexcept;
 
+    inline size_t GetId() const {
+        return id_;
+    }
 
-    class Dog {
-    public:
+    inline Map::Id GetMapId() const {
+        return map_id_;
+    }
+    //At construction there are 0 dogs. Session is always on 1 map
+    //When a player is added, he gets a new dog to control
+    Dog& AddDog();
 
-    private:
+ private:
+    const size_t id_;
+    const Map::Id map_id_;
+    const Map*map_;
 
-    };
+    size_t next_dog_id_ = 0;
+    std::vector<Dog> dogs_;
+};
 
-    class GameSession {
-    public:
-        explicit GameSession(std::shared_ptr<Map> game_map) noexcept;
+using MapIdHasher = util::TaggedHasher<Map::Id>;
 
+class Game {
+ public:
+    using Maps = std::vector<Map>;
 
-    private:
-        std::shared_ptr<Map> map_;
-        std::vector<Dog> dogs_;
-    };
+    void AddMap(Map map);
 
+    const Maps& GetMaps() const noexcept {
+        return maps_;
+    }
 
+    const Map*FindMap(const Map::Id& id) const noexcept;
+    //std::shared_ptr<Session> AddSession(const Map::Id& id);
+    Session& JoinSession(const Map::Id& id);
 
-    class Game {
-    public:
-        using Maps = std::vector<Map>;
+ private:
+    using MapIdToIndex = std::unordered_map<Map::Id, size_t, MapIdHasher>;
+    using MapIdToSessions = std::unordered_map<Map::Id, size_t, MapIdHasher>;
 
-        void AddMap(Map map);
+    std::optional<size_t> GetMapIndex(const Map::Id& id) const;
 
-        const Maps &GetMaps() const noexcept {
-            return maps_;
-        }
+    std::vector<Map> maps_;
+    std::deque<Session> sessions_;
 
-        const Map *FindMap(const Map::Id &id) const noexcept {
-            if (auto it = map_id_to_index_.find(id); it != map_id_to_index_.end()) {
-                return &maps_.at(it->second);
-            }
-            return nullptr;
-        }
+    MapIdToSessions map_to_sessions_;
+    MapIdToIndex map_id_to_index_;
 
-    private:
-        using MapIdHasher = util::TaggedHasher<Map::Id>;
-        using MapIdToIndex = std::unordered_map<Map::Id, size_t, MapIdHasher>;
+    Session MakeNewSessionOnMap(const Map::Id& id);
 
-        std::vector<Map> maps_;
-        MapIdToIndex map_id_to_index_;
-    };
+};
 
-    //======= Json conversion overloads ===========
-    namespace json = boost::json;
+//======= Json conversion overloads ===========
+namespace json = boost::json;
 
-    //Map overloads
-    void tag_invoke(const json::value_from_tag &, json::value &jv,
-                    Map const &map);
-    Map tag_invoke(const json::value_to_tag<model::Map> &, json::value const &jv);
+//Map overloads
+void tag_invoke(const json::value_from_tag&, json::value& jv,
+                Map const& map);
+Map tag_invoke(const json::value_to_tag<model::Map>&, json::value const& jv);
 
-    //Road
-    void tag_invoke(const json::value_from_tag&, json::value &jv,
-                    Road const &rd);
-    Road tag_invoke(const json::value_to_tag<Road> &, json::value const &jv);
+//Road
+void tag_invoke(const json::value_from_tag&, json::value& jv,
+                Road const& rd);
+Road tag_invoke(const json::value_to_tag<Road>&, json::value const& jv);
 
-    //Building
-    void tag_invoke(const json::value_from_tag&, json::value &jv,
-                    Building const &bd);
-    Building tag_invoke(const json::value_to_tag<Building> &, json::value const &jv);
+//Building
+void tag_invoke(const json::value_from_tag&, json::value& jv,
+                Building const& bd);
+Building tag_invoke(const json::value_to_tag<Building>&, json::value const& jv);
 
-    //Office
-    void tag_invoke(const json::value_from_tag&, json::value &jv,
-                    Office const &offc);
-    Office tag_invoke(const json::value_to_tag<Office> &, json::value const &jv);
+//Office
+void tag_invoke(const json::value_from_tag&, json::value& jv,
+                Office const& offc);
+Office tag_invoke(const json::value_to_tag<Office>&, json::value const& jv);
 
-    //For full map print
-    json::value MapToValue(const Map& map);
+//For full map print
+json::value MapToValue(const Map& map);
 
 } // namespace model

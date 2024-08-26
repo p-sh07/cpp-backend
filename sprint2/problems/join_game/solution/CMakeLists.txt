@@ -7,7 +7,7 @@ add_compile_definitions(BOOST_BEAST_USE_STD_STRING_VIEW)
 #suppress warnings
 add_definitions(-w)
 
-file(GLOB_RECURSE CONNAN_FILE_PATH "conanbuildinfo.cmake"  ${PROJECT_SOURCE_DIR})
+file(GLOB_RECURSE CONNAN_FILE_PATH "conanbuildinfo.cmake" ${PROJECT_SOURCE_DIR})
 
 include(${CONNAN_FILE_PATH})
 conan_basic_setup(TARGETS)
@@ -16,27 +16,27 @@ set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
 
 add_executable(game_server
-	src/main.cpp
-	src/http_server.cpp
-	src/http_server.h
-	src/sdk.h
-	src/model.h
-	src/model.cpp
-	src/tagged.h
-	src/boost_json.cpp
-	src/json_loader.h
-	src/json_loader.cpp
-	src/request_handler.cpp
-	src/request_handler.h
-		src/server_logger.cpp
-		src/server_logger.h
-		src/player_manager.cpp
-		src/player_manager.h
+        src/main.cpp
+        src/http_server.cpp
+        src/http_server.h
+        src/sdk.h
+        src/model.h
+        src/model.cpp
+        src/tagged.h
+        src/boost_json.cpp
+        src/json_loader.h
+        src/json_loader.cpp
+        src/request_handler.cpp
+        src/request_handler.h
+        src/server_logger.cpp
+        src/server_logger.h
+        src/player_manager.cpp
+        src/player_manager.h
 )
 
-IF(APPLE)
-	add_compile_definitions(BOOST_NO_CXX98_FUNCTION_BASE)
-	target_compile_options(game_server PRIVATE -Wno-enum-constexpr-conversion)
+IF (APPLE)
+    add_compile_definitions(BOOST_NO_CXX98_FUNCTION_BASE)
+    target_compile_options(game_server PRIVATE -Wno-enum-constexpr-conversion)
 ENDIF ()
 
 target_compile_definitions(game_server PRIVATE BOOST_BEAST_USE_STD_STRING_VIEW)

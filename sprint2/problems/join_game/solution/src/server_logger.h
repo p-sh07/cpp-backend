@@ -24,85 +24,77 @@ BOOST_LOG_ATTRIBUTE_KEYWORD(log_message, "message", std::string)
 BOOST_LOG_ATTRIBUTE_KEYWORD(log_msg_data, "data", boost::json::value)
 
 namespace server_logger {
-    namespace net = boost::asio;
-    namespace http = boost::beast::http;
-    namespace json = boost::json;
-    namespace logging = boost::log;
+namespace net = boost::asio;
+namespace http = boost::beast::http;
+namespace json = boost::json;
+namespace logging = boost::log;
 
-    using namespace std::literals;
+using namespace std::literals;
 
-    void InitLogging();
-    void JsonFormatter(logging::record_view const &rec, logging::formatting_ostream &strm);
+void InitLogging();
+void JsonFormatter(logging::record_view const& rec, logging::formatting_ostream& strm);
 
-    using tcp = net::ip::tcp;
-    using namespace std::chrono;
+using tcp = net::ip::tcp;
+using namespace std::chrono;
 
-    //Обертка над классом RequestHandler выполняющая логгирование запросов и ответов
-    template <class RequestHandler>
-    class LoggingRequestHandler
-    {
-        template <typename Request>
-        static void LogRequest(const tcp::endpoint& endpoint, const Request& req)
-        {
-            json::object additional_data{
-                    {"ip", endpoint.address().to_string()},
-                    {"URI", req.target()},
-                    {"method", req.method_string()}
-            };
+//Обертка над классом RequestHandler выполняющая логгирование запросов и ответов
+template<class RequestHandler>
+class LoggingRequestHandler {
+    template<typename Request>
+    static void LogRequest(const tcp::endpoint& endpoint, const Request& req) {
+        json::object additional_data{
+            {"ip", endpoint.address().to_string()},
+            {"URI", req.target()},
+            {"method", req.method_string()}
+        };
 
-            BOOST_LOG_TRIVIAL(info) << logging::add_value(log_message, "request received"s)
-                                    << logging::add_value(log_msg_data, additional_data);
+        BOOST_LOG_TRIVIAL(info) << logging::add_value(log_message, "request received"s)
+                                << logging::add_value(log_msg_data, additional_data);
+    }
+
+    template<typename Response>
+    static void LogResponse(auto start_ts, const Response& res) {
+        high_resolution_clock::time_point end_ts = high_resolution_clock::now();
+        auto msec = duration_cast<milliseconds>(end_ts - start_ts).count();
+
+        json::object additional_data{
+            {"response_time", msec},
+            {"code", res.result_int()},
+        };
+
+        auto content_type = res[http::field::content_type];
+        if(content_type.empty()) {
+            additional_data["content_type"] = nullptr;
+        } else {
+            additional_data["content_type"] = std::string(content_type);
         }
 
-        template <typename Response>
-        static void LogResponse(auto start_ts, const Response& res)
-        {
-            high_resolution_clock::time_point end_ts = high_resolution_clock::now();
-            auto msec = duration_cast<milliseconds>(end_ts - start_ts).count();
+        BOOST_LOG_TRIVIAL(info) << logging::add_value(log_message, "response sent"s)
+                                << logging::add_value(log_msg_data, additional_data);
+    }
 
-            json::object additional_data{
-                    {"response_time", msec},
-                    {"code", res.result_int()},
-            };
-
-            auto content_type = res[http::field::content_type];
-            if (content_type.empty())
-            {
-                additional_data["content_type"] = nullptr;
-            }
-            else
-            {
-                additional_data["content_type"] = std::string(content_type);
-            }
-
-            BOOST_LOG_TRIVIAL(info) << logging::add_value(log_message, "response sent"s)
-                                    << logging::add_value(log_msg_data, additional_data);
-        }
-
-    public:
-        LoggingRequestHandler(RequestHandler handler)
+ public:
+    LoggingRequestHandler(RequestHandler handler)
         : handler_(std::forward<RequestHandler>(handler)) {
-        }
+    }
 
-        void operator ()(tcp::endpoint&& endpoint, auto&& req, auto&& send)
-        {
+    void operator()(tcp::endpoint&& endpoint, auto&& req, auto&& send) {
 
-            LogRequest(endpoint, req);
+        LogRequest(endpoint, req);
 
-            //Start timer for response
-            high_resolution_clock::time_point start_ts = high_resolution_clock::now();
+        //Start timer for response
+        high_resolution_clock::time_point start_ts = high_resolution_clock::now();
 
-            auto log_and_send_response = [&](auto&& resp)
-            {
-                LogResponse(start_ts, resp);
-                send(std::move(resp));
-            };
+        auto log_and_send_response = [&](auto&& resp) {
+            LogResponse(start_ts, resp);
+            send(std::move(resp));
+        };
 
-            //End timer when logging response
-            handler_(std::move(endpoint), std::forward<decltype(req)>(req), log_and_send_response);
-        }
+        //End timer when logging response
+        handler_(std::move(endpoint), std::forward<decltype(req)>(req), log_and_send_response);
+    }
 
-    private:
-        RequestHandler handler_;
-    };
+ private:
+    RequestHandler handler_;
+};
 }

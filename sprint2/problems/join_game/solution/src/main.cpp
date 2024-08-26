@@ -7,9 +7,6 @@
 
 #include "request_handler.h"
 
-#include "json_loader.h"
-#include "player_manager.h"
-
 namespace net = boost::asio;
 namespace sys = boost::system;
 namespace json = boost::json;
@@ -20,13 +17,13 @@ using namespace std::literals;
 namespace {
 
 // Запускает функцию fn на n потоках, включая текущий
-template <typename Fn>
+template<typename Fn>
 void RunWorkers(unsigned n, const Fn& fn) {
     n = std::max(1u, n);
     std::vector<std::thread> workers;
     workers.reserve(n - 1);
     // Запускаем n-1 рабочих потоков, выполняющих функцию fn
-    while (--n) {
+    while(--n) {
         workers.emplace_back(fn);
     }
     fn();
@@ -38,16 +35,16 @@ void RunWorkers(unsigned n, const Fn& fn) {
 
 }  // namespace
 
-int main(int argc, const char* argv[]) {
-    if (argc != 3) {
+int main(int argc, const char*argv[]) {
+    if(argc != 3) {
         std::cerr << "Usage: game_server <game-config-json> <path-to-static>"sv << std::endl;
         return EXIT_FAILURE;
     }
 
     //for exit report log
-    json::object log_server_exit_report {
-            {"code", 0},
-            {"exception", ""}
+    json::object log_server_exit_report{
+        {"code", 0},
+        {"exception", ""}
     };
 
     try {
@@ -66,29 +63,29 @@ int main(int argc, const char* argv[]) {
         // 3. Добавляем асинхронный обработчик сигналов SIGINT и SIGTERM
         net::signal_set signals(ioc, SIGINT, SIGTERM);
         signals.async_wait([&ioc](const sys::error_code& ec, [[maybe_unused]] int signal_number) {
-            if (!ec) {
+            if(!ec) {
                 ioc.stop();
             }
         });
 
-        //4. Создаем обертку handler и оборачиваем его в логирующий декоратор
+        //4. Создаем handler и оборачиваем его в логирующий декоратор
         auto handler = std::make_shared<http_handler::RequestHandler>(
-                argv[2], api_strand, game, players
+            argv[2], api_strand, game, players
         );
 
         server_logger::LoggingRequestHandler logging_handler{
-                [handler](auto&& endpoint, auto&& req, auto&& send) {
-                    // Обрабатываем запрос
-                    (*handler)(std::forward<decltype(endpoint)>(endpoint),
-                               std::forward<decltype(req)>(req),
-                               std::forward<decltype(send)>(send));
-                }};
+            [handler](auto&& endpoint, auto&& req, auto&& send) {
+                // Обрабатываем запрос
+                (*handler)(std::forward<decltype(endpoint)>(endpoint),
+                           std::forward<decltype(req)>(req),
+                           std::forward<decltype(send)>(send));
+            }};
 
         const auto address = net::ip::make_address("0.0.0.0");
         constexpr net::ip::port_type port = 8080;
 
         // Сервер готов к обработке запросов
-        json::object additional_data{{"port", port},{"address", address.to_string()}};
+        json::object additional_data{{"port", port}, {"address", address.to_string()}};
         BOOST_LOG_TRIVIAL(info) << logging::add_value(log_message, "server started")
                                 << logging::add_value(log_msg_data, additional_data);
 
@@ -100,7 +97,7 @@ int main(int argc, const char* argv[]) {
         RunWorkers(std::max(1u, num_threads), [&ioc] {
             ioc.run();
         });
-    } catch (const std::exception& ex) {
+    } catch(const std::exception& ex) {
         log_server_exit_report["code"] = EXIT_FAILURE;
         log_server_exit_report["exception"] = ex.what();
     }

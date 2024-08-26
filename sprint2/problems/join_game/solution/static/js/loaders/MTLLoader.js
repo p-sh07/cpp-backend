@@ -1,501 +1,504 @@
-( function () {
+(function () {
 
-	/**
- * Loads a Wavefront .mtl file specifying materials
- */
+    /**
+     * Loads a Wavefront .mtl file specifying materials
+     */
 
-	class MTLLoader extends THREE.Loader {
+    class MTLLoader extends THREE.Loader {
 
-		constructor( manager ) {
+        constructor(manager) {
 
-			super( manager );
+            super(manager);
 
-		}
-		/**
-   * Loads and parses a MTL asset from a URL.
-   *
-   * @param {String} url - URL to the MTL file.
-   * @param {Function} [onLoad] - Callback invoked with the loaded object.
-   * @param {Function} [onProgress] - Callback for download progress.
-   * @param {Function} [onError] - Callback for download errors.
-   *
-   * @see setPath setResourcePath
-   *
-   * @note In order for relative texture references to resolve correctly
-   * you must call setResourcePath() explicitly prior to load.
-   */
+        }
 
+        /**
+         * Loads and parses a MTL asset from a URL.
+         *
+         * @param {String} url - URL to the MTL file.
+         * @param {Function} [onLoad] - Callback invoked with the loaded object.
+         * @param {Function} [onProgress] - Callback for download progress.
+         * @param {Function} [onError] - Callback for download errors.
+         *
+         * @see setPath setResourcePath
+         *
+         * @note In order for relative texture references to resolve correctly
+         * you must call setResourcePath() explicitly prior to load.
+         */
 
-		load( url, onLoad, onProgress, onError ) {
 
-			const scope = this;
-			const path = this.path === '' ? THREE.LoaderUtils.extractUrlBase( url ) : this.path;
-			const loader = new THREE.FileLoader( this.manager );
-			loader.setPath( this.path );
-			loader.setRequestHeader( this.requestHeader );
-			loader.setWithCredentials( this.withCredentials );
-			loader.load( url, function ( text ) {
+        load(url, onLoad, onProgress, onError) {
 
-				try {
+            const scope = this;
+            const path = this.path === '' ? THREE.LoaderUtils.extractUrlBase(url) : this.path;
+            const loader = new THREE.FileLoader(this.manager);
+            loader.setPath(this.path);
+            loader.setRequestHeader(this.requestHeader);
+            loader.setWithCredentials(this.withCredentials);
+            loader.load(url, function (text) {
 
-					onLoad( scope.parse( text, path ) );
+                try {
 
-				} catch ( e ) {
+                    onLoad(scope.parse(text, path));
 
-					if ( onError ) {
+                } catch (e) {
 
-						onError( e );
+                    if (onError) {
 
-					} else {
+                        onError(e);
 
-						console.error( e );
+                    } else {
 
-					}
+                        console.error(e);
 
-					scope.manager.itemError( url );
+                    }
 
-				}
+                    scope.manager.itemError(url);
 
-			}, onProgress, onError );
+                }
 
-		}
+            }, onProgress, onError);
 
-		setMaterialOptions( value ) {
+        }
 
-			this.materialOptions = value;
-			return this;
+        setMaterialOptions(value) {
 
-		}
-		/**
-   * Parses a MTL file.
-   *
-   * @param {String} text - Content of MTL file
-   * @return {MaterialCreator}
-   *
-   * @see setPath setResourcePath
-   *
-   * @note In order for relative texture references to resolve correctly
-   * you must call setResourcePath() explicitly prior to parse.
-   */
+            this.materialOptions = value;
+            return this;
 
+        }
 
-		parse( text, path ) {
+        /**
+         * Parses a MTL file.
+         *
+         * @param {String} text - Content of MTL file
+         * @return {MaterialCreator}
+         *
+         * @see setPath setResourcePath
+         *
+         * @note In order for relative texture references to resolve correctly
+         * you must call setResourcePath() explicitly prior to parse.
+         */
 
-			const lines = text.split( '\n' );
-			let info = {};
-			const delimiter_pattern = /\s+/;
-			const materialsInfo = {};
 
-			for ( let i = 0; i < lines.length; i ++ ) {
+        parse(text, path) {
 
-				let line = lines[ i ];
-				line = line.trim();
+            const lines = text.split('\n');
+            let info = {};
+            const delimiter_pattern = /\s+/;
+            const materialsInfo = {};
 
-				if ( line.length === 0 || line.charAt( 0 ) === '#' ) {
+            for (let i = 0; i < lines.length; i++) {
 
-					// Blank line or comment ignore
-					continue;
+                let line = lines[i];
+                line = line.trim();
 
-				}
+                if (line.length === 0 || line.charAt(0) === '#') {
 
-				const pos = line.indexOf( ' ' );
-				let key = pos >= 0 ? line.substring( 0, pos ) : line;
-				key = key.toLowerCase();
-				let value = pos >= 0 ? line.substring( pos + 1 ) : '';
-				value = value.trim();
+                    // Blank line or comment ignore
+                    continue;
 
-				if ( key === 'newmtl' ) {
+                }
 
-					// New material
-					info = {
-						name: value
-					};
-					materialsInfo[ value ] = info;
+                const pos = line.indexOf(' ');
+                let key = pos >= 0 ? line.substring(0, pos) : line;
+                key = key.toLowerCase();
+                let value = pos >= 0 ? line.substring(pos + 1) : '';
+                value = value.trim();
 
-				} else {
+                if (key === 'newmtl') {
 
-					if ( key === 'ka' || key === 'kd' || key === 'ks' || key === 'ke' ) {
+                    // New material
+                    info = {
+                        name: value
+                    };
+                    materialsInfo[value] = info;
 
-						const ss = value.split( delimiter_pattern, 3 );
-						info[ key ] = [ parseFloat( ss[ 0 ] ), parseFloat( ss[ 1 ] ), parseFloat( ss[ 2 ] ) ];
+                } else {
 
-					} else {
+                    if (key === 'ka' || key === 'kd' || key === 'ks' || key === 'ke') {
 
-						info[ key ] = value;
+                        const ss = value.split(delimiter_pattern, 3);
+                        info[key] = [parseFloat(ss[0]), parseFloat(ss[1]), parseFloat(ss[2])];
 
-					}
+                    } else {
 
-				}
+                        info[key] = value;
 
-			}
+                    }
 
-			const materialCreator = new MaterialCreator( this.resourcePath || path, this.materialOptions );
-			materialCreator.setCrossOrigin( this.crossOrigin );
-			materialCreator.setManager( this.manager );
-			materialCreator.setMaterials( materialsInfo );
-			return materialCreator;
+                }
 
-		}
+            }
 
-	}
-	/**
- * Create a new MTLLoader.MaterialCreator
- * @param baseUrl - Url relative to which textures are loaded
- * @param options - Set of options on how to construct the materials
- *                  side: Which side to apply the material
- *                        THREE.FrontSide (default), THREE.BackSide, THREE.DoubleSide
- *                  wrap: What type of wrapping to apply for textures
- *                        THREE.RepeatWrapping (default), THREE.ClampToEdgeWrapping, THREE.MirroredRepeatWrapping
- *                  normalizeRGB: RGBs need to be normalized to 0-1 from 0-255
- *                                Default: false, assumed to be already normalized
- *                  ignoreZeroRGBs: Ignore values of RGBs (Ka,Kd,Ks) that are all 0's
- *                                  Default: false
- * @constructor
- */
+            const materialCreator = new MaterialCreator(this.resourcePath || path, this.materialOptions);
+            materialCreator.setCrossOrigin(this.crossOrigin);
+            materialCreator.setManager(this.manager);
+            materialCreator.setMaterials(materialsInfo);
+            return materialCreator;
 
+        }
 
-	class MaterialCreator {
+    }
 
-		constructor( baseUrl = '', options = {} ) {
+    /**
+     * Create a new MTLLoader.MaterialCreator
+     * @param baseUrl - Url relative to which textures are loaded
+     * @param options - Set of options on how to construct the materials
+     *                  side: Which side to apply the material
+     *                        THREE.FrontSide (default), THREE.BackSide, THREE.DoubleSide
+     *                  wrap: What type of wrapping to apply for textures
+     *                        THREE.RepeatWrapping (default), THREE.ClampToEdgeWrapping, THREE.MirroredRepeatWrapping
+     *                  normalizeRGB: RGBs need to be normalized to 0-1 from 0-255
+     *                                Default: false, assumed to be already normalized
+     *                  ignoreZeroRGBs: Ignore values of RGBs (Ka,Kd,Ks) that are all 0's
+     *                                  Default: false
+     * @constructor
+     */
 
-			this.baseUrl = baseUrl;
-			this.options = options;
-			this.materialsInfo = {};
-			this.materials = {};
-			this.materialsArray = [];
-			this.nameLookup = {};
-			this.crossOrigin = 'anonymous';
-			this.side = this.options.side !== undefined ? this.options.side : THREE.FrontSide;
-			this.wrap = this.options.wrap !== undefined ? this.options.wrap : THREE.RepeatWrapping;
 
-		}
+    class MaterialCreator {
 
-		setCrossOrigin( value ) {
+        constructor(baseUrl = '', options = {}) {
 
-			this.crossOrigin = value;
-			return this;
+            this.baseUrl = baseUrl;
+            this.options = options;
+            this.materialsInfo = {};
+            this.materials = {};
+            this.materialsArray = [];
+            this.nameLookup = {};
+            this.crossOrigin = 'anonymous';
+            this.side = this.options.side !== undefined ? this.options.side : THREE.FrontSide;
+            this.wrap = this.options.wrap !== undefined ? this.options.wrap : THREE.RepeatWrapping;
 
-		}
+        }
 
-		setManager( value ) {
+        setCrossOrigin(value) {
 
-			this.manager = value;
+            this.crossOrigin = value;
+            return this;
 
-		}
+        }
 
-		setMaterials( materialsInfo ) {
+        setManager(value) {
 
-			this.materialsInfo = this.convert( materialsInfo );
-			this.materials = {};
-			this.materialsArray = [];
-			this.nameLookup = {};
+            this.manager = value;
 
-		}
+        }
 
-		convert( materialsInfo ) {
+        setMaterials(materialsInfo) {
 
-			if ( ! this.options ) return materialsInfo;
-			const converted = {};
+            this.materialsInfo = this.convert(materialsInfo);
+            this.materials = {};
+            this.materialsArray = [];
+            this.nameLookup = {};
 
-			for ( const mn in materialsInfo ) {
+        }
 
-				// Convert materials info into normalized form based on options
-				const mat = materialsInfo[ mn ];
-				const covmat = {};
-				converted[ mn ] = covmat;
+        convert(materialsInfo) {
 
-				for ( const prop in mat ) {
+            if (!this.options) return materialsInfo;
+            const converted = {};
 
-					let save = true;
-					let value = mat[ prop ];
-					const lprop = prop.toLowerCase();
+            for (const mn in materialsInfo) {
 
-					switch ( lprop ) {
+                // Convert materials info into normalized form based on options
+                const mat = materialsInfo[mn];
+                const covmat = {};
+                converted[mn] = covmat;
 
-						case 'kd':
-						case 'ka':
-						case 'ks':
-							// Diffuse color (color under white light) using RGB values
-							if ( this.options && this.options.normalizeRGB ) {
+                for (const prop in mat) {
 
-								value = [ value[ 0 ] / 255, value[ 1 ] / 255, value[ 2 ] / 255 ];
+                    let save = true;
+                    let value = mat[prop];
+                    const lprop = prop.toLowerCase();
 
-							}
+                    switch (lprop) {
 
-							if ( this.options && this.options.ignoreZeroRGBs ) {
+                        case 'kd':
+                        case 'ka':
+                        case 'ks':
+                            // Diffuse color (color under white light) using RGB values
+                            if (this.options && this.options.normalizeRGB) {
 
-								if ( value[ 0 ] === 0 && value[ 1 ] === 0 && value[ 2 ] === 0 ) {
+                                value = [value[0] / 255, value[1] / 255, value[2] / 255];
 
-									// ignore
-									save = false;
+                            }
 
-								}
+                            if (this.options && this.options.ignoreZeroRGBs) {
 
-							}
+                                if (value[0] === 0 && value[1] === 0 && value[2] === 0) {
 
-							break;
+                                    // ignore
+                                    save = false;
 
-						default:
-							break;
+                                }
 
-					}
+                            }
 
-					if ( save ) {
+                            break;
 
-						covmat[ lprop ] = value;
+                        default:
+                            break;
 
-					}
+                    }
 
-				}
+                    if (save) {
 
-			}
+                        covmat[lprop] = value;
 
-			return converted;
+                    }
 
-		}
+                }
 
-		preload() {
+            }
 
-			for ( const mn in this.materialsInfo ) {
+            return converted;
 
-				this.create( mn );
+        }
 
-			}
+        preload() {
 
-		}
+            for (const mn in this.materialsInfo) {
 
-		getIndex( materialName ) {
+                this.create(mn);
 
-			return this.nameLookup[ materialName ];
+            }
 
-		}
+        }
 
-		getAsArray() {
+        getIndex(materialName) {
 
-			let index = 0;
+            return this.nameLookup[materialName];
 
-			for ( const mn in this.materialsInfo ) {
+        }
 
-				this.materialsArray[ index ] = this.create( mn );
-				this.nameLookup[ mn ] = index;
-				index ++;
+        getAsArray() {
 
-			}
+            let index = 0;
 
-			return this.materialsArray;
+            for (const mn in this.materialsInfo) {
 
-		}
+                this.materialsArray[index] = this.create(mn);
+                this.nameLookup[mn] = index;
+                index++;
 
-		create( materialName ) {
+            }
 
-			if ( this.materials[ materialName ] === undefined ) {
+            return this.materialsArray;
 
-				this.createMaterial_( materialName );
+        }
 
-			}
+        create(materialName) {
 
-			return this.materials[ materialName ];
+            if (this.materials[materialName] === undefined) {
 
-		}
+                this.createMaterial_(materialName);
 
-		createMaterial_( materialName ) {
+            }
 
-			// Create material
-			const scope = this;
-			const mat = this.materialsInfo[ materialName ];
-			const params = {
-				name: materialName,
-				side: this.side
-			};
+            return this.materials[materialName];
 
-			function resolveURL( baseUrl, url ) {
+        }
 
-				if ( typeof url !== 'string' || url === '' ) return ''; // Absolute URL
+        createMaterial_(materialName) {
 
-				if ( /^https?:\/\//i.test( url ) ) return url;
-				return baseUrl + url;
+            // Create material
+            const scope = this;
+            const mat = this.materialsInfo[materialName];
+            const params = {
+                name: materialName,
+                side: this.side
+            };
 
-			}
+            function resolveURL(baseUrl, url) {
 
-			function setMapForType( mapType, value ) {
+                if (typeof url !== 'string' || url === '') return ''; // Absolute URL
 
-				if ( params[ mapType ] ) return; // Keep the first encountered texture
+                if (/^https?:\/\//i.test(url)) return url;
+                return baseUrl + url;
 
-				const texParams = scope.getTextureParams( value, params );
-				const map = scope.loadTexture( resolveURL( scope.baseUrl, texParams.url ) );
-				map.repeat.copy( texParams.scale );
-				map.offset.copy( texParams.offset );
-				map.wrapS = scope.wrap;
-				map.wrapT = scope.wrap;
+            }
 
-				if ( mapType === 'map' || mapType === 'emissiveMap' ) {
+            function setMapForType(mapType, value) {
 
-					map.encoding = THREE.sRGBEncoding;
+                if (params[mapType]) return; // Keep the first encountered texture
 
-				}
+                const texParams = scope.getTextureParams(value, params);
+                const map = scope.loadTexture(resolveURL(scope.baseUrl, texParams.url));
+                map.repeat.copy(texParams.scale);
+                map.offset.copy(texParams.offset);
+                map.wrapS = scope.wrap;
+                map.wrapT = scope.wrap;
 
-				params[ mapType ] = map;
+                if (mapType === 'map' || mapType === 'emissiveMap') {
 
-			}
+                    map.encoding = THREE.sRGBEncoding;
 
-			for ( const prop in mat ) {
+                }
 
-				const value = mat[ prop ];
-				let n;
-				if ( value === '' ) continue;
+                params[mapType] = map;
 
-				switch ( prop.toLowerCase() ) {
+            }
 
-					// Ns is material specular exponent
-					case 'kd':
-						// Diffuse color (color under white light) using RGB values
-						params.color = new THREE.Color().fromArray( value ).convertSRGBToLinear();
-						break;
+            for (const prop in mat) {
 
-					case 'ks':
-						// Specular color (color when light is reflected from shiny surface) using RGB values
-						params.specular = new THREE.Color().fromArray( value ).convertSRGBToLinear();
-						break;
+                const value = mat[prop];
+                let n;
+                if (value === '') continue;
 
-					case 'ke':
-						// Emissive using RGB values
-						params.emissive = new THREE.Color().fromArray( value ).convertSRGBToLinear();
-						break;
+                switch (prop.toLowerCase()) {
 
-					case 'map_kd':
-						// Diffuse texture map
-						setMapForType( 'map', value );
-						break;
+                    // Ns is material specular exponent
+                    case 'kd':
+                        // Diffuse color (color under white light) using RGB values
+                        params.color = new THREE.Color().fromArray(value).convertSRGBToLinear();
+                        break;
 
-					case 'map_ks':
-						// Specular map
-						setMapForType( 'specularMap', value );
-						break;
+                    case 'ks':
+                        // Specular color (color when light is reflected from shiny surface) using RGB values
+                        params.specular = new THREE.Color().fromArray(value).convertSRGBToLinear();
+                        break;
 
-					case 'map_ke':
-						// Emissive map
-						setMapForType( 'emissiveMap', value );
-						break;
+                    case 'ke':
+                        // Emissive using RGB values
+                        params.emissive = new THREE.Color().fromArray(value).convertSRGBToLinear();
+                        break;
 
-					case 'norm':
-						setMapForType( 'normalMap', value );
-						break;
+                    case 'map_kd':
+                        // Diffuse texture map
+                        setMapForType('map', value);
+                        break;
 
-					case 'map_bump':
-					case 'bump':
-						// Bump texture map
-						setMapForType( 'bumpMap', value );
-						break;
+                    case 'map_ks':
+                        // Specular map
+                        setMapForType('specularMap', value);
+                        break;
 
-					case 'map_d':
-						// Alpha map
-						setMapForType( 'alphaMap', value );
-						params.transparent = true;
-						break;
+                    case 'map_ke':
+                        // Emissive map
+                        setMapForType('emissiveMap', value);
+                        break;
 
-					case 'ns':
-						// The specular exponent (defines the focus of the specular highlight)
-						// A high exponent results in a tight, concentrated highlight. Ns values normally range from 0 to 1000.
-						params.shininess = parseFloat( value );
-						break;
+                    case 'norm':
+                        setMapForType('normalMap', value);
+                        break;
 
-					case 'd':
-						n = parseFloat( value );
+                    case 'map_bump':
+                    case 'bump':
+                        // Bump texture map
+                        setMapForType('bumpMap', value);
+                        break;
 
-						if ( n < 1 ) {
+                    case 'map_d':
+                        // Alpha map
+                        setMapForType('alphaMap', value);
+                        params.transparent = true;
+                        break;
 
-							params.opacity = n;
-							params.transparent = true;
+                    case 'ns':
+                        // The specular exponent (defines the focus of the specular highlight)
+                        // A high exponent results in a tight, concentrated highlight. Ns values normally range from 0 to 1000.
+                        params.shininess = parseFloat(value);
+                        break;
 
-						}
+                    case 'd':
+                        n = parseFloat(value);
 
-						break;
+                        if (n < 1) {
 
-					case 'tr':
-						n = parseFloat( value );
-						if ( this.options && this.options.invertTrProperty ) n = 1 - n;
+                            params.opacity = n;
+                            params.transparent = true;
 
-						if ( n > 0 ) {
+                        }
 
-							params.opacity = 1 - n;
-							params.transparent = true;
+                        break;
 
-						}
+                    case 'tr':
+                        n = parseFloat(value);
+                        if (this.options && this.options.invertTrProperty) n = 1 - n;
 
-						break;
+                        if (n > 0) {
 
-					default:
-						break;
+                            params.opacity = 1 - n;
+                            params.transparent = true;
 
-				}
+                        }
 
-			}
+                        break;
 
-			this.materials[ materialName ] = new THREE.MeshPhongMaterial( params );
-			return this.materials[ materialName ];
+                    default:
+                        break;
 
-		}
+                }
 
-		getTextureParams( value, matParams ) {
+            }
 
-			const texParams = {
-				scale: new THREE.Vector2( 1, 1 ),
-				offset: new THREE.Vector2( 0, 0 )
-			};
-			const items = value.split( /\s+/ );
-			let pos;
-			pos = items.indexOf( '-bm' );
+            this.materials[materialName] = new THREE.MeshPhongMaterial(params);
+            return this.materials[materialName];
 
-			if ( pos >= 0 ) {
+        }
 
-				matParams.bumpScale = parseFloat( items[ pos + 1 ] );
-				items.splice( pos, 2 );
+        getTextureParams(value, matParams) {
 
-			}
+            const texParams = {
+                scale: new THREE.Vector2(1, 1),
+                offset: new THREE.Vector2(0, 0)
+            };
+            const items = value.split(/\s+/);
+            let pos;
+            pos = items.indexOf('-bm');
 
-			pos = items.indexOf( '-s' );
+            if (pos >= 0) {
 
-			if ( pos >= 0 ) {
+                matParams.bumpScale = parseFloat(items[pos + 1]);
+                items.splice(pos, 2);
 
-				texParams.scale.set( parseFloat( items[ pos + 1 ] ), parseFloat( items[ pos + 2 ] ) );
-				items.splice( pos, 4 ); // we expect 3 parameters here!
+            }
 
-			}
+            pos = items.indexOf('-s');
 
-			pos = items.indexOf( '-o' );
+            if (pos >= 0) {
 
-			if ( pos >= 0 ) {
+                texParams.scale.set(parseFloat(items[pos + 1]), parseFloat(items[pos + 2]));
+                items.splice(pos, 4); // we expect 3 parameters here!
 
-				texParams.offset.set( parseFloat( items[ pos + 1 ] ), parseFloat( items[ pos + 2 ] ) );
-				items.splice( pos, 4 ); // we expect 3 parameters here!
+            }
 
-			}
+            pos = items.indexOf('-o');
 
-			texParams.url = items.join( ' ' ).trim();
-			return texParams;
+            if (pos >= 0) {
 
-		}
+                texParams.offset.set(parseFloat(items[pos + 1]), parseFloat(items[pos + 2]));
+                items.splice(pos, 4); // we expect 3 parameters here!
 
-		loadTexture( url, mapping, onLoad, onProgress, onError ) {
+            }
 
-			const manager = this.manager !== undefined ? this.manager : THREE.DefaultLoadingManager;
-			let loader = manager.getHandler( url );
+            texParams.url = items.join(' ').trim();
+            return texParams;
 
-			if ( loader === null ) {
+        }
 
-				loader = new THREE.TextureLoader( manager );
+        loadTexture(url, mapping, onLoad, onProgress, onError) {
 
-			}
+            const manager = this.manager !== undefined ? this.manager : THREE.DefaultLoadingManager;
+            let loader = manager.getHandler(url);
 
-			if ( loader.setCrossOrigin ) loader.setCrossOrigin( this.crossOrigin );
-			const texture = loader.load( url, onLoad, onProgress, onError );
-			if ( mapping !== undefined ) texture.mapping = mapping;
-			return texture;
+            if (loader === null) {
 
-		}
+                loader = new THREE.TextureLoader(manager);
 
-	}
+            }
 
-	THREE.MTLLoader = MTLLoader;
+            if (loader.setCrossOrigin) loader.setCrossOrigin(this.crossOrigin);
+            const texture = loader.load(url, onLoad, onProgress, onError);
+            if (mapping !== undefined) texture.mapping = mapping;
+            return texture;
 
-} )();
+        }
+
+    }
+
+    THREE.MTLLoader = MTLLoader;
+
+})();

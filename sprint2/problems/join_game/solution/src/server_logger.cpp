@@ -14,24 +14,24 @@ void server_logger::InitLogging() {
     //logging::core::get()->add_global_attribute("TimeStamp", attrs::local_clock());
 
     logging::add_console_log(
-            std::clog,
-            keywords::format = &JsonFormatter,
-            keywords::auto_flush = true
+        std::clog,
+        keywords::format = &JsonFormatter,
+        keywords::auto_flush = true
     );
 
 #ifdef ENABLE_FILE_LOG
-         logging::add_file_log(
-             // NB: -> Add file timestamp
-             keywords::file_name = "server_%N.log",
-             keywords::format = &bstlog::JsonFormatter,
-             keywords::open_mode = std::ios_base::app | std::ios_base::out,
-             keywords::rotation_size = 10 * 1024 * 1024,
-             keywords::time_based_rotation = boost::log::sinks::file::rotation_at_time_point(12, 0, 0)
-     );
+    logging::add_file_log(
+        // NB: -> Add file timestamp
+        keywords::file_name = "server_%N.log",
+        keywords::format = &bstlog::JsonFormatter,
+        keywords::open_mode = std::ios_base::app | std::ios_base::out,
+        keywords::rotation_size = 10 * 1024 * 1024,
+        keywords::time_based_rotation = boost::log::sinks::file::rotation_at_time_point(12, 0, 0)
+);
 #endif
 }
 
-void server_logger::JsonFormatter(logging::record_view const &rec, logging::formatting_ostream &strm) {
+void server_logger::JsonFormatter(logging::record_view const& rec, logging::formatting_ostream& strm) {
     json::object msg;
 
     auto ts = rec[timestamp];
