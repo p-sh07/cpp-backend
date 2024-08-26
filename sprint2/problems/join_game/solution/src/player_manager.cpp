@@ -15,15 +15,15 @@ Players::Players(GamePtr game)
     : game_(std::move(game)) {
 }
 
-Player& Players::Add(const model::Dog& dog, const model::Session& session) {
-    Player& player = players_.emplace_back(next_player_id_, &session, &dog);
+Player& Players::Add(const model::Dog* dog, const model::Session* session) {
+    Player& player = players_.emplace_back(next_player_id_, session, dog);
 
     //update indices
     auto token_result = token_to_player_.emplace(std::move(GenerateToken()), next_player_id_);
     player_to_token_[&player] = token_result.first;
 
     //post-increment next player id after final use here
-    map_dog_id_to_player_[session.GetMapId()][dog.GetId()] = next_player_id_++;
+    map_dog_id_to_player_[session->GetMapId()][dog->GetId()] = next_player_id_++;
 
     return player;
 }

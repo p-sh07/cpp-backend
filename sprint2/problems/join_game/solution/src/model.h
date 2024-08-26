@@ -201,7 +201,7 @@ class Session {
     }
     //At construction there are 0 dogs. Session is always on 1 map
     //When a player is added, he gets a new dog to control
-    Dog& AddDog(std::string name);
+    Dog* AddDog(std::string name);
 
  private:
     const size_t id_;
@@ -227,7 +227,7 @@ class Game {
     const Map* FindMap(const Map::Id& id) const noexcept;
 
     //std::shared_ptr<Session> AddSession(const Map::Id& id);
-    Session& JoinSession(const Map::Id& id);
+    Session* JoinSession(const Map::Id& id);
 
  private:
     size_t next_session_id_ = 0;

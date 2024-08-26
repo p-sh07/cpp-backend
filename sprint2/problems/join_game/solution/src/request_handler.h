@@ -106,12 +106,11 @@ class ServerError : public std::runtime_error {
 
 };
 
-//TODO: inheritance
 class ApiError : public ServerError {
  public:
     using ServerError::ServerError;
 
-    std::string err_json() const {
+    std::string print_json() const {
         auto err_info = GetInfo(ec_);
         json::value jv{
             {"code", err_info.code},
@@ -202,6 +201,7 @@ class ApiHandler : public std::enable_shared_from_this<ApiHandler> {
     void operator()(http::request<Body, http::basic_fields<Allocator>>&& req, Send&& send);
 
  private:
+    static constexpr std::string_view bearer_str_{"Bearer "sv};
     static constexpr std::string_view map_list_prefix_{"/api/v1/maps"sv};
     static constexpr std::string_view join_game_prefix_{"/api/v1/game/join"sv};
     static constexpr std::string_view player_list_prefix_{"/api/v1/game/players"sv};
@@ -213,6 +213,8 @@ class ApiHandler : public std::enable_shared_from_this<ApiHandler> {
     std::optional<model::Map::Id> ExtractMapId(std::string_view map_list_prefix, std::string_view uri);
     StringResponse HandleApiRequest(const StringRequest& req);
     json::object MakePlayerListJson(const std::vector<app::PlayerPtr>& plist) const;
+
+    StringResponse ReportApiError(const ApiError& err, unsigned version, bool keep_alive) const;
     StringResponse ReportApiError(unsigned version, bool keep_alive) const;
 };
 
@@ -234,6 +236,9 @@ void ApiHandler::operator()(http::request<Body, http::basic_fields<Allocator>>&&
         };
 
         return net::dispatch(strand_, handle);
+    }
+    catch(ApiError& err) {
+        send(ReportApiError(err, version, keep_alive));
     }
     catch(...) {
         send(ReportApiError(version, keep_alive));
@@ -275,7 +280,6 @@ void FileHandler::operator()(http::request<Body, http::basic_fields<Allocator>>&
             },
             HandleFileRequest(req));
     } catch(...) {
-        //TODO: Error handling with throw?
         send(ReportFileError(version, keep_alive));
     }
 }

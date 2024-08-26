@@ -156,14 +156,31 @@ StringResponse ApiHandler::HandleApiRequest(const StringRequest& req) {
   // ->Game interaction
     // ->Join game
     if(request_uri == join_game_prefix_) {
+        if(req.method() != http::verb::post) {
+            throw ApiError(ErrCode::join_game_bad_method);
+        }
+
         json::object player_data = json::parse(req.body()).as_object();
+        std::string_view map_id_str;
+        std::string player_dog_name;
 
-        model::Map::Id map_id(std::string(player_data.at("mapId").as_string()));
-        std::string player_dog_name = std::string(player_data.at("userName").as_string());
+        try {
+            map_id_str = player_data.at("mapId").as_string();
+            player_dog_name = std::string(player_data.at("userName").as_string());
+        } catch (...) {
+            throw ApiError(ErrCode::join_game_parse_err);
+        }
 
-        auto& session = game_->JoinSession(map_id);
-        auto& dog = session.AddDog(player_dog_name);
-        auto& player = players_->Add(dog, session);
+        if(player_dog_name.empty()) {
+            throw ApiError(ErrCode::invalid_player_name);
+        }
+
+        auto session = game_->JoinSession(model::Map::Id(std::string(map_id_str)));
+        if(!session) {
+            throw ApiError(ErrCode::map_not_found);
+        }
+        auto dog = session->AddDog(player_dog_name);
+        auto player = players_->Add(dog, session);
 
         // <-Make response, send player token
         auto token = players_->GetToken(player);
@@ -177,21 +194,35 @@ StringResponse ApiHandler::HandleApiRequest(const StringRequest& req) {
         resp.set(http::field::cache_control, "no-cache");
 
         return resp;
-        //TODO: Handle Errors
     }
 
     // ->Get player list
     if(request_uri == player_list_prefix_) {
+        if(req.method() != http::verb::get || req.method() != http::verb::head) {
+            throw ApiError(ErrCode::player_list_bad_method);
+        }
+
         // -> Authorise player
-        auto auth_str = req.at(http::field::authorization);
+        std::string_view auth_str;
+        try {
+            auth_str = req.at(http::field::authorization);
+        } catch (...) {
+            throw ApiError(ErrCode::invalid_token);
+        }
 
         //check starts with Bearer
-        std::string_view bearer = "Bearer "sv;
-        if(auth_str.starts_with(bearer)) {
-            auth_str.remove_prefix(bearer.size());
+        //TODO: add token verification
+        if( auth_str.size() <= bearer_str_.size() || !auth_str.starts_with(bearer_str_) /*||*/) {
+            throw ApiError(ErrCode::invalid_token);
         }
+        auth_str.remove_prefix(bearer_str_.size());
         const app::Token token{std::string(auth_str)};
+
         auto player = players_->GetByToken(token);
+        if(!player) {
+            throw ApiError(ErrCode::unknown_token);
+        }
+
         auto json_body = MakePlayerListJson(players_->GetSessionPlayerList(*player));
 
         StringResponse resp = to_html(http::status::ok, serialize(json_body));
@@ -199,7 +230,6 @@ StringResponse ApiHandler::HandleApiRequest(const StringRequest& req) {
 
         return resp;
     }
-
 
     // *Error: Bad request
     return to_html(http::status::bad_request,
@@ -219,9 +249,19 @@ json::object ApiHandler::MakePlayerListJson(const std::vector<app::PlayerPtr>& p
     return result;
 }
 
+StringResponse ApiHandler::ReportApiError(const ApiError& err, unsigned version, bool keep_alive) const {
+    auto resp = MakeStringResponse(err.status(), err.print_json(), version,
+                       keep_alive, ContentType::APP_JSON);
+    resp.set(http::field::cache_control, "no-cache"s);
+
+    if(err.ec() == ErrCode::join_game_bad_method) {
+        resp.set(http::field::allow, "POST"s);
+    }
+    return resp;
+}
+
 StringResponse ApiHandler::ReportApiError(unsigned version, bool keep_alive) const {
-    //TODO: implement
-    return {};
+    return MakeStringResponse(http::status::unknown, "Api handling error occured"sv, version, keep_alive);
 }
 
 //======================= File Request Handler ======================

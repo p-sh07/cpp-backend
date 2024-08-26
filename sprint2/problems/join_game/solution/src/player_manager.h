@@ -51,7 +51,7 @@ class Players {
  public:
     explicit Players(GamePtr game);
 
-    Player& Add(const model::Dog& dog, const model::Session& session);
+    Player& Add(const model::Dog* dog, const model::Session* session);
 
     PlayerPtr GetByToken(const Token& token);
     PlayerPtr GetByMapDogId(const model::Map::Id& map_id, size_t dog_id);

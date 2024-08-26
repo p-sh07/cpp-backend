@@ -33,8 +33,8 @@ Session::Session(size_t id, Map::Id map_id) noexcept
     , map_id_(std::move(map_id)) {
 }
 
-Dog& Session::AddDog(std::string name) {
-    return dogs_.emplace_back(next_dog_id_++, std::move(name));
+Dog* Session::AddDog(std::string name) {
+    return &dogs_.emplace_back(next_dog_id_++, std::move(name));
 }
 
 void Game::AddMap(Map map) {
@@ -58,25 +58,25 @@ const Map* Game::FindMap(const Map::Id& id) const noexcept {
     return nullptr;
 }
 
-Session& Game::JoinSession(const Map::Id& id) {
+Session* Game::JoinSession(const Map::Id& id) {
     //if session exists and is not yet full
     //TODO: sessions by map, check session full
     if(!FindMap(id)) {
-        throw std::runtime_error("Map not found when joining session");
+        return nullptr;
     }
 
     //No session for map
     auto session_it = map_to_sessions_.find(id);
     if(session_it == map_to_sessions_.end()) {
         try {
-            return sessions_.emplace_back(std::move(MakeNewSessionOnMap(id)));
+            return &sessions_.emplace_back(std::move(MakeNewSessionOnMap(id)));
         } catch(...) {
             map_to_sessions_.erase(id);
             throw;
         }
     }
     //Session exists
-    return sessions_.at(session_it->second);
+    return &sessions_.at(session_it->second);
 }
 
 std::optional<size_t> Game::GetMapIndex(const Map::Id& id) const {
