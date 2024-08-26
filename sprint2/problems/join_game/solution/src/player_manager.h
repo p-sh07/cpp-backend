@@ -2,10 +2,9 @@
 // Created by Pavel on 22.08.24.
 //
 #pragma once
-#include <list>
+#include <deque>
 #include <memory>
 #include <random>
-#include <deque>
 #include <unordered_map>
 #include <format>
 
@@ -18,16 +17,16 @@ struct TokenTag {};
 
 
 namespace app {
-using SessionPtr = std::shared_ptr<model::Session>;
-using DogPtr = std::shared_ptr<model::Dog>;
+using SessionPtr = const model::Session*;
+using DogPtr = const model::Dog*;
 
 class Player {
  public:
     Player(size_t id, SessionPtr session, DogPtr dog);
 
-    inline size_t GetId() const {
-        return id_;
-    }
+    inline size_t GetId() const { return id_; }
+    inline const model::Dog* GetDog() const { return dog_; };
+    inline const model::Session* GetSession() const { return session_; };
 
  private:
     const size_t id_ = 0;
@@ -44,7 +43,7 @@ struct TokenHasher {
     }
 };
 
-using GamePtr = std::shared_ptr<model::Game>;
+using GamePtr = const std::shared_ptr<model::Game>;
 using PlayerPtr = Player*;
 using TokenPtr = const Token*;
 
@@ -52,25 +51,28 @@ class Players {
  public:
     explicit Players(GamePtr game);
 
-    Player& Add(model::Dog& dog, model::Session& session);
+    Player& Add(const model::Dog& dog, const model::Session& session);
 
-    PlayerPtr Get(const Token& token);
-    PlayerPtr Get(const model::Map::Id& map_id, size_t dog_id);
+    PlayerPtr GetByToken(const Token& token);
+    PlayerPtr GetByMapDogId(const model::Map::Id& map_id, size_t dog_id);
     TokenPtr GetToken(const Player& player);
+
+    std::vector<PlayerPtr> GetSessionPlayerList(const Player& player);
 
  private:
     using PlayerId = size_t;
-    using TokenId = size_t;
+    using TokenIt = std::unordered_map<Token, PlayerId>::iterator;
     using DogId = size_t;
 
     //TODO: use shared_ptr? Use iterator for easier delete?
     GamePtr game_;
     std::deque<Player> players_;
-    std::deque<Token> tokens_;
+
+    PlayerId next_player_id_ = 0;
 
     //Indices for search
-    std::unordered_map<TokenPtr, PlayerId> token_to_player_;
-    std::unordered_map<PlayerPtr, TokenId> player_to_token_;
+    std::unordered_map<Token, PlayerId, TokenHasher> token_to_player_;
+    std::unordered_map<PlayerPtr, TokenIt> player_to_token_;
 
     using MapDogIdToPlayer = std::unordered_map<model::Map::Id, std::unordered_map<DogId, PlayerId>, model::MapIdHasher>;
     MapDogIdToPlayer map_dog_id_to_player_;

@@ -1,5 +1,5 @@
 #include "sdk.h"
-//
+
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/signal_set.hpp>
 #include <iostream>
@@ -59,6 +59,8 @@ int main(int argc, const char*argv[]) {
         const auto num_threads = std::thread::hardware_concurrency();
         net::io_context ioc(static_cast<int>(num_threads));
         auto api_strand = net::make_strand(ioc);
+
+//        net::dispatch(api_strand, )
 
         // 3. Добавляем асинхронный обработчик сигналов SIGINT и SIGTERM
         net::signal_set signals(ioc, SIGINT, SIGTERM);

@@ -13,6 +13,7 @@
 #include "json_loader.h"
 
 namespace http_handler {
+
 namespace net = boost::asio;
 namespace sys = boost::system;
 namespace fs = std::filesystem;
@@ -63,26 +64,110 @@ struct ContentType {
     constexpr static std::string_view AUDIO_MP3 = "audio/mpeg"sv;
 };
 
-class ApiError : public std::runtime_error {
-    using std::runtime_error::runtime_error;
+enum class ErrCode {
+    bad_method,
+    //join_game:
+    map_not_found,
+    invalid_player_name,
+    join_game_parse_err,
+    join_game_bad_method,
+    //player_list:
+    invalid_token,
+    unknown_token,
+    player_list_bad_method,
 };
 
-class FileError : public std::runtime_error {
-    using std::runtime_error::runtime_error;
+struct ErrInfo {
+    http::status status;
+    std::string_view code = "";
+    std::string_view msg = "";
 };
 
 class ServerError : public std::runtime_error {
  public:
-    ServerError(http::status status, std::string_view message)
-        : status_(status)
-        , runtime_error(message.data()) {
+    ServerError(ErrCode ec)
+        : ec_(ec)
+        , runtime_error("Server Error") {
     }
 
-    inline http::status status() const {
-        return status_;
+    virtual ErrCode ec() const { return ec_; }
+    virtual http::status status() const { return GetInfo(ec_).status; }
+    virtual std::string_view message() const { return GetInfo(ec_).msg; }
+
+ protected:
+    ErrCode ec_;
+
+    virtual ErrInfo GetInfo(ErrCode ec) const {
+        switch(ec) {
+            case ErrCode::bad_method:
+                return {http::status::method_not_allowed, ""sv, "Invalid method"sv};
+        }
     }
+
+};
+
+//TODO: inheritance
+class ApiError : public ServerError {
+ public:
+    using ServerError::ServerError;
+
+    std::string err_json() const {
+        auto err_info = GetInfo(ec_);
+        json::value jv{
+            {"code", err_info.code},
+            {"message", err_info.msg}
+        };
+        return json::serialize(jv);
+    }
+
  private:
-    http::status status_;
+
+    ErrInfo GetInfo(ErrCode ec) const override {
+        switch(ec) {
+//            case ErrCode::bad_method:
+//                break;
+            case ErrCode::map_not_found:
+                return {http::status::not_found,
+                        "mapNotFound"sv
+                            "Map not found"sv};
+                break;
+            case ErrCode::invalid_player_name:
+                return {http::status::bad_request,
+                        "invalidArgument"sv,
+                        "Invalid name"sv};
+                break;
+            case ErrCode::join_game_parse_err:
+                return {http::status::bad_request,
+                        "invalidArgument"sv,
+                        "Join game request parse error"sv};
+                break;
+            case ErrCode::join_game_bad_method:
+                return {http::status::method_not_allowed,
+                        "invalidMethod"sv,
+                        "Only POST method is expected"sv};
+                break;
+            case ErrCode::invalid_token:
+                return {http::status::unauthorized,
+                        "invalidToken"sv,
+                        "Authorization header is missing"sv};
+                break;
+            case ErrCode::unknown_token:
+                return {http::status::unauthorized,
+                        "unknownToken"sv,
+                        "Player token has not been found"sv};
+                break;
+            case ErrCode::player_list_bad_method:
+                return {http::status::method_not_allowed,
+                        "invalidMethod"sv,
+                        "Invalid method in Player list request"sv};
+                break;
+        }
+    }
+};
+
+class FileError : public ServerError {
+ public:
+    using ServerError::ServerError;
 };
 
 // Определить MIME-тип из расширения запрашиваемого файла
@@ -101,11 +186,14 @@ bool IsSubPath(fs::path path, fs::path base);
 //Конвертирует URL-кодированную строку в путь
 fs::path ConvertFromUrl(std::string_view url);
 
-//======================= Api Request Handler ======================
+
+//===================================================================
+//======================= Api Request Handler =======================
+
 class ApiHandler : public std::enable_shared_from_this<ApiHandler> {
  public:
     using Strand = net::strand<net::io_context::executor_type>;
-    ApiHandler(Strand& api_strand, std::shared_ptr<model::Game> game, std::shared_ptr<app::Players> players);
+    ApiHandler(Strand api_strand, std::shared_ptr<model::Game> game, std::shared_ptr<app::Players> players);
 
     ApiHandler(const ApiHandler&) = delete;
     ApiHandler& operator=(const ApiHandler&) = delete;
@@ -115,13 +203,16 @@ class ApiHandler : public std::enable_shared_from_this<ApiHandler> {
 
  private:
     static constexpr std::string_view map_list_prefix_{"/api/v1/maps"sv};
+    static constexpr std::string_view join_game_prefix_{"/api/v1/game/join"sv};
+    static constexpr std::string_view player_list_prefix_{"/api/v1/game/players"sv};
 
-    Strand& strand_;
+    Strand strand_;
     std::shared_ptr<model::Game> game_;
     std::shared_ptr<app::Players> players_;
 
     std::optional<model::Map::Id> ExtractMapId(std::string_view map_list_prefix, std::string_view uri);
     StringResponse HandleApiRequest(const StringRequest& req);
+    json::object MakePlayerListJson(const std::vector<app::PlayerPtr>& plist) const;
     StringResponse ReportApiError(unsigned version, bool keep_alive) const;
 };
 
@@ -149,6 +240,8 @@ void ApiHandler::operator()(http::request<Body, http::basic_fields<Allocator>>&&
     }
 }
 
+
+//===================================================================
 //======================= File Request Handler ======================
 class FileHandler : public std::enable_shared_from_this<FileHandler> {
  public:
@@ -187,7 +280,9 @@ void FileHandler::operator()(http::request<Body, http::basic_fields<Allocator>>&
     }
 }
 
-//======================= Request Handling Interface ==========================
+
+//===================================================================
+//======================= Request Handling Interface ================
 class RequestHandler {
  public:
     using Strand = net::strand<net::io_context::executor_type>;
@@ -219,8 +314,8 @@ class RequestHandler {
 template<typename Request>
 void RequestHandler::AssertRequestValid(const Request& req) {
     // Unknown method
-    if(req.method() != http::verb::get && req.method() != http::verb::head) {
-        throw ServerError(http::status::method_not_allowed, "Invalid method"sv);
+    if(req.method() != http::verb::get && req.method() != http::verb::head && req.method() != http::verb::post) {
+        throw ServerError(ErrCode::bad_method);
     }
 
     //NB: Can add other cases:
@@ -235,7 +330,6 @@ void RequestHandler::operator()(tcp::endpoint&&, http::request<Body, http::basic
         //Throws ServerError if the request cannot be processed
         AssertRequestValid(req);
 
-//            std::string_view uri = ;
         if(req.target().starts_with(api_prefix_)) {
             return (*api_handler_)(std::move(req), send);
         }

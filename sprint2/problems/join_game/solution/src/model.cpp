@@ -22,20 +22,19 @@ void Map::AddOffice(Office office) {
 }
 
 //=================== Dog =================
-Dog::Dog(size_t id)
-    : id_(id) {
+Dog::Dog(size_t id, std::string name)
+    : lbl_{id, std::move(name)} {
 }
 
 //=================== Session =================
 
-Session::Session(size_t id, const Map::Id map_id, const Map*game_map) noexcept
+Session::Session(size_t id, Map::Id map_id) noexcept
     : id_(id)
-    , map_id_(map_id)
-    , map_(game_map) {
+    , map_id_(std::move(map_id)) {
 }
 
-Dog& Session::AddDog() {
-    return dogs_.emplace_back(next_dog_id_++);
+Dog& Session::AddDog(std::string name) {
+    return dogs_.emplace_back(next_dog_id_++, std::move(name));
 }
 
 void Game::AddMap(Map map) {
@@ -52,7 +51,7 @@ void Game::AddMap(Map map) {
     }
 }
 
-const Map*Game::FindMap(const Map::Id& id) const noexcept {
+const Map* Game::FindMap(const Map::Id& id) const noexcept {
     if(auto it = map_id_to_index_.find(id); it != map_id_to_index_.end()) {
         return &maps_.at(it->second);
     }
@@ -87,9 +86,9 @@ std::optional<size_t> Game::GetMapIndex(const Map::Id& id) const {
     return std::nullopt;
 }
 
-Session Game::MakeNewSessionOnMap(const Map::Id& id) {
-    map_to_sessions_[id] = sessions_.size();
-    return Session(sessions_.size(), id, FindMap(id));
+Session Game::MakeNewSessionOnMap(Map::Id map_id) {
+    map_to_sessions_[map_id] = next_session_id_++;
+    return {next_session_id_, std::move(map_id)};
 }
 
 

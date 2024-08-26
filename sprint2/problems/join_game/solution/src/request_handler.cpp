@@ -113,7 +113,7 @@ fs::path ConvertFromUrl(std::string_view url) {
 }
 
 //======================= Api Request Handler ======================
-ApiHandler::ApiHandler(Strand& api_strand, std::shared_ptr<model::Game> game, std::shared_ptr<app::Players> players)
+ApiHandler::ApiHandler(Strand api_strand, std::shared_ptr<model::Game> game, std::shared_ptr<app::Players> players)
     : strand_(api_strand)
     , game_(std::move(game))
     , players_(std::move(players)) {
@@ -136,12 +136,12 @@ StringResponse ApiHandler::HandleApiRequest(const StringRequest& req) {
 
     std::string_view request_uri = req.target();
 
-    //Request for map list
+    // ->Request for map list
     if(request_uri == map_list_prefix_) {
         return to_html(http::status::ok, json_loader::PrintMapList(*game_));
     }
 
-    //Request a map - contains full prefix for map list
+    // ->Request a map - contains full prefix for map list
     if(auto map_id_opt = ExtractMapId(request_uri, map_list_prefix_)) {
         const auto map = game_->FindMap(map_id_opt.value());
 
@@ -153,10 +153,70 @@ StringResponse ApiHandler::HandleApiRequest(const StringRequest& req) {
         return to_html(http::status::ok, json_loader::PrintMap(*map));
     }
 
-    //Bad request
+  // ->Game interaction
+    // ->Join game
+    if(request_uri == join_game_prefix_) {
+        json::object player_data = json::parse(req.body()).as_object();
+
+        model::Map::Id map_id(std::string(player_data.at("mapId").as_string()));
+        std::string player_dog_name = std::string(player_data.at("userName").as_string());
+
+        auto& session = game_->JoinSession(map_id);
+        auto& dog = session.AddDog(player_dog_name);
+        auto& player = players_->Add(dog, session);
+
+        // <-Make response, send player token
+        auto token = players_->GetToken(player);
+
+        json::object json_body = {
+            {"authToken", **token},
+            {"playerId", player.GetId()}
+        };
+
+        StringResponse resp = to_html(http::status::ok, serialize(json_body));
+        resp.set(http::field::cache_control, "no-cache");
+
+        return resp;
+        //TODO: Handle Errors
+    }
+
+    // ->Get player list
+    if(request_uri == player_list_prefix_) {
+        // -> Authorise player
+        auto auth_str = req.at(http::field::authorization);
+
+        //check starts with Bearer
+        std::string_view bearer = "Bearer "sv;
+        if(auth_str.starts_with(bearer)) {
+            auth_str.remove_prefix(bearer.size());
+        }
+        const app::Token token{std::string(auth_str)};
+        auto player = players_->GetByToken(token);
+        auto json_body = MakePlayerListJson(players_->GetSessionPlayerList(*player));
+
+        StringResponse resp = to_html(http::status::ok, serialize(json_body));
+        resp.set(http::field::cache_control, "no-cache");
+
+        return resp;
+    }
+
+
+    // *Error: Bad request
     return to_html(http::status::bad_request,
                    json_loader::PrintErrorMsgJson("badRequest", "Bad request")
     );
+}
+
+json::object ApiHandler::MakePlayerListJson(const std::vector<app::PlayerPtr>& plist) const {
+    json::object result;
+    for(const auto& p_ptr : plist) {
+        result.emplace(std::to_string(p_ptr->GetId()),
+                        json::object{
+                            {"name", std::string(p_ptr->GetDog()->GetName())}
+                        }
+        );
+    }
+    return result;
 }
 
 StringResponse ApiHandler::ReportApiError(unsigned version, bool keep_alive) const {
@@ -217,7 +277,7 @@ StringResponse FileHandler::ReportFileError(unsigned version, bool keep_alive) c
 StringResponse RequestHandler::ReportServerError(const ServerError& err, unsigned version, bool keep_alive) const {
     auto error_report = MakeStringResponse(err.status(), err.what(), version, keep_alive);
     if(err.status() == http::status::method_not_allowed) {
-        error_report.set(http::field::allow, "GET, HEAD"sv);
+        error_report.set(http::field::allow, "GET, HEAD, POST"sv);
     }
 
     //NB: Can add other cases:

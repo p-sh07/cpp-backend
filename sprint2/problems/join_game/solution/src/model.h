@@ -113,7 +113,7 @@ class Office {
     Id id_;
     Point position_;
     Offset offset_;
-}
+};
 
 class Map {
  public:
@@ -171,39 +171,45 @@ class Map {
 
 class Dog {
  public:
-    explicit Dog(size_t id);
+    Dog(size_t id, std::string name);
 
-    inline size_t GetId() const {
-        return id_;
-    }
+    inline std::string_view GetName() const { return lbl_.name_tag; }
+    inline size_t GetId() const { return lbl_.id; }
 
  private:
-    const size_t id_;
+    struct Label {
+        size_t id;
+        std::string name_tag;
+    };
+
+    const Label lbl_;
     //what is a dog?
 };
 
 class Session {
  public:
-    explicit Session(size_t id, const Map::Id map_id, const Map*game_map) noexcept;
+    Session(size_t id, Map::Id map_id) noexcept;
 
     inline size_t GetId() const {
         return id_;
     }
 
-    inline Map::Id GetMapId() const {
-        return map_id_;
+    inline const Map::Id& GetMapId() const { return map_id_; };
+
+    const std::deque<Dog>& GetAllDogs() const {
+        return dogs_;
     }
     //At construction there are 0 dogs. Session is always on 1 map
     //When a player is added, he gets a new dog to control
-    Dog& AddDog();
+    Dog& AddDog(std::string name);
 
  private:
     const size_t id_;
     const Map::Id map_id_;
-    const Map*map_;
 
     size_t next_dog_id_ = 0;
-    std::vector<Dog> dogs_;
+    std::deque<Dog> dogs_;
+
 };
 
 using MapIdHasher = util::TaggedHasher<Map::Id>;
@@ -218,11 +224,14 @@ class Game {
         return maps_;
     }
 
-    const Map*FindMap(const Map::Id& id) const noexcept;
+    const Map* FindMap(const Map::Id& id) const noexcept;
+
     //std::shared_ptr<Session> AddSession(const Map::Id& id);
     Session& JoinSession(const Map::Id& id);
 
  private:
+    size_t next_session_id_ = 0;
+
     using MapIdToIndex = std::unordered_map<Map::Id, size_t, MapIdHasher>;
     using MapIdToSessions = std::unordered_map<Map::Id, size_t, MapIdHasher>;
 
@@ -234,7 +243,7 @@ class Game {
     MapIdToSessions map_to_sessions_;
     MapIdToIndex map_id_to_index_;
 
-    Session MakeNewSessionOnMap(const Map::Id& id);
+    Session MakeNewSessionOnMap(Map::Id id);
 
 };
 

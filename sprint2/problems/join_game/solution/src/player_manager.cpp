@@ -15,28 +15,25 @@ Players::Players(GamePtr game)
     : game_(std::move(game)) {
 }
 
-Player& Players::Add(model::Dog& dog, model::Session& session) {
-    auto player_id = players_.size();
-    Player& player = players_.emplace_back(player_id, std::shared_ptr<model::Session>(&session), std::shared_ptr<model::Dog>(&dog));
+Player& Players::Add(const model::Dog& dog, const model::Session& session) {
+    Player& player = players_.emplace_back(next_player_id_, &session, &dog);
 
     //update indices
-    auto token_id = tokens_.size();
-    auto& token = tokens_.emplace_back(std::move(GenerateToken()));
+    auto token_result = token_to_player_.emplace(std::move(GenerateToken()), next_player_id_);
+    player_to_token_[&player] = token_result.first;
 
-    token_to_player_[&token] = player_id;
-    player_to_token_[&player] = token_id;
-
-    map_dog_id_to_player_[session.GetMapId()][dog.GetId()] = player_id;
+    //post-increment next player id after final use here
+    map_dog_id_to_player_[session.GetMapId()][dog.GetId()] = next_player_id_++;
 
     return player;
 }
 
-PlayerPtr Players::Get(const Token& token) {
-    auto it = token_to_player_.find(&token);
+PlayerPtr Players::GetByToken(const Token& token) {
+    auto it = token_to_player_.find(token);
     return it == token_to_player_.end() ? nullptr : &players_.at(it->second);
 }
 
-PlayerPtr Players::Get(const model::Map::Id& map_id, size_t dog_id) {
+PlayerPtr Players::GetByMapDogId(const model::Map::Id& map_id, size_t dog_id) {
     if(map_dog_id_to_player_.count(map_id) == 0 ||
         map_dog_id_to_player_.at(map_id).count(dog_id) == 0) {
         return nullptr;
@@ -46,7 +43,11 @@ PlayerPtr Players::Get(const model::Map::Id& map_id, size_t dog_id) {
 
 TokenPtr Players::GetToken(const Player& player) {
     auto it = player_to_token_.find(const_cast<Player*>(&player));
-    return it == player_to_token_.end() ? nullptr : &tokens_.at(it->second);
+    if(it == player_to_token_.end()) {
+        return nullptr;
+    }
+    auto& token = (it->second)->first;
+    return &token;
 }
 
 Token Players::GenerateToken() const {
@@ -55,6 +56,18 @@ Token Players::GenerateToken() const {
     auto t2 = generator2_;
 
     return Token{std::format("{:x}", t1()) + std::format("{:x}", t2())};
+}
+
+std::vector<PlayerPtr> Players::GetSessionPlayerList(const Player& player) {
+    std::vector<PlayerPtr> result;
+
+    auto player_session = player.GetSession();
+    auto& map_id = player_session->GetMapId();
+
+    for(const auto& dog : player_session->GetAllDogs()) {
+        result.push_back(GetByMapDogId(map_id, dog.GetId()));
+    }
+    return result;
 }
 
 }
