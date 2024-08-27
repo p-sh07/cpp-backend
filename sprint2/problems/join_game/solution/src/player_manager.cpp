@@ -3,6 +3,8 @@
 //
 
 #include "player_manager.h"
+#include <iomanip>
+#include <sstream>
 
 namespace app {
 Player::Player(size_t id, SessionPtr session, DogPtr dog)
@@ -20,7 +22,7 @@ Player& Players::Add(const model::Dog* dog, const model::Session* session) {
 
     //update indices
     auto token_result = token_to_player_.emplace(std::move(GenerateToken()), next_player_id_);
-    player_to_token_[&player] = token_result.first;
+    player_to_token_[next_player_id_] = token_result.first;
 
     //post-increment next player id after final use here
     map_dog_id_to_player_[session->GetMapId()][dog->GetId()] = next_player_id_++;
@@ -42,7 +44,7 @@ PlayerPtr Players::GetByMapDogId(const model::Map::Id& map_id, size_t dog_id) {
 }
 
 TokenPtr Players::GetToken(const Player& player) {
-    auto it = player_to_token_.find(const_cast<Player*>(&player));
+    auto it = player_to_token_.find(player.GetId());
     if(it == player_to_token_.end()) {
         return nullptr;
     }
@@ -55,7 +57,10 @@ Token Players::GenerateToken() const {
     auto t1 = generator1_;
     auto t2 = generator2_;
 
-    return Token{std::format("{:x}", t1()) + std::format("{:x}", t2())};
+    std::stringstream ss;
+    ss << std::hex << t1() << t2();
+
+    return Token{std::move(ss.str())};
 }
 
 std::vector<PlayerPtr> Players::GetSessionPlayerList(const Player& player) {

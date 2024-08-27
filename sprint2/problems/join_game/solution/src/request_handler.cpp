@@ -198,7 +198,7 @@ StringResponse ApiHandler::HandleApiRequest(const StringRequest& req) {
 
     // ->Get player list
     if(request_uri == player_list_prefix_) {
-        if(req.method() != http::verb::get || req.method() != http::verb::head) {
+        if(req.method() != http::verb::get && req.method() != http::verb::head) {
             throw ApiError(ErrCode::player_list_bad_method);
         }
 

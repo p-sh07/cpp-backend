@@ -6,7 +6,6 @@
 #include <memory>
 #include <random>
 #include <unordered_map>
-#include <format>
 
 #include "tagged.h"
 #include "model.h"
@@ -72,7 +71,7 @@ class Players {
 
     //Indices for search
     std::unordered_map<Token, PlayerId, TokenHasher> token_to_player_;
-    std::unordered_map<PlayerPtr, TokenIt> player_to_token_;
+    std::unordered_map<PlayerId, TokenIt> player_to_token_;
 
     using MapDogIdToPlayer = std::unordered_map<model::Map::Id, std::unordered_map<DogId, PlayerId>, model::MapIdHasher>;
     MapDogIdToPlayer map_dog_id_to_player_;
