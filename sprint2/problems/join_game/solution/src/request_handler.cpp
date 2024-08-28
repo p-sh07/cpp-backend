@@ -308,6 +308,11 @@ FileHandler::FileRequestResult FileHandler::HandleFileRequest(const StringReques
     return MakeResponseFromFile(requested_file.c_str(), req.version(), req.keep_alive());
 }
 
+StringResponse FileHandler::ReportFileError(const FileError& err, unsigned version, bool keep_alive) const {
+    //TODO: Handle error
+    return {};
+}
+
 StringResponse FileHandler::ReportFileError(unsigned version, bool keep_alive) const {
     //TODO: Handle error
     return {};

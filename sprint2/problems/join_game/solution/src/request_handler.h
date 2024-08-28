@@ -230,14 +230,17 @@ void ApiHandler::operator()(http::request<Body, http::basic_fields<Allocator>>&&
             req = std::move(req), version, keep_alive] {
             try {
                 return send(self->HandleApiRequest(req));
-            } catch(...) {
+            } catch(const ApiError& err) {
+                send(self->ReportApiError(err, version, keep_alive));
+            }
+            catch(...) {
                 send(self->ReportApiError(version, keep_alive));
             }
         };
 
         return net::dispatch(strand_, handle);
     }
-    catch(ApiError& err) {
+    catch(const ApiError& err) {
         send(ReportApiError(err, version, keep_alive));
     }
     catch(...) {
@@ -264,6 +267,7 @@ class FileHandler : public std::enable_shared_from_this<FileHandler> {
     fs::path root_;
 
     FileRequestResult HandleFileRequest(const StringRequest& req) const;
+    StringResponse ReportFileError(const FileError& err, unsigned version, bool keep_alive) const;
     StringResponse ReportFileError(unsigned version, bool keep_alive) const;
 };
 
@@ -279,7 +283,9 @@ void FileHandler::operator()(http::request<Body, http::basic_fields<Allocator>>&
                 send(std::forward<decltype(result)>(result));
             },
             HandleFileRequest(req));
-    } catch(...) {
+    } catch(const FileError& err) {
+        send(ReportFileError(err, version, keep_alive));
+    }catch(...) {
         send(ReportFileError(version, keep_alive));
     }
 }
