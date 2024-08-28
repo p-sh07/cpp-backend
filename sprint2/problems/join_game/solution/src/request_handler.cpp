@@ -257,6 +257,9 @@ StringResponse ApiHandler::ReportApiError(const ApiError& err, unsigned version,
     if(err.ec() == ErrCode::join_game_bad_method) {
         resp.set(http::field::allow, "POST"s);
     }
+    if(err.ec() == ErrCode::player_list_bad_method) {
+        resp.set(http::field::allow, "GET, HEAD"s);
+    }
     return resp;
 }
 
