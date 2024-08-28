@@ -24,8 +24,8 @@ class Player {
     Player(size_t id, SessionPtr session, DogPtr dog);
 
     inline size_t GetId() const { return id_; }
-    inline const model::Dog* GetDog() const { return dog_; };
-    inline const model::Session* GetSession() const { return session_; };
+    inline const model::Dog* GetDog() const { return dog_; }
+    inline const model::Session* GetSession() const { return session_; }
 
  private:
     const size_t id_ = 0;

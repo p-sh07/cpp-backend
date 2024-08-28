@@ -50,17 +50,43 @@ TokenPtr Players::GetToken(const Player& player) {
     }
     auto& token = (it->second)->first;
     return &token;
+
 }
 
 Token Players::GenerateToken() const {
-    //std::uniform_int_distribution<std::mt19937_64::result_type> dist(0, std::numeric_limits<std::mt19937_64::result_type>::max());
-    auto t1 = generator1_;
-    auto t2 = generator2_;
+    auto gen1 = generator1_;
+    auto gen2 = generator2_;
 
+    std::uniform_int_distribution<std::mt19937_64::result_type> dist(0, std::numeric_limits<std::mt19937_64::result_type>::max());
     std::stringstream ss;
-    ss << std::hex << std::setfill('0') << std::setw(16) << t1() << t2();
+
+    ss << std::hex << dist(gen1);
+    ss << std::hex << dist(gen2);
+
     return Token{std::move(ss.str())};
 }
+
+/*
+    std::string random_string(std::string::size_type length)
+    {
+        static auto& chrs = "0123456789"
+                            "abcdefghijklmnopqrstuvwxyz"
+                            "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+        thread_local static std::mt19937 rg{std::random_device{}()};
+        thread_local static std::uniform_int_distribution<std::string::size_type> pick(0, sizeof(chrs) - 2);
+
+        std::string s;
+
+        s.reserve(length);
+
+        while(length--)
+            s += chrs[pick(rg)];
+
+        return s;
+    }
+    */
+
 
 std::vector<PlayerPtr> Players::GetSessionPlayerList(const Player& player) {
     std::vector<PlayerPtr> result;
