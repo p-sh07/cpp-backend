@@ -338,7 +338,7 @@ void RequestHandler::operator()(tcp::endpoint&&, http::request<Body, http::basic
 
     try {
         //Throws ServerError if the request cannot be processed
-        AssertRequestValid(req);
+        //AssertRequestValid(req);
 
         if(req.target().starts_with(api_prefix_)) {
             return (*api_handler_)(std::move(req), send);
