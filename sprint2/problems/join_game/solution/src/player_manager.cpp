@@ -4,6 +4,7 @@
 
 #include "player_manager.h"
 #include <iomanip>
+#include <iostream>
 #include <sstream>
 
 namespace app {
@@ -54,14 +55,15 @@ TokenPtr Players::GetToken(const Player& player) {
 }
 
 Token Players::GenerateToken() const {
-    auto gen1 = generator1_;
-    auto gen2 = generator2_;
-
     std::uniform_int_distribution<std::mt19937_64::result_type> dist(0, std::numeric_limits<std::mt19937_64::result_type>::max());
+    std::random_device random_device;
+    std::mt19937_64 gen1(dist(random_device));
+    std::mt19937_64 gen2(dist(random_device));
+
     std::stringstream ss;
 
-    ss << std::hex << dist(gen1);
-    ss << std::hex << dist(gen2);
+    ss << std::hex << std::setfill('0') << std::setw(16) << dist(gen1);
+    ss << std::hex << std::setfill('0') << std::setw(16)<< dist(gen2);
 
     return Token{std::move(ss.str())};
 }
@@ -85,8 +87,7 @@ Token Players::GenerateToken() const {
 
         return s;
     }
-    */
-
+*/
 
 std::vector<PlayerPtr> Players::GetSessionPlayerList(const Player& player) {
     std::vector<PlayerPtr> result;
