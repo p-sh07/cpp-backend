@@ -58,8 +58,7 @@ Token Players::GenerateToken() const {
     auto t2 = generator2_;
 
     std::stringstream ss;
-    ss << std::hex << t1() << t2();
-
+    ss << std::hex << std::setfill('0') << std::setw(16) << t1() << t2();
     return Token{std::move(ss.str())};
 }
 
