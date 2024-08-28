@@ -127,8 +127,8 @@ class ApiError : public ServerError {
 //                break;
             case ErrCode::map_not_found:
                 return {http::status::not_found,
-                        "mapNotFound"sv
-                            "Map not found"sv};
+                        "mapNotFound"sv,
+                        "Map not found"sv};
                 break;
             case ErrCode::invalid_player_name:
                 return {http::status::bad_request,
@@ -240,10 +240,8 @@ void ApiHandler::operator()(http::request<Body, http::basic_fields<Allocator>>&&
 
         return net::dispatch(strand_, handle);
     }
-    catch(const ApiError& err) {
-        send(ReportApiError(err, version, keep_alive));
-    }
     catch(...) {
+        //TODO: What error can be caught here?
         send(ReportApiError(version, keep_alive));
     }
 }
