@@ -21,10 +21,10 @@ std::string PrintErrorMsgJson(json::string_view code, json::string_view message)
     return json::serialize(jv);
 }
 
-std::string PrintMapList(const Game& game) {
+std::string PrintMapList(const model::Game::Maps& map_list) {
     json::array map_list_js;
 
-    for(const auto& map : game.GetMaps()) {
+    for(const auto& map : map_list) {
         map_list_js.push_back(json::value_from(map));
     }
     return json::serialize(map_list_js);

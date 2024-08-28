@@ -2,7 +2,7 @@
 // Created by ps on 8/22/24.
 //
 
-#include "player_manager.h"
+#include "application.h"
 #include <iomanip>
 #include <iostream>
 #include <sstream>
@@ -14,7 +14,11 @@ Player::Player(size_t id, SessionPtr session, DogPtr dog)
     , dog_(std::move(dog)) {
 }
 
-Players::Players(GamePtr game)
+Players::Players(const GamePtr& game_ptr)
+    : game_(game_ptr) {
+}
+
+Players::Players(GamePtr&& game)
     : game_(std::move(game)) {
 }
 
@@ -31,20 +35,24 @@ Player& Players::Add(const model::Dog* dog, const model::Session* session) {
     return player;
 }
 
-PlayerPtr Players::GetByToken(const Token& token) {
+PlayerPtr Players::GetByToken(const Token& token) const {
     auto it = token_to_player_.find(token);
-    return it == token_to_player_.end() ? nullptr : &players_.at(it->second);
+
+    //TODO: Avoid const_cast here?
+    return it == token_to_player_.end() ? nullptr
+    : const_cast<PlayerPtr>(&players_.at(it->second));
 }
 
-PlayerPtr Players::GetByMapDogId(const model::Map::Id& map_id, size_t dog_id) {
+PlayerPtr Players::GetByMapDogId(const model::Map::Id& map_id, size_t dog_id) const {
     if(map_dog_id_to_player_.count(map_id) == 0 ||
         map_dog_id_to_player_.at(map_id).count(dog_id) == 0) {
         return nullptr;
     }
-    return &players_.at(map_dog_id_to_player_.at(map_id).at(dog_id));
+    //TODO: Avoid const_cast here?
+    return const_cast<PlayerPtr>(&players_.at(map_dog_id_to_player_.at(map_id).at(dog_id)));
 }
 
-TokenPtr Players::GetToken(const Player& player) {
+TokenPtr Players::GetToken(const Player& player) const {
     auto it = player_to_token_.find(player.GetId());
     if(it == player_to_token_.end()) {
         return nullptr;
@@ -101,4 +109,34 @@ std::vector<PlayerPtr> Players::GetSessionPlayerList(const Player& player) {
     return result;
 }
 
+size_t TokenHasher::operator()(const Token& token) const {
+    auto str_hasher = std::hash<std::string>();
+    return str_hasher(*token);
+}
+std::vector<PlayerPtr> GameInterface::GetPlayerList(PlayerPtr player) {
+    return players_.GetSessionPlayerList(*player);
+}
+PlayerPtr GameInterface::FindPlayerByToken(const Token& token) const {
+    return players_.GetByToken(token);
+}
+std::pair<PlayerId, const Token*> GameInterface::JoinGame(std::string_view map_id_str, std::string_view player_dog_name) {
+    auto session = game_->JoinSession(model::Map::Id(std::string(map_id_str)));
+    auto dog = session->AddDog(std::move(std::string(player_dog_name)));
+    auto player = players_.Add(dog, session);
+
+    // <-Make response, send player token
+    auto token = players_.GetToken(player);
+    return {player.GetId(), token};
+}
+const Game::Maps& GameInterface::ListAllMaps() const {
+    return game_->GetMaps();
+}
+const Map* GameInterface::GetMap(std::string_view map_id) const {
+    Map::Id id(std::move(std::string(map_id)));
+    return game_->FindMap(id);
+}
+GameInterface::GameInterface(const GamePtr& game_ptr)
+    : game_(game_ptr)
+    , players_(game_){
+}
 }

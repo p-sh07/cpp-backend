@@ -1,4 +1,4 @@
-#include "request_handler.h"
+#include "request_handling.h"
 
 namespace http_handler {
 
@@ -113,19 +113,18 @@ fs::path ConvertFromUrl(std::string_view url) {
 }
 
 //======================= Api Request Handler ======================
-ApiHandler::ApiHandler(Strand api_strand, std::shared_ptr<model::Game> game, std::shared_ptr<app::Players> players)
+ApiHandler::ApiHandler(Strand api_strand, std::shared_ptr<app::GameInterface> game_app)
     : strand_(api_strand)
-    , game_(std::move(game))
-    , players_(std::move(players)) {
+    , game_app_(std::move(game_app)) {
 }
 
-std::optional<model::Map::Id> ApiHandler::ExtractMapId(std::string_view map_list_prefix, std::string_view uri) {
+std::string_view ApiHandler::ExtractMapId(std::string_view uri) {
     //If contains pref and has a map id, remove "/api/v1/maps/"
-    if(uri.starts_with(map_list_prefix) && map_list_prefix.size() + 1 < uri.size()) {
-        uri.remove_prefix(map_list_prefix.size() + 1);
-        return model::Map::Id(std::string(uri));
+    if(uri.starts_with(map_list_prefix_) && map_list_prefix_.size() + 1 < uri.size()) {
+        uri.remove_prefix(map_list_prefix_.size() + 1);
+        return uri;
     }
-    return std::nullopt;
+    return {};
 }
 
 StringResponse ApiHandler::HandleApiRequest(const StringRequest& req) {
@@ -138,19 +137,17 @@ StringResponse ApiHandler::HandleApiRequest(const StringRequest& req) {
 
     // ->Request for map list
     if(request_uri == map_list_prefix_) {
-        return to_html(http::status::ok, json_loader::PrintMapList(*game_));
+        return to_html(http::status::ok,
+                       json_loader::PrintMapList(game_app_->ListAllMaps()));
     }
 
     // ->Request a map - contains full prefix for map list
-    if(auto map_id_opt = ExtractMapId(request_uri, map_list_prefix_)) {
-        const auto map = game_->FindMap(map_id_opt.value());
-
-        if(!map) {
-            return to_html(http::status::not_found,
-                           json_loader::PrintErrorMsgJson("mapNotFound", "Map not found")
-            );
+    if(auto map_id = ExtractMapId(request_uri); !map_id.empty()) {
+        if(auto map = game_app_->GetMap(map_id)) {
+            return to_html(http::status::ok,
+                           json_loader::PrintMap(*map));
         }
-        return to_html(http::status::ok, json_loader::PrintMap(*map));
+        throw ApiError(ErrCode::map_not_found);
     }
 
   // ->Game interaction
@@ -160,37 +157,23 @@ StringResponse ApiHandler::HandleApiRequest(const StringRequest& req) {
             throw ApiError(ErrCode::join_game_bad_method);
         }
 
-        json::object player_data = json::parse(req.body()).as_object();
-        std::string_view map_id_str;
-        std::string player_dog_name;
+        auto join_map_player = ExtractMapIdAndPlayerName(req.body());
 
-        try {
-            map_id_str = player_data.at("mapId").as_string();
-            player_dog_name = std::string(player_data.at("userName").as_string());
-        } catch (...) {
-            throw ApiError(ErrCode::join_game_parse_err);
-        }
-
-        if(player_dog_name.empty()) {
-            throw ApiError(ErrCode::invalid_player_name);
-        }
-
-        auto session = game_->JoinSession(model::Map::Id(std::string(map_id_str)));
-        if(!session) {
+        //Requested map doesnt exist
+        //TODO: Refactor error throw?
+        if(!game_app_->GetMap(join_map_player.first)) {
             throw ApiError(ErrCode::map_not_found);
         }
-        auto dog = session->AddDog(player_dog_name);
-        auto player = players_->Add(dog, session);
 
-        // <-Make response, send player token
-        auto token = players_->GetToken(player);
+        auto player_id_token = game_app_->JoinGame(join_map_player.first, join_map_player.second);
 
         json::object json_body = {
-            {"authToken", **token},
-            {"playerId", player.GetId()}
+            {"playerId", player_id_token.first},
+            {"authToken", **player_id_token.second},
         };
 
         StringResponse resp = to_html(http::status::ok, serialize(json_body));
+        //TODO: Refactor no-cache into to_html?
         resp.set(http::field::cache_control, "no-cache");
 
         return resp;
@@ -202,28 +185,14 @@ StringResponse ApiHandler::HandleApiRequest(const StringRequest& req) {
             throw ApiError(ErrCode::player_list_bad_method);
         }
 
-        // -> Authorise player
-        std::string_view auth_str;
-        try {
-            auth_str = req.at(http::field::authorization);
-        } catch (...) {
-            throw ApiError(ErrCode::invalid_token);
-        }
+        const auto token = ExtractAuthToken(req);
 
-        //check starts with Bearer
-        //TODO: add token verification
-        if( auth_str.size() <= bearer_str_.size() || !auth_str.starts_with(bearer_str_) /*||*/) {
-            throw ApiError(ErrCode::invalid_token);
-        }
-        auth_str.remove_prefix(bearer_str_.size());
-        const app::Token token{std::string(auth_str)};
-
-        auto player = players_->GetByToken(token);
+        auto player = game_app_->FindPlayerByToken(token);
         if(!player) {
             throw ApiError(ErrCode::unknown_token);
         }
 
-        auto json_body = MakePlayerListJson(players_->GetSessionPlayerList(*player));
+        auto json_body = MakePlayerListJson(game_app_->GetPlayerList(player));
 
         StringResponse resp = to_html(http::status::ok, serialize(json_body));
         resp.set(http::field::cache_control, "no-cache");
@@ -232,9 +201,7 @@ StringResponse ApiHandler::HandleApiRequest(const StringRequest& req) {
     }
 
     // *Error: Bad request
-    return to_html(http::status::bad_request,
-                   json_loader::PrintErrorMsgJson("badRequest", "Bad request")
-    );
+    throw ApiError(ErrCode::bad_request);
 }
 
 json::object ApiHandler::MakePlayerListJson(const std::vector<app::PlayerPtr>& plist) const {

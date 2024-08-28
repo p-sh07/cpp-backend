@@ -9,7 +9,7 @@
 #include "http_server.h"
 
 #include "model.h"
-#include "player_manager.h"
+#include "application.h"
 #include "json_loader.h"
 
 namespace http_handler {
@@ -66,6 +66,7 @@ struct ContentType {
 
 enum class ErrCode {
     bad_method,
+    bad_request,
     //join_game:
     map_not_found,
     invalid_player_name,
@@ -123,8 +124,11 @@ class ApiError : public ServerError {
 
     ErrInfo GetInfo(ErrCode ec) const override {
         switch(ec) {
-//            case ErrCode::bad_method:
-//                break;
+            case ErrCode::bad_request:
+                return {http::status::bad_request,
+                        "badRequest"sv,
+                        "Bad request"sv};
+                break;
             case ErrCode::map_not_found:
                 return {http::status::not_found,
                         "mapNotFound"sv,
@@ -192,7 +196,7 @@ fs::path ConvertFromUrl(std::string_view url);
 class ApiHandler : public std::enable_shared_from_this<ApiHandler> {
  public:
     using Strand = net::strand<net::io_context::executor_type>;
-    ApiHandler(Strand api_strand, std::shared_ptr<model::Game> game, std::shared_ptr<app::Players> players);
+    ApiHandler(Strand api_strand, std::shared_ptr<app::GameInterface> game_app);
 
     ApiHandler(const ApiHandler&) = delete;
     ApiHandler& operator=(const ApiHandler&) = delete;
@@ -207,10 +211,46 @@ class ApiHandler : public std::enable_shared_from_this<ApiHandler> {
     static constexpr std::string_view player_list_prefix_{"/api/v1/game/players"sv};
 
     Strand strand_;
-    std::shared_ptr<model::Game> game_;
-    std::shared_ptr<app::Players> players_;
+    std::shared_ptr<app::GameInterface> game_app_;
 
-    std::optional<model::Map::Id> ExtractMapId(std::string_view map_list_prefix, std::string_view uri);
+    std::string_view ExtractMapId(std::string_view uri);
+    std::pair<std::string_view, std::string_view> ExtractMapIdAndPlayerName(const std::string& request_body) {
+        std::string_view map_id_str;
+        std::string player_dog_name;
+
+        json::object player_data = json::parse(request_body).as_object();
+
+        try {
+            map_id_str = player_data.at("mapId").as_string();
+            player_dog_name = std::string(player_data.at("userName").as_string());
+        } catch (...) {
+            throw ApiError(ErrCode::join_game_parse_err);
+        }
+
+        if(player_dog_name.empty()) {
+            throw ApiError(ErrCode::invalid_player_name);
+        }
+        return {map_id_str, player_dog_name};
+    }
+
+    app::Token ExtractAuthToken(const auto& request) {
+        // -> Authorise player
+        std::string_view auth_str;
+        try {
+            auth_str = request.at(http::field::authorization);
+        } catch (...) {
+            throw ApiError(ErrCode::invalid_token);
+        }
+
+        //check starts with Bearer
+        if( auth_str.size() <= bearer_str_.size() || !auth_str.starts_with(bearer_str_) /*||*/) {
+            throw ApiError(ErrCode::invalid_token);
+        }
+        auth_str.remove_prefix(bearer_str_.size());
+        return app::Token{std::move(std::string(auth_str))};
+
+    }
+
     StringResponse HandleApiRequest(const StringRequest& req);
     json::object MakePlayerListJson(const std::vector<app::PlayerPtr>& plist) const;
 
@@ -295,9 +335,9 @@ class RequestHandler {
  public:
     using Strand = net::strand<net::io_context::executor_type>;
 
-    RequestHandler(fs::path root, Strand api_strand, std::shared_ptr<model::Game> game, std::shared_ptr<app::Players> players)
+    RequestHandler(fs::path root, Strand api_strand, std::shared_ptr<app::GameInterface> game_app)
         : file_handler_(std::make_shared<FileHandler>(std::move(root)))
-        , api_handler_(std::make_shared<ApiHandler>(api_strand, std::move(game), std::move(players))) {
+        , api_handler_(std::make_shared<ApiHandler>(api_strand, std::move(game_app))) {
     }
 
     RequestHandler(const RequestHandler&) = delete;

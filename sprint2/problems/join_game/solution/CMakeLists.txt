@@ -26,12 +26,12 @@ add_executable(game_server
         src/boost_json.cpp
         src/json_loader.h
         src/json_loader.cpp
-        src/request_handler.cpp
-        src/request_handler.h
+        src/request_handling.cpp
+        src/request_handling.h
         src/server_logger.cpp
         src/server_logger.h
-        src/player_manager.cpp
-        src/player_manager.h
+        src/application.cpp
+        src/application.h
 )
 
 IF (APPLE)

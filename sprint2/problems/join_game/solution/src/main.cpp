@@ -5,7 +5,7 @@
 #include <iostream>
 #include <thread>
 
-#include "request_handler.h"
+#include "request_handling.h"
 
 namespace net = boost::asio;
 namespace sys = boost::system;
@@ -51,9 +51,9 @@ int main(int argc, const char*argv[]) {
         // 0. Инициализируем
         server_logger::InitLogging();
 
-        // 1. Загружаем карту из файла и создаем модель игры
+        // 1. Загружаем карту из файла и создаем модель игры TODO: move game constructor into game app? or keep separate instances?
         auto game = std::make_shared<model::Game>(json_loader::LoadGame(argv[1]));
-        auto players = std::make_shared<app::Players>(game);
+        auto game_app = std::make_shared<app::GameInterface>(game);
 
         // 2. Инициализируем io_context и другие переменные
         const auto num_threads = std::thread::hardware_concurrency();
@@ -71,9 +71,7 @@ int main(int argc, const char*argv[]) {
         });
 
         //4. Создаем handler и оборачиваем его в логирующий декоратор
-        auto handler = std::make_shared<http_handler::RequestHandler>(
-            argv[2], api_strand, game, players
-        );
+        auto handler = std::make_shared<http_handler::RequestHandler>(argv[2], api_strand, game_app);
 
         server_logger::LoggingRequestHandler logging_handler{
             [handler](auto&& endpoint, auto&& req, auto&& send) {
