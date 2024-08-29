@@ -119,18 +119,11 @@ const Map::Offices& Map::GetOffices() const { return offices_; }
 void Map::AddRoad(const Road& road) { roads_.emplace_back(road); }
 
 double Map::GetDogSpeed() const {
-    if(!dog_speed_) {
-        return dog_speed_default_;
-    }
-    return *dog_speed_;
+    return dog_speed_ ? *dog_speed_ : 0;
 }
 
 void Map::SetDogSpeed(double speed) {
     dog_speed_ = speed;
-}
-
-bool Map::HasSpeedSet() const {
-    return dog_speed_.has_value();
 }
 
 //=================================================
@@ -174,6 +167,8 @@ const std::deque<Dog>& Session::GetAllDogs() const { return dogs_; }
 //=================================================
 //=================== Game ========================
 void Game::AddMap(Map map) {
+    map.SetDogSpeed(default_dog_speed_);
+
     const size_t index = maps_.size();
     if(auto [it, inserted] = map_id_to_index_.emplace(map.GetId(), index); !inserted) {
         throw std::invalid_argument("Map with id "s + *map.GetId() + " already exists"s);
@@ -231,6 +226,10 @@ Session Game::MakeNewSessionOnMap(const Map* map) {
 }
 
 const Game::Maps& Game::GetMaps() const { return maps_; }
+
+void Game::SetDefaultDogSpeed(double speed) {
+    default_dog_speed_ = speed;
+}
 
 
 //===========================================================

@@ -117,7 +117,7 @@ class Map {
     using Buildings = std::vector<Building>;
     using Offices = std::vector<Office>;
 
-    Map(Id id, std::string name)  ;
+    Map(Id id, std::string name);
 
     const Id& GetId() const;
     const std::string& GetName() const;
@@ -126,7 +126,6 @@ class Map {
     const Roads& GetRoads() const;
     const Offices& GetOffices() const;
 
-    bool HasSpeedSet() const;
     double GetDogSpeed() const;
     void SetDogSpeed(double speed);
 
@@ -144,9 +143,6 @@ class Map {
     Roads roads_;
     Buildings buildings_;
     std::optional<double> dog_speed_;
-
-    //Use this value if optional not set
-    double dog_speed_default_{1.0};
 
     OfficeIdToIndex warehouse_id_to_index_;
     Offices offices_;
@@ -208,15 +204,17 @@ class Game {
     using Maps = std::vector<Map>;
 
     void AddMap(Map map);
+    void SetDefaultDogSpeed(double speed);
 
-    const Maps& GetMaps() const  ;
-    const Map* FindMap(const Map::Id& id) const  ;
+    const Maps& GetMaps() const;
+    const Map* FindMap(const Map::Id& id) const;
 
     //std::shared_ptr<Session> AddSession(const Map::Id& id);
     Session* JoinSession(const Map::Id& id);
 
  private:
-    size_t next_session_id_ = 0;
+    size_t next_session_id_{0};
+    double default_dog_speed_{1.0};
 
     using MapIdToIndex = std::unordered_map<Map::Id, size_t, MapIdHasher>;
     using MapIdToSessions = std::unordered_map<Map::Id, size_t, MapIdHasher>;

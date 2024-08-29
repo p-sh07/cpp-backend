@@ -191,17 +191,14 @@ Map ParseMap(const json::value& map_json) {
 }
 
 json::value MapToValue(const Map& map) {
-    json::object obj{
+    return {
+        {"dogSpeed", map.GetDogSpeed()},
         {"id", *map.GetId()},
         {"name", map.GetName()},
         {"roads", json::value_from(map.GetRoads())},
         {"buildings", json::value_from(map.GetBuildings())},
         {"offices", json::value_from(map.GetOffices())},
     };
-    if(map.HasSpeedSet()) {
-        obj["dogSpeed"] = map.GetDogSpeed();
-    }
-    return obj;
 }
 
 model::Game LoadGame(const std::filesystem::path& json_path) {
@@ -223,8 +220,14 @@ model::Game LoadGame(const std::filesystem::path& json_path) {
         // Загрузить модель игры из файла
         Game game;
 
+        //Set default speed, if specified in config
+        const auto& j_obj = doc.as_object();
+        if(auto it = j_obj.find("defaultDogSpeed"); it != j_obj.end()) {
+            game.SetDefaultDogSpeed(it->value().as_double());
+        }
+
         for(const auto& json_map : map_array_ptr->as_array()) {
-            game.AddMap(ParseMap(json_map));
+            game.AddMap(std::move(ParseMap(json_map)));
         }
 
         return game;
