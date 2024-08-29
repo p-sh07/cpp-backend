@@ -131,22 +131,26 @@ std::string_view ApiHandler::ExtractMapId(std::string_view uri) const {
     return {};
 }
 
-app::PlayerPtr ApiHandler::AuthorizePlayer(const auto& request) const {
-    // -> Authorise player
-    std::string_view auth_str;
+std::string ApiHandler::ExtractToken(const auto& request) const {
+    std::string_view token_str;
     try {
-        auth_str = request.at(http::field::authorization);
+        token_str = request.at(http::field::authorization);
     } catch (...) {
         throw ApiError(ErrCode::invalid_token);
     }
 
     //check starts with Bearer
-    if( auth_str.size() <= Uri::bearer.size() || !auth_str.starts_with(Uri::bearer) /*||*/) {
+    if( token_str.size() <= Uri::bearer.size() || !token_str.starts_with(Uri::bearer)
+        || !util::is_len32hex_num(token_str)) {
         throw ApiError(ErrCode::invalid_token);
     }
-    auth_str.remove_prefix(Uri::bearer.size());
-    app::Token token{std::move(std::string(auth_str))};
+    token_str.remove_prefix(Uri::bearer.size());
+    return std::string{token_str};
+}
 
+app::PlayerPtr ApiHandler::AuthorizePlayer(const auto& request) const {
+    // -> Authorise player
+    app::Token token{std::move(ExtractToken(request))};
 
     auto player = game_app_->FindPlayerByToken(token);
     if(!player) {

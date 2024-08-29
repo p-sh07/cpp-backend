@@ -78,4 +78,12 @@ inline size_t random_num(size_t min, size_t max) {
     return dist(rg);
 }
 
+inline bool is_len32hex_num(std::string_view str) {
+    return str.size() == 32
+    && std::all_of(str.begin(), str.end(),
+                   [](unsigned char c){
+        return std::isxdigit(c);
+    });
+}
+
 }  // namespace util

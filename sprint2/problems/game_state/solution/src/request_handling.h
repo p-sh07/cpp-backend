@@ -161,7 +161,7 @@ class ApiError : public ServerError {
             case ErrCode::invalid_token:
                 return {http::status::unauthorized,
                         "invalidToken"sv,
-                        "Authorization header is missing"sv};
+                        "Auth header not found or incorrect token format"sv};
                 break;
             case ErrCode::unknown_token:
                 return {http::status::unauthorized,
@@ -228,8 +228,8 @@ class ApiHandler : public std::enable_shared_from_this<ApiHandler> {
     std::string_view ExtractMapId(std::string_view uri) const;
     static std::pair<std::string, std::string> ExtractMapIdPlayerName (const std::string& request_body);
 
+    std::string ExtractToken(const auto& request) const;
     app::PlayerPtr AuthorizePlayer(const auto& request) const;
-    //app::Token ExtractAuthToken(const auto& request) const;
 
     static bool RemoveIfHasPrefix(std::string_view prefix, std::string_view& uri);
 
