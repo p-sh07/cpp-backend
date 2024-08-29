@@ -142,7 +142,7 @@ class Map {
     std::string name_;
     Roads roads_;
     Buildings buildings_;
-    std::optional<double> dog_speed_;
+    double dog_speed_ {0.0};
 
     OfficeIdToIndex warehouse_id_to_index_;
     Offices offices_;

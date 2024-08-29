@@ -119,7 +119,7 @@ const Map::Offices& Map::GetOffices() const { return offices_; }
 void Map::AddRoad(const Road& road) { roads_.emplace_back(road); }
 
 double Map::GetDogSpeed() const {
-    return dog_speed_ ? *dog_speed_ : 0;
+    return dog_speed_;
 }
 
 void Map::SetDogSpeed(double speed) {
@@ -167,7 +167,10 @@ const std::deque<Dog>& Session::GetAllDogs() const { return dogs_; }
 //=================================================
 //=================== Game ========================
 void Game::AddMap(Map map) {
-    map.SetDogSpeed(default_dog_speed_);
+    //If map speed has not been set in json, set to game default
+    if(map.GetDogSpeed() == 0.0) {
+        map.SetDogSpeed(default_dog_speed_);
+    }
 
     const size_t index = maps_.size();
     if(auto [it, inserted] = map_id_to_index_.emplace(map.GetId(), index); !inserted) {
