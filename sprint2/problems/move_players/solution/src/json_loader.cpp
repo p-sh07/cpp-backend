@@ -192,7 +192,7 @@ Map ParseMap(const json::value& map_json) {
 
 json::value MapToValue(const Map& map) {
     return {
-        {"dogSpeed", map.GetDogSpeed()},
+        //{"dogSpeed", map.GetDogSpeed()},
         {"id", *map.GetId()},
         {"name", map.GetName()},
         {"roads", json::value_from(map.GetRoads())},
