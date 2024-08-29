@@ -140,11 +140,14 @@ std::string ApiHandler::ExtractToken(const auto& request) const {
     }
 
     //check starts with Bearer
-    if( token_str.size() <= Uri::bearer.size() || !token_str.starts_with(Uri::bearer)
-        || !util::is_len32hex_num(token_str)) {
+    if( token_str.size() <= Uri::bearer.size() || !token_str.starts_with(Uri::bearer)) {
         throw ApiError(ErrCode::invalid_token);
     }
     token_str.remove_prefix(Uri::bearer.size());
+
+    if(!util::is_len32hex_num(token_str)) {
+        throw ApiError(ErrCode::invalid_token);
+    }
     return std::string{token_str};
 }
 
@@ -251,6 +254,31 @@ StringResponse ApiHandler::HandleApiRequest(const StringRequest& req) {
     throw ApiError(ErrCode::bad_request);
 }
 
+/*
+template <typename Fn>
+StringResponse ExecuteAuthorized(Fn&& action) {
+    if (auto token = TryExtractToken(request)) {
+        return action(*token);
+    } else {
+        return MakeUnauthorizedError();
+    }
+}
+
+StringResponse GetPlayers(const StringRequest& request) {
+    return ExecuteAuthorized([](const Token& token){
+});
+}
+
+StringResponse SetPlayerAction(const StringRequest& request) {
+    return ExecuteAuthorized([](const Token& token){
+    });
+}
+
+StringResponse GetGameState(const StringRequest& request) {
+    return ExecuteAuthorized([](const Token& token){
+    });
+}
+*/
 
 StringResponse ApiHandler::ReportApiError(const ApiError& err, unsigned version, bool keep_alive) const {
     auto resp = MakeStringResponse(err.status(), err.print_json(), version,
