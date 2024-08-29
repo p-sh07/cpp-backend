@@ -64,6 +64,10 @@ struct ContentType {
     constexpr static std::string_view AUDIO_MP3 = "audio/mpeg"sv;
 };
 
+
+//===================================================================
+//======================= Error types =======================
+
 enum class ErrCode {
     bad_method,
     bad_request,
@@ -79,7 +83,9 @@ enum class ErrCode {
     invalid_token,
     unknown_token,
 
-    //game state
+    //game actions
+    invalid_argument,
+    invalid_content_type,
 };
 
 struct ErrInfo {
@@ -168,6 +174,16 @@ class ApiError : public ServerError {
                         "unknownToken"sv,
                         "Player token has not been found"sv};
                 break;
+            case ErrCode::invalid_argument:
+                return {http::status::unauthorized,
+                        "invalidArgument"sv,
+                        "Failed to parse action"sv};
+                break;
+            case ErrCode::invalid_content_type:
+                return {http::status::unauthorized,
+                        "invalidArgument"sv,
+                        "Invalid content type"sv};
+                break;
         }
     }
 };
@@ -177,6 +193,10 @@ class FileError : public ServerError {
     using ServerError::ServerError;
 };
 
+
+//===================================================================
+//======================= Common =======================
+namespace {
 // Определить MIME-тип из расширения запрашиваемого файла
 std::string_view ParseMimeType(const std::string_view& path);
 
@@ -185,15 +205,15 @@ StringResponse MakeStringResponse(http::status status, std::string_view body,
                                   unsigned http_version, bool keep_alive,
                                   std::string_view content_type = ContentType::TEXT_HTML);
 
-http::response<http::file_body> MakeResponseFromFile(const char*file_path, unsigned http_version, bool keep_alive);
+http::response<http::file_body> MakeResponseFromFile(const char* file_path, unsigned http_version, bool keep_alive);
 
+//TODO: move to utils?
 //Возвращает true, если каталог p содержится внутри base.
 bool IsSubPath(fs::path path, fs::path base);
 
 //Конвертирует URL-кодированную строку в путь
 fs::path ConvertFromUrl(std::string_view url);
-
-
+} //local namespace
 //===================================================================
 //======================= Api Request Handler =======================
 
@@ -213,13 +233,19 @@ class ApiHandler : public std::enable_shared_from_this<ApiHandler> {
 
  private:
     struct Uri {
+        //var
         static constexpr std::string_view bearer{"Bearer "sv};
         static constexpr std::string_view api{"/api/"sv};
+
+        //api calls, after /api/
         static constexpr std::string_view map_list{"v1/maps"sv};
         static constexpr std::string_view game{"v1/game/"sv};
+
+        //game calls, after /api/v1/game/
+        static constexpr std::string_view game_state{"state"sv};
         static constexpr std::string_view join_game{"join"sv};
         static constexpr std::string_view player_list{"players"sv};
-        static constexpr std::string_view game_state{"state"sv};
+        static constexpr std::string_view player_action{"player/action"sv};
     };
 
     Strand strand_;

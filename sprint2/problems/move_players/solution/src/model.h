@@ -10,6 +10,7 @@
 #include "app_util.h"
 
 namespace model {
+
 using Dimension = int;
 using Coord = Dimension;
 
@@ -22,7 +23,7 @@ struct Point {
 
 struct PointDbl {
     PointDbl() = default;
-    explicit PointDbl(double x, double y);
+    PointDbl(double x, double y);
     PointDbl(Point pt);
 
     CoordDbl x, y;
@@ -164,6 +165,13 @@ class Dog {
     Speed GetSpeed() const;
     Dir GetDir() const;
 
+    void Stop();
+    void SetSpeed(Speed sp);
+    void SetDir(Dir dir);
+
+    //Set speed according to direction dir and speed value s_val (get from map settings)
+    void SetMove(Dir dir, double s_val);
+
     //Use Label to allow dogs with same name and fast search in map by name+id
     Label GetLabel() const;
 
@@ -177,10 +185,13 @@ class Dog {
 
 class Session {
  public:
-    Session(size_t id, const Map* map)  ;
+    Session(size_t id, Map* map)  ;
 
     size_t GetId() const;
-    const Map::Id& GetMapId() const;;
+    const Map::Id& GetMapId() const;
+    const Map* GetMap() const {
+        return map_;
+    }
 
     const std::deque<Dog>& GetAllDogs() const;
 
@@ -190,7 +201,7 @@ class Session {
 
  private:
     const size_t id_;
-    const Map* map_;
+    Map* map_;
 
     size_t next_dog_id_ = 0;
     std::deque<Dog> dogs_;
@@ -207,6 +218,8 @@ class Game {
     void SetDefaultDogSpeed(double speed);
 
     const Maps& GetMaps() const;
+
+    Map* FindMap(const Map::Id& id);
     const Map* FindMap(const Map::Id& id) const;
 
     //std::shared_ptr<Session> AddSession(const Map::Id& id);
@@ -227,7 +240,7 @@ class Game {
     MapIdToSessions map_to_sessions_;
     MapIdToIndex map_id_to_index_;
 
-    Session MakeNewSessionOnMap(const Map* map);
+    Session MakeNewSessionOnMap(Map* map);
 
 };
 

@@ -8,6 +8,8 @@
 namespace model {
 using namespace std::literals;
 
+
+
 PointDbl::PointDbl(Point pt)
     : x(1.0 * pt.x)
     , y(1.0 * pt.y) {
@@ -128,7 +130,7 @@ void Map::SetDogSpeed(double speed) {
 
 //=================================================
 //=================== Dog =========================
-Dog::Dog(size_t id, std::string name, PointDbl pos)
+Dog::Dog(size_t id, std::string name, PointDbl pos = {0.0,0.0})
     : lbl_{id, std::move(name)}
     , pos_(pos) {
 }
@@ -143,12 +145,43 @@ Speed Dog::GetSpeed() const { return speed_; }
 
 Dir Dog::GetDir() const { return direction_; }
 
+void Dog::Stop() {
+    speed_ = {0, 0};
+}
+void Dog::SetSpeed(Speed sp) {
+    speed_ = sp;
+}
+void Dog::SetDir(Dir dir) {
+    direction_ = dir;
+}
+void Dog::SetMove(Dir dir, double s_val) {
+    direction_ = dir;
+        switch (dir) {
+            case Dir::NORTH:
+                SetSpeed({0.0, -s_val});
+                break;
+            case Dir::WEST:
+                SetSpeed({s_val, 0.0});
+                break;
+            case Dir::SOUTH:
+                SetSpeed({0, s_val});
+                break;
+            case Dir::EAST:
+                SetSpeed({-s_val, 0.0});
+                break;
+
+            default:
+                SetSpeed({0.0, 0.0});
+                break;
+        }
+}
+
 Dog::Label Dog::GetLabel() const { return lbl_; }
 
 
 //=================================================
 //=================== Session =====================
-Session::Session(size_t id, const Map* map_ptr)
+Session::Session(size_t id, Map* map_ptr)
     : id_(id)
     , map_(map_ptr) {
 }
@@ -183,6 +216,15 @@ void Game::AddMap(Map map) {
             throw;
         }
     }
+}
+
+Map* Game::FindMap(const Map::Id& id) {
+    auto it = map_id_to_index_.find(id);
+
+    if(auto it = map_id_to_index_.find(id); it != map_id_to_index_.end()) {
+        return &maps_.at(it->second);
+    }
+    return nullptr;
 }
 
 const Map* Game::FindMap(const Map::Id& id) const {
@@ -223,7 +265,7 @@ std::optional<size_t> Game::GetMapIndex(const Map::Id& id) const {
     return std::nullopt;
 }
 
-Session Game::MakeNewSessionOnMap(const Map* map) {
+Session Game::MakeNewSessionOnMap(Map* map) {
     map_to_sessions_[map->GetId()] = next_session_id_;
     return {next_session_id_++, map};
 }

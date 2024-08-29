@@ -15,21 +15,28 @@ struct TokenTag {};
 }  // namespace detail
 
 namespace app {
+//static constexpr char MOVE_CMD_STOP = '!';
+static constexpr char MOVE_CMD_ERR = '%';
+
 using model::Game;
 using model::Map;
 using model::Dog;
 using model::Session;
 
-using SessionPtr = const Session*;
-using DogPtr = const Dog*;
+using SessionPtr = Session*;
+using DogPtr = Dog*;
 
 class Player {
  public:
     Player(size_t id, SessionPtr session, DogPtr dog);
 
-    inline size_t GetId() const { return id_; }
-    inline const  Dog* GetDog() const { return dog_; }
-    inline const  Session* GetSession() const { return session_; }
+    size_t GetId() const { return id_; }
+    Dog* GetDog() { return dog_; }
+    Session* GetSession() { return session_; }
+
+    const Dog* GetDog() const { return dog_; }
+    const Session* GetSession() const { return session_; }
+    const Map* GetMap() const { return GetSession()->GetMap(); }
 
  private:
     const size_t id_ = 0;
@@ -43,7 +50,7 @@ struct TokenHasher {
     size_t operator()(const Token& token) const;
 };
 
-using GamePtr = const std::shared_ptr<Game>;
+using GamePtr = std::shared_ptr<Game>;
 using PlayerPtr = Player*;
 using TokenPtr = const Token*;
 
@@ -55,7 +62,7 @@ class Players {
     explicit Players(const GamePtr& game);
     explicit Players(GamePtr&& game);
 
-    Player& Add(const Dog* dog, const Session* session);
+    Player& Add(Dog* dog, Session* session);
 
     PlayerPtr GetByToken(const Token& token) const;
     PlayerPtr GetByMapDogId(const  Map::Id& map_id, size_t dog_id) const;
@@ -87,11 +94,13 @@ struct JoinGameResult {
 
 class GameInterface {
  public:
-    GameInterface(const GamePtr& game_ptr);
+    GameInterface(GamePtr& game_ptr);
 
     //use cases
     const Map* GetMap(std::string_view map_id) const;
     const Game::Maps& ListAllMaps() const;
+
+    void MovePlayer(const PlayerPtr, const char move_command);
 
     JoinGameResult JoinGame(std::string_view map_id_str, std::string_view player_dog_name);
     PlayerPtr FindPlayerByToken(const Token& token) const;

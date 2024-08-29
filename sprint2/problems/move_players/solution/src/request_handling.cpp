@@ -1,9 +1,10 @@
 #include "request_handling.h"
 
 namespace http_handler {
+
 //==================================================================
 //============================ Common ==============================
-
+namespace {
 // Определить MIME-тип из расширения запрашиваемого файла
 std::string_view ParseMimeType(const std::string_view& path) {
     using beast::iequals;
@@ -57,7 +58,7 @@ StringResponse MakeStringResponse(http::status status, std::string_view body,
     return response;
 }
 
-http::response<http::file_body> MakeResponseFromFile(const char*file_path, unsigned http_version, bool keep_alive) {
+http::response<http::file_body> MakeResponseFromFile(const char* file_path, unsigned http_version, bool keep_alive) {
     using namespace http;
 
     response<file_body> res;
@@ -113,6 +114,7 @@ fs::path ConvertFromUrl(std::string_view url) {
     }
     return path_string;
 }
+} //local namespace
 
 
 //==================================================================
@@ -191,6 +193,15 @@ StringResponse ApiHandler::HandleApiRequest(const StringRequest& req) {
 
     // ->Game interaction
     if(RemoveIfHasPrefix(Uri::game, api_uri)) {
+
+        //Lambda for creating /api/v1/game responses
+        auto to_html_game = [&](http::status status, std::string_view text, std::string_view cache_value = "no-cache") {
+            auto resp = MakeStringResponse(status, text, req.version(),
+                                           req.keep_alive(), ContentType::APP_JSON);
+            resp.set(http::field::cache_control, cache_value);
+            return resp;
+        };
+
         // ->Join game
         if(RemoveIfHasPrefix(Uri::join_game, api_uri)) {
             if(req.method() != http::verb::post) {
@@ -212,11 +223,7 @@ StringResponse ApiHandler::HandleApiRequest(const StringRequest& req) {
                 {"authToken", join_result.token->GetVal()},
             };
 
-            StringResponse resp = to_html(http::status::ok, serialize(json_body));
-            //TODO: Refactor no-cache into to_html?
-            resp.set(http::field::cache_control, "no-cache");
-
-            return resp;
+            return to_html_game(http::status::ok, serialize(json_body));
         }
 
         // ->Get player list
@@ -228,10 +235,7 @@ StringResponse ApiHandler::HandleApiRequest(const StringRequest& req) {
             auto player = AuthorizePlayer(req);
             auto json_str_body = json_loader::PrintPlayerList(game_app_->GetPlayerList(player));
 
-            StringResponse resp = to_html(http::status::ok, json_str_body);
-            resp.set(http::field::cache_control, "no-cache");
-
-            return resp;
+            return to_html_game(http::status::ok, json_str_body);
         }
 
         // ->Game state
@@ -243,10 +247,34 @@ StringResponse ApiHandler::HandleApiRequest(const StringRequest& req) {
             auto player = AuthorizePlayer(req);
             auto json_str_body = json_loader::PrintPlayerState(game_app_->GetPlayerList(player));
 
-            StringResponse resp = to_html(http::status::ok, json_str_body);
-            resp.set(http::field::cache_control, "no-cache");
+            return to_html_game(http::status::ok, json_str_body);
+        }
 
-            return resp;
+        // ->Player action
+        if(RemoveIfHasPrefix(Uri::player_action, api_uri)) {
+            if(req.method() != http::verb::post) {
+                throw ApiError(ErrCode::bad_method_post_only);
+            }
+
+            //Check content header exists and contains app-json
+            if(auto it = req.find(http::field::content_type);
+                it == req.end() || it->value() != ContentType::APP_JSON)
+            {
+                throw ApiError(ErrCode::invalid_content_type);
+            }
+
+            auto player = AuthorizePlayer(req);
+            const auto move_char_cmd = json_loader::ParseMove(json::parse(req.body()));
+
+            //TODO: Check valid func
+            const std::string allowed = "LURD"s;
+            if(!isblank(move_char_cmd) && allowed.find(move_char_cmd) != allowed.npos) {
+                throw ApiError(ErrCode::invalid_argument);
+            }
+
+            game_app_->MovePlayer( player, move_char_cmd);
+
+            return to_html_game(http::status::ok, "{}");
         }
     }
 

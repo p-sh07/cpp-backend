@@ -201,6 +201,16 @@ json::value MapToValue(const Map& map) {
     };
 }
 
+const char ParseMove(const json::value& body_json) {
+    auto j_obj = body_json.as_object();
+    if(auto it = j_obj.find("move"); it != j_obj.end()) {
+        auto mv_cmd = it->value().as_string();
+
+        return mv_cmd.empty() ? char{} : mv_cmd[0];
+    }
+    return app::MOVE_CMD_ERR;
+}
+
 model::Game LoadGame(const std::filesystem::path& json_path) {
     try {
         // Загрузить содержимое файла json_path, например, в виде строки

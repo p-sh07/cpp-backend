@@ -22,7 +22,7 @@ Players::Players(GamePtr&& game)
     : game_(std::move(game)) {
 }
 
-Player& Players::Add(const model::Dog* dog, const model::Session* session) {
+Player& Players::Add(model::Dog* dog, model::Session* session) {
     Player& player = players_.emplace_back(next_player_id_, session, dog);
 
     //update indices
@@ -112,6 +112,15 @@ JoinGameResult GameInterface::JoinGame(std::string_view map_id_str, std::string_
     return {player.GetId(), token};
 }
 
+void GameInterface::MovePlayer(PlayerPtr p, const char move_command) {
+//    if(move_command == app::MOVE_CMD_STOP) {
+//        p->GetDog()->Stop();
+//    }
+    auto map_speed_val = p->GetMap()->GetDogSpeed();
+    p->GetDog()->SetMove(static_cast<model::Dir>(move_command), map_speed_val);
+}
+
+
 const Game::Maps& GameInterface::ListAllMaps() const {
     return game_->GetMaps();
 }
@@ -121,7 +130,7 @@ const Map* GameInterface::GetMap(std::string_view map_id) const {
     return game_->FindMap(id);
 }
 
-GameInterface::GameInterface(const GamePtr& game_ptr)
+GameInterface::GameInterface(GamePtr& game_ptr)
     : game_(game_ptr)
     , players_(game_){
 }

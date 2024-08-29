@@ -14,6 +14,8 @@ json::value MapToValue(const model::Map& map);
 std::string PrintMap(const model::Map& map);
 std::string PrintMapList(const model::Game::Maps& map_list);
 
+const char ParseMove(const json::value& req_body);
+
 std::string PrintPlayerList(const std::vector<app::PlayerPtr>& players);
 std::string PrintPlayerState(const std::vector<app::PlayerPtr>& players);
 
