@@ -36,15 +36,50 @@ function preptask
     if [ -d ../precode ] ;then
         cp -rf ../precode/* .
 
-        rm -rf build
+        rm -rf cmake-build-debug
 
-        mkdir build
-        cd build
+        mkdir cmake-build-debug
+        cd cmake-build-debug
 
-        conan install --build missing ..
+        conan install .. --build=missing
         cmake ..
 
         cd ..
+    else
+    #Print error message 
+        RED='\033[0;31m'
+        NC='\033[0m'
+        printf "->${RED}Please call from ${NC}'task_dir/solution/'${RED} directory\n"
+    fi
+}
+
+#Usage: call from "solution" folder
+function runtest
+{
+    #TODO: serch recursively for bin or something
+    if [ -d cmake-build-debug ] ;then
+    START_DIR=$(pwd)
+
+    cd cmake-build-debug
+    cmake .. -DCMAKE_BUILD_TYPE=Debug
+
+#TODO: search for test folder, refactor this
+    #Go to build->solution->[task_name]
+    cd ../../ 
+    TASK_NAME=$(basename "$(pwd)")
+    #echo "Имя текущей папки: $TASK_NAME"
+    
+    #Go to task->problems->sprint
+    cd ../../
+    SPRINT_NAME=$(basename "$(pwd)") 
+
+    #Go to ->cppbknd->/tests->sprint->scripts->sprint
+    cd ../cpp-backend-tests-practicum/scripts/$SPRINT_NAME
+
+    sudo ./$TASK_NAME/run.sh
+
+    cd START_DIR
+    
     else
     #Print error message 
         RED='\033[0;31m'
