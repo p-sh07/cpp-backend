@@ -3753,12 +3753,12 @@
 	function getEulerOrder( order ) {
 
 		order = order || 0;
-		const enums = [ 'ZYX', /// -->>  XYZ extrinsic
-			'YZX', /// -->>  XZY extrinsic
-			'XZY', /// -->>  YZX extrinsic
-			'ZXY', /// -->>  YXZ extrinsic
-			'YXZ', /// -->>  ZXY extrinsic
-			'XYZ' /// -->>  ZYX extrinsic
+		const enums = [ 'ZYX', // -> XYZ extrinsic
+			'YZX', // -> XZY extrinsic
+			'XZY', // -> YZX extrinsic
+			'ZXY', // -> YXZ extrinsic
+			'YXZ', // -> ZXY extrinsic
+			'XYZ' // -> ZYX extrinsic
 			//'SphericXYZ', // not possible to support
 		];
 
