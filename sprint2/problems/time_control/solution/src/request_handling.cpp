@@ -284,6 +284,10 @@ StringResponse ApiHandler::HandleApiRequest(const StringRequest& req) {
 
         /// -->> Time tick for testing
         if(RemoveIfHasPrefix(Uri::time_tick, api_uri)) {
+            if(req.method() != http::verb::post) {
+                throw ApiError(ErrCode::bad_method_post_only);
+            }
+
             //NB: Asssume time in request body given in ms -> ParseTick converts to seconds
             double delta_t = 0.0;
             try {
