@@ -188,7 +188,7 @@ class ApiError : public ServerError {
                 break;
             case ErrCode::time_tick_invalid_argument:
                 return {http::status::bad_request,
-                        "invalidArgument"sv,
+                        "badRequest"sv,
                         "Failed to parse tick request"sv};
                 break;
 
