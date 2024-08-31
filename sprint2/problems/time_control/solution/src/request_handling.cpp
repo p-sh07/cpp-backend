@@ -269,11 +269,11 @@ StringResponse ApiHandler::HandleApiRequest(const StringRequest& req) {
             }
 
             auto player = AuthorizePlayer(req);
-            const auto move_char_cmd = json_loader::ParseMove(json::parse(req.body()));
+            const auto move_char_cmd = json_loader::ParseMove(req.body());
 
             //TODO: Check valid func
             const std::string allowed = "LURD"s;
-            if(!isblank(move_char_cmd) && allowed.find(move_char_cmd) != allowed.npos) {
+            if(!isblank(move_char_cmd) && allowed.find(move_char_cmd) == allowed.npos) {
                 throw ApiError(ErrCode::invalid_argument);
             }
 
@@ -284,8 +284,10 @@ StringResponse ApiHandler::HandleApiRequest(const StringRequest& req) {
 
         /// -->> Time tick for testing
         if(RemoveIfHasPrefix(Uri::time_tick, api_uri)) {
-
+            auto delta_t = json_loader::ParseTick(req.body());
+            game_app_->AdvanceGameTime(delta_t);
         }
+        return to_html_game(http::status::ok, "{}");
     }
 
     // *Error: Bad request

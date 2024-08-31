@@ -8,8 +8,6 @@
 namespace model {
 using namespace std::literals;
 
-
-
 PointDbl::PointDbl(Point pt)
     : x(1.0 * pt.x)
     , y(1.0 * pt.y) {
@@ -19,7 +17,6 @@ PointDbl::PointDbl(double x, double y)
     : x(x)
     , y(y) {
 }
-
 
 //=================================================
 //=================== Road ========================
@@ -39,16 +36,21 @@ Road::Road(Road::HorizontalTag, Point start, Coord end_x)
     , end_{end_x, start.y} {
 }
 
-bool Road::IsHorizontal() const { return start_.y == end_.y; }
+bool Road::IsHorizontal() const {
+    return start_.y == end_.y;
+}
 
-bool Road::IsVertical() const { return !IsHorizontal(); }
+bool Road::IsVertical() const {
+    return !IsHorizontal();
+}
 
-Point Road::GetStart() const { return start_; }
+Point Road::GetStart() const {
+    return start_;
+}
 
 Point Road::GetEnd() const {
     return end_;
 }
-
 
 //=================================================
 //=================== Building ====================
@@ -58,7 +60,6 @@ Building::Building(Rectangle bounds)
 const Rectangle& Building::GetBounds() const {
     return bounds_;
 }
-
 
 //=================================================
 //=================== Office ====================
@@ -76,7 +77,6 @@ Point Office::GetPosition() const {
 Offset Office::GetOffset() const {
     return offset_;
 }
-
 
 //=================================================
 //================ Map ============================
@@ -106,19 +106,39 @@ Map::Map(Map::Id id, std::string name)
     , name_(std::move(name)) {
 }
 
-const Map::Id& Map::GetId() const { return id_; }
+const Map::Id& Map::GetId() const {
+    return id_;
+}
 
-const std::string& Map::GetName() const { return name_; }
+const std::string& Map::GetName() const {
+    return name_;
+}
 
-void Map::AddBuilding(const Building& building) { buildings_.emplace_back(building); }
+void Map::AddBuilding(const Building& building) {
+    buildings_.emplace_back(building);
+}
 
-const Map::Buildings& Map::GetBuildings() const { return buildings_; }
+const Map::Buildings& Map::GetBuildings() const {
+    return buildings_;
+}
 
-const Map::Roads& Map::GetRoads() const { return roads_; }
+const Map::Roads& Map::GetRoads() const {
+    return roads_;
+}
 
-const Map::Offices& Map::GetOffices() const { return offices_; }
+const Map::Offices& Map::GetOffices() const {
+    return offices_;
+}
 
-void Map::AddRoad(const Road& road) { roads_.emplace_back(road); }
+void Map::AddRoad(const Road& road) {
+    auto rd = roads_.emplace_back(road);
+
+    if(rd.IsVertical()) {
+        RoadXtoIndex_[rd.GetStart().x] = roads_.size() - 1;
+    } else {
+        RoadYtoIndex_[rd.GetStart().y] = roads_.size() - 1;
+    }
+}
 
 double Map::GetDogSpeed() const {
     return dog_speed_;
@@ -127,23 +147,105 @@ double Map::GetDogSpeed() const {
 void Map::SetDogSpeed(double speed) {
     dog_speed_ = speed;
 }
+const Road* Map::FindVertRoad(PointDbl pt) const {
+    auto it = RoadXtoIndex_.find(static_cast<Coord>(pt.x));
+    if(it == RoadXtoIndex_.end()) {
+        return nullptr;
+    }
+    return &roads_[it->second];
+}
+const Road* Map::FindHorRoad(PointDbl pt) const {
+    //TODO:static cast or round? road width == 0.4
+    auto it = RoadYtoIndex_.find(static_cast<Coord>(pt.y));
+    if(it == RoadYtoIndex_.end()) {
+        return nullptr;
+    }
+    return &roads_[it->second];
+}
+void Map::MoveDog(Dog* dog, Time delta_t) const {
+    auto start = dog->GetPos();
+    auto dir = dog->GetDir();
+
+    const auto roadV = FindVertRoad(start);
+    const auto roadH = FindHorRoad(start);
+
+    if(!roadH && !roadV) {
+        throw std::runtime_error("Dog is not on a road!");
+    }
+
+    //move dog for max move or until road limit is hit
+    const Road* preferred_road;
+    PointDbl new_pos;
+    if(dir == Dir::NORTH || dir == Dir::SOUTH) {
+        //choose vertical road if moving vertically and is available
+        preferred_road = roadV ? roadV : roadH;
+        new_pos = ComputeMaxMove(dog, preferred_road, delta_t);
+    } else {
+        preferred_road = roadH ? roadH : roadV;
+        new_pos = ComputeMaxMove(dog, preferred_road, delta_t);
+    }
+
+    //TODO:remove debug output
+    std::cerr << "Moved dog in Dir[" << (static_cast<char>(dog->GetDir())) << "] along road ["
+              << preferred_road->GetStart().x << ", " << preferred_road->GetStart().y << "]["
+              << preferred_road->GetEnd().x << ", " << preferred_road->GetEnd().y << "] from pt ("
+              << dog->GetPos().x << ", " << dog->GetPos().y << ") to pt ("
+              << new_pos.x << ", " << new_pos.y << std::endl;
+
+    dog->SetPos(new_pos);
+}
+PointDbl Map::ComputeMaxMove(const Dog* dog, const Road* road, Time delta_t) const {
+    //Maximum point dog can reach in delta_t if no road limit is hit
+    auto max_move = dog->ComputeMove(delta_t);
+    switch (dog->GetDir()) {
+        case Dir::NORTH: {
+            auto road_limit_y = 1.0 * std::min(road->GetStart().y, road->GetEnd().y) - 0.4;
+
+            //Choose the least value (closest to starting point, it is the limit)
+            return {max_move.x, std::max(road_limit_y, max_move.y)};
+        }
+        case Dir::SOUTH: {
+            auto road_limit_y = 1.0 * std::max(road->GetStart().y, road->GetEnd().y) + 0.4;
+            return {max_move.x, std::min(road_limit_y, max_move.y)};
+        }
+        case Dir::WEST: {
+            auto road_limit_x = 1.0 * std::min(road->GetStart().x, road->GetEnd().x) - 0.4;
+            return {std::max(road_limit_x, max_move.x), max_move.y};
+        }
+        case Dir::EAST: {
+            auto road_limit_x = 1.0 * std::max(road->GetStart().x, road->GetEnd().x) + 0.4;
+            return {std::min(road_limit_x, max_move.x), max_move.y};
+        }
+    }
+    return {};
+}
 
 //=================================================
 //=================== Dog =========================
-Dog::Dog(size_t id, std::string name, PointDbl pos = {0.0,0.0})
+Dog::Dog(size_t id, std::string name, PointDbl pos = {0.0, 0.0})
     : lbl_{id, std::move(name)}
     , pos_(pos) {
 }
 
-std::string_view Dog::GetName() const { return lbl_.name_tag; }
+std::string_view Dog::GetName() const {
+    return lbl_.name_tag;
+}
 
-size_t Dog::GetId() const { return lbl_.id; }
+size_t Dog::GetId() const {
+    return lbl_.id;
+}
 
-PointDbl Dog::GetPos() const { return pos_; }
+PointDbl Dog::GetPos() const {
+    return pos_;
+}
 
-Speed Dog::GetSpeed() const { return speed_; }
+Speed Dog::GetSpeed() const {
+    return speed_;
+}
 
-Dir Dog::GetDir() const { return direction_; }
+Dir Dog::GetDir() const {
+    return direction_;
+}
 
 void Dog::Stop() {
     speed_ = {0, 0};
@@ -156,28 +258,41 @@ void Dog::SetDir(Dir dir) {
 }
 void Dog::SetMove(Dir dir, double s_val) {
     direction_ = dir;
-        switch (dir) {
-            case Dir::NORTH:
-                SetSpeed({0.0, -s_val});
-                break;
-            case Dir::WEST:
-                SetSpeed({s_val, 0.0});
-                break;
-            case Dir::SOUTH:
-                SetSpeed({0, s_val});
-                break;
-            case Dir::EAST:
-                SetSpeed({-s_val, 0.0});
-                break;
+    switch(dir) {
+        case Dir::NORTH:SetSpeed({0.0, -s_val});
+            break;
+        case Dir::WEST:SetSpeed({s_val, 0.0});
+            break;
+        case Dir::SOUTH:SetSpeed({0, s_val});
+            break;
+        case Dir::EAST:SetSpeed({-s_val, 0.0});
+            break;
 
-            default:
-                SetSpeed({0.0, 0.0});
-                break;
-        }
+        default:SetSpeed({0.0, 0.0});
+            break;
+    }
 }
 
-Dog::Label Dog::GetLabel() const { return lbl_; }
-
+Dog::Label Dog::GetLabel() const {
+    return lbl_;
+}
+void Dog::SetPos(PointDbl pos) {
+    pos_ = pos;
+}
+PointDbl Dog::ComputeMove(double delta_t) const {
+    switch(direction_) {
+        case Dir::NORTH:
+            return {pos_.x, pos_.y - delta_t * speed_.vy};
+        case Dir::SOUTH:
+            return {pos_.x, pos_.y + delta_t * speed_.vy};
+        case Dir::WEST:
+            return {pos_.x - delta_t * speed_.vx, pos_.y};
+        case Dir::EAST:
+            return {pos_.x + delta_t * speed_.vx, pos_.y};
+        default:
+            return pos_;
+    }
+}
 
 //=================================================
 //=================== Session =====================
@@ -187,15 +302,29 @@ Session::Session(size_t id, Map* map_ptr)
 }
 
 Dog* Session::AddDog(std::string name) {
-    return &dogs_.emplace_back(next_dog_id_++, std::move(name), map_->GetRandomRoadPt());
+    //TODO: Change from First Point !!!
+    return &dogs_.emplace_back(next_dog_id_++, std::move(name), map_->GetFirstRoadPt());
 }
 
-size_t Session::GetId() const { return id_; }
+size_t Session::GetId() const {
+    return id_;
+}
 
-const Map::Id& Session::GetMapId() const { return map_->GetId(); }
+const Map::Id& Session::GetMapId() const {
+    return map_->GetId();
+}
 
-const std::deque<Dog>& Session::GetAllDogs() const { return dogs_; }
-
+const std::deque<Dog>& Session::GetAllDogs() const {
+    return dogs_;
+}
+void Session::AdvanceTime(Time delta_t) {
+    MoveAllDogs(delta_t);
+}
+void Session::MoveAllDogs(Time delta_t) {
+    for(auto& dog : dogs_) {
+        map_->MoveDog(&dog, delta_t);
+    }
+}
 
 //=================================================
 //=================== Game ========================
@@ -270,10 +399,15 @@ Session Game::MakeNewSessionOnMap(Map* map) {
     return {next_session_id_++, map};
 }
 
-const Game::Maps& Game::GetMaps() const { return maps_; }
+const Game::Maps& Game::GetMaps() const {
+    return maps_;
+}
 
 void Game::SetDefaultDogSpeed(double speed) {
     default_dog_speed_ = speed;
+}
+Game::Sessions& Game::GetSessions() {
+    return sessions_;
 }
 
 

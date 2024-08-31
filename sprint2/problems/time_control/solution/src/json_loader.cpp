@@ -201,14 +201,23 @@ json::value MapToValue(const Map& map) {
     };
 }
 
-const char ParseMove(const json::value& body_json) {
-    auto j_obj = body_json.as_object();
+const char ParseMove(const std::string& request_body) {
+    auto j_obj = json::parse(request_body).as_object();
     if(auto it = j_obj.find("move"); it != j_obj.end()) {
         auto mv_cmd = it->value().as_string();
 
         return mv_cmd.empty() ? char{} : mv_cmd[0];
     }
     return app::MOVE_CMD_ERR;
+}
+
+model::Time ParseTick(const std::string& request_body) {
+    auto j_obj = json::parse(request_body).as_object();
+    if(!j_obj.at("timeDelta").is_int64()) {
+        //TODO: better way?
+        throw std::invalid_argument("expected a number for time");
+    }
+    return j_obj.at("timeDelta").as_int64();
 }
 
 model::Game LoadGame(const std::filesystem::path& json_path) {

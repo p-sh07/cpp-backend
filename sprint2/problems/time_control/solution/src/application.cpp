@@ -96,6 +96,11 @@ size_t TokenHasher::operator()(const Token& token) const {
     return str_hasher(*token);
 }
 
+GameInterface::GameInterface(GamePtr& game_ptr)
+    : game_(game_ptr)
+    , players_(game_){
+}
+
 std::vector<PlayerPtr> GameInterface::GetPlayerList(PlayerPtr player) {
     return players_.GetSessionPlayerList(*player);
 }
@@ -129,8 +134,10 @@ const Map* GameInterface::GetMap(std::string_view map_id) const {
     return game_->FindMap(id);
 }
 
-GameInterface::GameInterface(GamePtr& game_ptr)
-    : game_(game_ptr)
-    , players_(game_){
+void GameInterface::AdvanceGameTime(model::Time delta_t) {
+    auto& sessions = game_->GetSessions();
+    for(auto& session : sessions) {
+        session.AdvanceTime(delta_t);
+    }
 }
 }

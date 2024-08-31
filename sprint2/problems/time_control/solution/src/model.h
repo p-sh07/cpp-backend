@@ -17,6 +17,8 @@ using Coord = Dimension;
 using DimensionDbl = double;
 using CoordDbl = DimensionDbl;
 
+using Time = uint64_t;
+
 struct Point {
     Coord x, y;
 };
@@ -111,6 +113,47 @@ class Office {
     Offset offset_;
 };
 
+class Dog {
+ public:
+    struct Label {
+        size_t id;
+        std::string name_tag;
+    };
+
+    Dog(size_t id, std::string name, PointDbl pos);
+
+    std::string_view GetName() const;
+    size_t GetId() const;
+
+    PointDbl GetPos() const;
+    Speed GetSpeed() const;
+    Dir GetDir() const;
+
+    void Stop();
+
+    //Move dog for delta t = 10 ms => moves 0.1 m at speed 1;
+    //TODO: Assuming speed = 1 unit / sec; !
+    PointDbl ComputeMove(double delta_t) const;
+
+    void SetPos(PointDbl pos);
+    void SetSpeed(Speed sp);
+    void SetDir(Dir dir);
+
+    //Set speed according to direction dir and speed value s_val (get from map settings)
+    void SetMove(Dir dir, double s_val);
+
+    //Use Label to allow dogs with same name and fast search in map by name+id
+    Label GetLabel() const;
+
+ private:
+    //what is a dog?
+    const Label lbl_;
+    PointDbl pos_;
+    Speed speed_ {0,0};
+    Dir direction_ {Dir::NORTH};
+};
+
+
 class Map {
  public:
     using Id = util::Tagged<std::string, Map>;
@@ -132,9 +175,18 @@ class Map {
 
     void AddRoad(const Road& road);
     void AddBuilding(const Building& building);
-
     void AddOffice(Office office);
+
+    const Road* FindVertRoad(PointDbl pt) const;
+    const Road* FindHorRoad(PointDbl pt) const;
+
     Point GetRandomRoadPt() const;
+
+    Point GetFirstRoadPt() const {
+        return roads_.at(0).GetStart();
+    }
+
+    void MoveDog(Dog* dog, Time delta_t) const;
 
  private:
     using OfficeIdToIndex = std::unordered_map<Office::Id, size_t, util::TaggedHasher<Office::Id>>;
@@ -145,42 +197,12 @@ class Map {
     Buildings buildings_;
     double dog_speed_ {0.0};
 
-    OfficeIdToIndex warehouse_id_to_index_;
     Offices offices_;
-};
+    OfficeIdToIndex warehouse_id_to_index_;
+    std::unordered_map<Coord, size_t> RoadXtoIndex_;
+    std::unordered_map<Coord, size_t> RoadYtoIndex_;
 
-class Dog {
- public:
-    struct Label {
-        size_t id;
-        std::string name_tag;
-    };
-
-    Dog(size_t id, std::string name, PointDbl pos);
-
-    std::string_view GetName() const;
-    size_t GetId() const;
-
-    PointDbl GetPos() const;
-    Speed GetSpeed() const;
-    Dir GetDir() const;
-
-    void Stop();
-    void SetSpeed(Speed sp);
-    void SetDir(Dir dir);
-
-    //Set speed according to direction dir and speed value s_val (get from map settings)
-    void SetMove(Dir dir, double s_val);
-
-    //Use Label to allow dogs with same name and fast search in map by name+id
-    Label GetLabel() const;
-
- private:
-    //what is a dog?
-    const Label lbl_;
-    PointDbl pos_;
-    Speed speed_ {0,0};
-    Dir direction_ {Dir::NORTH};
+    PointDbl ComputeMaxMove(const Dog* dog, const Road* road, Time delta_t) const;
 };
 
 class Session {
@@ -198,13 +220,17 @@ class Session {
     //At construction there are 0 dogs. Session is always on 1 map
     //When a player is added, he gets a new dog to control
     Dog* AddDog(std::string name);
+    void AdvanceTime(Time delta_t);
 
  private:
     const size_t id_;
     Map* map_;
+    Time time_ = 0;
 
     size_t next_dog_id_ = 0;
     std::deque<Dog> dogs_;
+
+    void MoveAllDogs(Time delta_t);
 
 };
 
@@ -213,6 +239,7 @@ using MapIdHasher = util::TaggedHasher<Map::Id>;
 class Game {
  public:
     using Maps = std::vector<Map>;
+    using Sessions = std::deque<Session>;
 
     void AddMap(Map map);
     void SetDefaultDogSpeed(double speed);
@@ -224,6 +251,7 @@ class Game {
 
     //std::shared_ptr<Session> AddSession(const Map::Id& id);
     Session* JoinSession(const Map::Id& id);
+    Sessions& GetSessions();
 
  private:
     size_t next_session_id_{0};
@@ -234,8 +262,8 @@ class Game {
 
     std::optional<size_t> GetMapIndex(const Map::Id& id) const;
 
-    std::vector<Map> maps_;
-    std::deque<Session> sessions_;
+    Maps maps_;
+    Sessions sessions_;
 
     MapIdToSessions map_to_sessions_;
     MapIdToIndex map_id_to_index_;
