@@ -284,7 +284,8 @@ StringResponse ApiHandler::HandleApiRequest(const StringRequest& req) {
 
         /// -->> Time tick for testing
         if(RemoveIfHasPrefix(Uri::time_tick, api_uri)) {
-            auto delta_t = json_loader::ParseTick(req.body());
+            //NB: Asssume time in request body given in ms -> ParseTick converts to seconds
+            double delta_t = json_loader::ParseTick(req.body());
             game_app_->AdvanceGameTime(delta_t);
         }
         return to_html_game(http::status::ok, "{}");

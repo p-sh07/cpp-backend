@@ -17,7 +17,7 @@ using Coord = Dimension;
 using DimensionDbl = double;
 using CoordDbl = DimensionDbl;
 
-using Time = uint64_t;
+using Time = double;
 
 struct Point {
     Coord x, y;
