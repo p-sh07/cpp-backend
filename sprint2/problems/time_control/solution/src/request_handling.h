@@ -84,8 +84,9 @@ enum class ErrCode {
     unknown_token,
 
     //game actions
-    invalid_argument,
+    token_invalid_argument,
     invalid_content_type,
+    time_tick_invalid_argument,
 };
 
 struct ErrInfo {
@@ -175,7 +176,7 @@ class ApiError : public ServerError {
                         "unknownToken"sv,
                         "Player token has not been found"sv};
                 break;
-            case ErrCode::invalid_argument:
+            case ErrCode::token_invalid_argument:
                 return {http::status::unauthorized,
                         "invalidArgument"sv,
                         "Failed to parse json"sv};
@@ -185,6 +186,12 @@ class ApiError : public ServerError {
                         "invalidArgument"sv,
                         "Invalid content type"sv};
                 break;
+            case ErrCode::time_tick_invalid_argument:
+                return {http::status::bad_request,
+                        "invalidArgument"sv,
+                        "Failed to parse tick request"sv};
+                break;
+
         }
     }
 };
