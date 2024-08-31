@@ -280,18 +280,19 @@ void Dog::SetPos(PointDbl pos) {
     pos_ = pos;
 }
 PointDbl Dog::ComputeMove(double delta_t) const {
-    switch(direction_) {
-        case Dir::NORTH:
-            return {pos_.x, pos_.y - delta_t * speed_.vy};
-        case Dir::SOUTH:
-            return {pos_.x, pos_.y + delta_t * speed_.vy};
-        case Dir::WEST:
-            return {pos_.x - delta_t * speed_.vx, pos_.y};
-        case Dir::EAST:
-            return {pos_.x + delta_t * speed_.vx, pos_.y};
-        default:
-            return pos_;
-    }
+    return {pos_.x + delta_t * speed_.vx, pos_.y + delta_t * speed_.vy};
+//    switch(direction_) {
+//        case Dir::NORTH:
+//            return {pos_.x, pos_.y + delta_t * speed_.vy};
+//        case Dir::SOUTH:
+//            return {pos_.x, pos_.y + delta_t * speed_.vy};
+//        case Dir::WEST:
+//            return {pos_.x + delta_t * speed_.vx, pos_.y};
+//        case Dir::EAST:
+//            return {pos_.x + delta_t * speed_.vx, pos_.y};
+//        default:
+//            return pos_;
+//    }
 }
 
 //=================================================

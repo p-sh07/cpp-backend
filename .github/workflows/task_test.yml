@@ -1,4 +1,4 @@
-name: test move_players
+name: test time_control
 
 on:
   push:
@@ -35,11 +35,11 @@ jobs:
           pip install -U conan==1.59.0
           cp -R /home/forconan/.conan /github/home/.conan
 
-      - name: run tests sprint2 move_players
-        run: |
-          cd cpp-backend-tests-practicum/scripts/sprint2
-          ./move_players/run.sh
-
+          - name: run tests sprint2 time_control
+          run: |
+            cd cpp-backend-tests-practicum/scripts/sprint2
+            ./time_control/run.sh
+  
 
       - name: Publish XML reports
         uses: EnricoMi/publish-unit-test-result-action@v2
