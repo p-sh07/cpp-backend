@@ -120,6 +120,7 @@ class ServerError : public std::runtime_error {
 class ApiError : public ServerError {
  public:
     using ServerError::ServerError;
+    //TODO: add optional message to override one in error
 
     std::string print_json() const {
         auto err_info = GetInfo(ec_);
@@ -177,7 +178,7 @@ class ApiError : public ServerError {
             case ErrCode::invalid_argument:
                 return {http::status::unauthorized,
                         "invalidArgument"sv,
-                        "Failed to parse action"sv};
+                        "Failed to parse json"sv};
                 break;
             case ErrCode::invalid_content_type:
                 return {http::status::unauthorized,
