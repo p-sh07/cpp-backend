@@ -186,11 +186,11 @@ void Map::MoveDog(Dog* dog, Time delta_t) const {
     }
 
     //TODO:remove debug output
-    std::cerr << "Moved dog in Dir[" << (static_cast<char>(dog->GetDir())) << "] along road ["
-              << preferred_road->GetStart().x << ", " << preferred_road->GetStart().y << "]["
-              << preferred_road->GetEnd().x << ", " << preferred_road->GetEnd().y << "] from pt ("
-              << dog->GetPos().x << ", " << dog->GetPos().y << ") to pt ("
-              << new_pos.x << ", " << new_pos.y << std::endl;
+    //std::cerr << "Moved dog in Dir[" << (static_cast<char>(dog->GetDir())) << "] along road ["
+//              << preferred_road->GetStart().x << ", " << preferred_road->GetStart().y << "]["
+//              << preferred_road->GetEnd().x << ", " << preferred_road->GetEnd().y << "] from pt ("
+//              << dog->GetPos().x << ", " << dog->GetPos().y << ") to pt ("
+//              << new_pos.x << ", " << new_pos.y << std::endl;
 
     dog->SetPos(new_pos);
 }
