@@ -175,7 +175,8 @@ void Map::MoveDog(Dog* dog, Time delta_t) const {
     const auto roadH = FindHorRoad(start);
 
     if(!roadH && !roadV) {
-        throw std::runtime_error("Dog is not on a road!");
+        //throw std::runtime_error("Dog is not on a road!");
+        return dog->Stop();
     }
 
     //move dog for max move or until road limit is hit
@@ -201,7 +202,9 @@ void Map::MoveDog(Dog* dog, Time delta_t) const {
     const auto roadH_check = FindHorRoad(new_pos);
 
     if(!roadV_check && !roadH_check) {
-        throw std::runtime_error("Dog is not on a road!");
+        //throw std::runtime_error("Dog is not on a road!");
+        std::cerr << "Dog is not on a road!\n";
+        return dog->Stop();
     }
 
     dog->SetPos(new_pos);
