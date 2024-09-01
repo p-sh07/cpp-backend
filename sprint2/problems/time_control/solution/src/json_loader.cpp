@@ -159,7 +159,7 @@ std::string PrintPlayerState(const std::vector<app::PlayerPtr>& players) {
     }
     std::stringstream ss;
     pretty_print(ss, json::object{{"players", player_state}});
-    std::cerr << ss.str() << std::endl;
+//    std::cerr << ss.str() << std::endl;
     return ss.str();
 }
 

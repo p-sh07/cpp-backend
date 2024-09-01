@@ -191,7 +191,7 @@ const Road* Map::FindHorRoad(PointDbl pt) const {
     return &roads_[it->second];
 }
 void Map::MoveDog(Dog* dog, Time delta_t) const {
-    std::cerr << "-rec. dt = " << delta_t << " curr.pos = " << dog->GetPos().x << " " << dog->GetPos().y << '\n';
+    //std::cerr << "-rec. dt = " << delta_t << " curr.pos = " << dog->GetPos().x << " " << dog->GetPos().y << '\n';
     auto start = dog->GetPos();
     auto dir = dog->GetDir();
 
@@ -215,7 +215,7 @@ void Map::MoveDog(Dog* dog, Time delta_t) const {
         new_pos = ComputeMaxMove(dog, preferred_road, delta_t);
     }
 
-    std::cerr << " ->computed new_pos: " << new_pos << std::endl;
+    // std::cerr << " ->computed new_pos: " << new_pos << std::endl;
 
     //TODO:remove debug output
     //std::cerr << "Moved dog in Dir[" << (static_cast<char>(dog->GetDir())) << "] along road ["
@@ -232,15 +232,15 @@ void Map::MoveDog(Dog* dog, Time delta_t) const {
         std::cerr << "Dog is not on a road!\n";
         //return dog->Stop();
     }
-    std::cerr << "Setting new dog pos: " << new_pos.x << " " << new_pos.y << '\n';
-    dog->SetPos(new_pos);
+//    std::cerr << "Setting new dog pos: " << new_pos.x << " " << new_pos.y << '\n';
+//    dog->SetPos(new_pos);
 }
 
 PointDbl Map::ComputeMaxMove(Dog* dog, const Road* road, Time delta_t) const {
     //Maximum point dog can reach in delta_t if no road limit is hit
     auto max_move = dog->ComputeMove(delta_t);
-    std::cerr << "max move: " << max_move << " speed: " << dog->GetSpeed() << " time(msec): " << delta_t << '\n';
-    std::cerr << "calc: " << dog->GetSpeed().vx * delta_t / 1000 << ", " << dog->GetSpeed().vy * delta_t / 1000 << '\n';
+//    std::cerr << "max move: " << max_move << " speed: " << dog->GetSpeed() << " time(msec): " << delta_t << '\n';
+//    std::cerr << "calc: " << dog->GetSpeed().vx * delta_t / 1000 << ", " << dog->GetSpeed().vy * delta_t / 1000 << '\n';
     switch (dog->GetDir()) {
         case Dir::NORTH: {
             auto road_limit_y = 1.0 * std::min(road->GetStart().y, road->GetEnd().y) - 0.4;
