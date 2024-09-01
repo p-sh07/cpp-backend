@@ -202,7 +202,7 @@ class Map {
     std::unordered_map<Coord, size_t> RoadXtoIndex_;
     std::unordered_map<Coord, size_t> RoadYtoIndex_;
 
-    PointDbl ComputeMaxMove(const Dog* dog, const Road* road, Time delta_t) const;
+    PointDbl ComputeMaxMove(Dog* dog, const Road* road, Time delta_t) const;
 };
 
 class Session {

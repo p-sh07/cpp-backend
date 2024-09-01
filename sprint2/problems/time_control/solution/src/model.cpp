@@ -206,7 +206,7 @@ void Map::MoveDog(Dog* dog, Time delta_t) const {
 
     dog->SetPos(new_pos);
 }
-PointDbl Map::ComputeMaxMove(const Dog* dog, const Road* road, Time delta_t) const {
+PointDbl Map::ComputeMaxMove(Dog* dog, const Road* road, Time delta_t) const {
     //Maximum point dog can reach in delta_t if no road limit is hit
     auto max_move = dog->ComputeMove(delta_t);
     switch (dog->GetDir()) {
@@ -214,19 +214,39 @@ PointDbl Map::ComputeMaxMove(const Dog* dog, const Road* road, Time delta_t) con
             auto road_limit_y = 1.0 * std::min(road->GetStart().y, road->GetEnd().y) - 0.4;
 
             //Choose the least value (closest to starting point, it is the limit)
-            return {max_move.x, std::max(road_limit_y, max_move.y)};
+            auto move_y_dist = std::max(road_limit_y, max_move.y);
+
+            if(move_y_dist == road_limit_y) {
+                dog->Stop();
+            }
+            return {dog->GetPos().x, move_y_dist};
         }
         case Dir::SOUTH: {
             auto road_limit_y = 1.0 * std::max(road->GetStart().y, road->GetEnd().y) + 0.4;
-            return {max_move.x, std::min(road_limit_y, max_move.y)};
+            auto move_y_dist = std::min(road_limit_y, max_move.y);
+
+            if(move_y_dist == road_limit_y) {
+                dog->Stop();
+            }
+            return {dog->GetPos().x, move_y_dist};
         }
         case Dir::WEST: {
             auto road_limit_x = 1.0 * std::min(road->GetStart().x, road->GetEnd().x) - 0.4;
-            return {std::max(road_limit_x, max_move.x), max_move.y};
+            auto move_x_dist = std::max(road_limit_x, max_move.x);
+
+            if(move_x_dist == road_limit_x) {
+                dog->Stop();
+            }
+            return {move_x_dist, dog->GetPos().y};
         }
         case Dir::EAST: {
             auto road_limit_x = 1.0 * std::max(road->GetStart().x, road->GetEnd().x) + 0.4;
-            return {std::min(road_limit_x, max_move.x), max_move.y};
+            auto move_x_dist = std::min(road_limit_x, max_move.x);
+
+            if(move_x_dist == road_limit_x) {
+                dog->Stop();
+            }
+            return {move_x_dist, dog->GetPos().y};
         }
     }
     return {};
