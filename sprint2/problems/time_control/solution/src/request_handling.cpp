@@ -166,10 +166,12 @@ app::PlayerPtr ApiHandler::AuthorizePlayer(const auto& request) const {
 
 StringResponse ApiHandler::HandleApiRequest(const StringRequest& req) {
 
-    //General purpose string-response forming lambda, CT = App-json by default
-    auto to_html = [&](http::status status, std::string_view text) {
-        return MakeStringResponse(status, text, req.version(),
-                                  req.keep_alive(), ContentType::APP_JSON);
+    //General purpose string-response forming lambda, CT = App-json by default, cache_control = no-cache
+    auto to_html = [&](http::status status, std::string_view text, std::string_view cache_value = "no-cache") {
+        auto resp = MakeStringResponse(status, text, req.version(),
+                                       req.keep_alive(), ContentType::APP_JSON);
+        resp.set(http::field::cache_control, cache_value);
+        return resp;
     };
 
     std::string_view request_uri_full = req.target();
@@ -199,14 +201,6 @@ StringResponse ApiHandler::HandleApiRequest(const StringRequest& req) {
     /// ->> Game interaction
     if(RemoveIfHasPrefix(Uri::game, api_uri)) {
 
-        //Lambda for creating /api/v1/game responses
-        auto to_html_game = [&](http::status status, std::string_view text, std::string_view cache_value = "no-cache") {
-            auto resp = MakeStringResponse(status, text, req.version(),
-                                           req.keep_alive(), ContentType::APP_JSON);
-            resp.set(http::field::cache_control, cache_value);
-            return resp;
-        };
-
         /// -->> Join game
         if(RemoveIfHasPrefix(Uri::join_game, api_uri)) {
             if(req.method() != http::verb::post) {
@@ -228,7 +222,7 @@ StringResponse ApiHandler::HandleApiRequest(const StringRequest& req) {
                 {"authToken", join_result.token->GetVal()},
             };
 
-            return to_html_game(http::status::ok, serialize(json_body));
+            return to_html(http::status::ok, serialize(json_body));
         }
 
         /// -->> Get player list
@@ -240,7 +234,7 @@ StringResponse ApiHandler::HandleApiRequest(const StringRequest& req) {
             auto player = AuthorizePlayer(req);
             auto json_str_body = json_loader::PrintPlayerList(game_app_->GetPlayerList(player));
 
-            return to_html_game(http::status::ok, json_str_body);
+            return to_html(http::status::ok, json_str_body);
         }
 
         /// -->> Game state
@@ -252,7 +246,7 @@ StringResponse ApiHandler::HandleApiRequest(const StringRequest& req) {
             auto player = AuthorizePlayer(req);
             auto json_str_body = json_loader::PrintPlayerState(game_app_->GetPlayerList(player));
 
-            return to_html_game(http::status::ok, json_str_body);
+            return to_html(http::status::ok, json_str_body);
         }
 
         ///->> Player action
@@ -279,7 +273,7 @@ StringResponse ApiHandler::HandleApiRequest(const StringRequest& req) {
 
             game_app_->MovePlayer( player, move_char_cmd);
 
-            return to_html_game(http::status::ok, "{}");
+            return to_html(http::status::ok, "{}");
         }
 
         /// -->> Time tick for testing
@@ -306,7 +300,7 @@ StringResponse ApiHandler::HandleApiRequest(const StringRequest& req) {
                 throw ApiError(ErrCode::time_tick_invalid_argument);
             }
             game_app_->AdvanceGameTime(delta_t);
-            return to_html_game(http::status::ok, "{}");
+            return to_html(http::status::ok, "{}");
         }
     }
 
