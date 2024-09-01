@@ -17,7 +17,7 @@ using Coord = Dimension;
 using DimensionDbl = double;
 using CoordDbl = DimensionDbl;
 
-using Time = double;
+using Time = uint64_t;
 
 struct Point {
     Coord x, y;
@@ -31,9 +31,15 @@ struct PointDbl {
     CoordDbl x, y;
 };
 
+std::ostream& operator<<(std::ostream& os, const Point& pt);
+
+std::ostream& operator<<(std::ostream& os, const PointDbl& pt);
+
 struct Speed {
     DimensionDbl vx, vy;
 };
+
+std::ostream& operator<<(std::ostream& os, const Speed& pt);
 
 //Progresses clockwise
 enum class Dir : char {

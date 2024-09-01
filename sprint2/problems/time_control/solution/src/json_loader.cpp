@@ -221,7 +221,7 @@ model::Time ParseTick(const std::string& request_body) {
         //TODO: better way?
         throw std::invalid_argument("expected a number for time");
     }
-    return 1.0 * j_obj.at("timeDelta").as_int64() / 1000;
+    return j_obj.at("timeDelta").as_int64();
 }
 
 model::Game LoadGame(const std::filesystem::path& json_path) {

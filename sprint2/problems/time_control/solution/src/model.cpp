@@ -18,6 +18,21 @@ PointDbl::PointDbl(double x, double y)
     , y(y) {
 }
 
+std::ostream& operator<<(std::ostream& os, const Point& pt) {
+    os << '(' << pt.x << ", " << pt.y << ')';
+    return os;
+}
+
+std::ostream& operator<<(std::ostream& os, const PointDbl& pt) {
+    os << '{' << pt.x << ", " << pt.y << '}';
+    return os;
+}
+
+std::ostream& operator<<(std::ostream& os, const Speed& pt) {
+    os << '[' << pt.vx << ", " << pt.vy << ']';
+    return os;
+}
+
 //=================================================
 //=================== Road ========================
 Point Road::GetRandomPt() const {
@@ -200,6 +215,8 @@ void Map::MoveDog(Dog* dog, Time delta_t) const {
         new_pos = ComputeMaxMove(dog, preferred_road, delta_t);
     }
 
+    std::cerr << " ->computed new_pos: " << new_pos << std::endl;
+
     //TODO:remove debug output
     //std::cerr << "Moved dog in Dir[" << (static_cast<char>(dog->GetDir())) << "] along road ["
 //              << preferred_road->GetStart().x << ", " << preferred_road->GetStart().y << "]["
@@ -218,9 +235,12 @@ void Map::MoveDog(Dog* dog, Time delta_t) const {
     std::cerr << "Setting new dog pos: " << new_pos.x << " " << new_pos.y << '\n';
     dog->SetPos(new_pos);
 }
+
 PointDbl Map::ComputeMaxMove(Dog* dog, const Road* road, Time delta_t) const {
     //Maximum point dog can reach in delta_t if no road limit is hit
     auto max_move = dog->ComputeMove(delta_t);
+    std::cerr << "max move: " << max_move << " speed: " << dog->GetSpeed() << " time(msec): " << delta_t << '\n';
+    std::cerr << "calc: " << dog->GetSpeed().vx * delta_t / 1000 << ", " << dog->GetSpeed().vy * delta_t / 1000 << '\n';
     switch (dog->GetDir()) {
         case Dir::NORTH: {
             auto road_limit_y = 1.0 * std::min(road->GetStart().y, road->GetEnd().y) - 0.4;
@@ -324,7 +344,7 @@ void Dog::SetPos(PointDbl pos) {
     pos_ = pos;
 }
 PointDbl Dog::ComputeMove(double delta_t) const {
-    return {pos_.x + delta_t * speed_.vx, pos_.y + delta_t * speed_.vy};
+    return {pos_.x + 1.0 * delta_t * speed_.vx /1000, pos_.y + 1.0 * delta_t * speed_.vy/1000};
 //    switch(direction_) {
 //        case Dir::NORTH:
 //            return {pos_.x, pos_.y + delta_t * speed_.vy};
