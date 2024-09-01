@@ -148,20 +148,28 @@ void Map::SetDogSpeed(double speed) {
     dog_speed_ = speed;
 }
 const Road* Map::FindVertRoad(PointDbl pt) const {
-    auto it = RoadXtoIndex_.find(static_cast<Coord>(pt.x));
-    if(it == RoadXtoIndex_.end()) {
+    auto it = RoadXtoIndex_.find(static_cast<Coord>(std::round(pt.x)));
+    auto pt_is_not_on_road = [&](const Road* rd, const PointDbl& pt) {
+        Point check{static_cast<Coord>(std::round(pt.x)), static_cast<Coord>(std::round(pt.y))};
+        return (check.y < std::min(rd->GetStart().y, rd->GetEnd().y))
+            || (std::max(rd->GetStart().y, rd->GetEnd().x) < check.y);
+    };
+
+    if(it == RoadXtoIndex_.end() || pt_is_not_on_road(&roads_[it->second], pt)) {
         return nullptr;
     }
     return &roads_[it->second];
 }
 const Road* Map::FindHorRoad(PointDbl pt) const {
     auto pt_is_not_on_road = [&](const Road* rd, const PointDbl& pt) {
-        return (pt.x < std::min(rd->GetStart().x, rd->GetEnd().x))
-        || ((std::max(rd->GetStart().x, rd->GetEnd().x) < pt.x));
+        Point check{static_cast<Coord>(std::round(pt.x)), static_cast<Coord>(std::round(pt.y))};
+        return (check.x < std::min(rd->GetStart().x, rd->GetEnd().x))
+        || (std::max(rd->GetStart().x, rd->GetEnd().x) < check.x);
     };
 
     //TODO:static cast or round? road width == 0.4
-    auto it = RoadYtoIndex_.find(static_cast<Coord>(pt.y));
+    const auto y_coord = static_cast<Coord>(std::round(pt.y));
+    auto it = RoadYtoIndex_.find(y_coord);
     if(it == RoadYtoIndex_.end() || pt_is_not_on_road(&roads_[it->second], pt)) {
         return nullptr;
     }
@@ -205,7 +213,7 @@ void Map::MoveDog(Dog* dog, Time delta_t) const {
     if(!roadV_check && !roadH_check) {
         //throw std::runtime_error("Dog is not on a road!");
         std::cerr << "Dog is not on a road!\n";
-        return dog->Stop();
+        //return dog->Stop();
     }
     std::cerr << "Setting new dog pos: " << new_pos.x << " " << new_pos.y << '\n';
     dog->SetPos(new_pos);
@@ -253,7 +261,7 @@ PointDbl Map::ComputeMaxMove(Dog* dog, const Road* road, Time delta_t) const {
             return {move_x_dist, dog->GetPos().y};
         }
     }
-    return {};
+    return {dog->GetPos().x, dog->GetPos().y};
 }
 
 //=================================================
