@@ -168,6 +168,7 @@ const Road* Map::FindHorRoad(PointDbl pt) const {
     return &roads_[it->second];
 }
 void Map::MoveDog(Dog* dog, Time delta_t) const {
+    std::cerr << "-rec. dt = " << delta_t << " curr.pos = " << dog->GetPos().x << " " << dog->GetPos().y << '\n';
     auto start = dog->GetPos();
     auto dir = dog->GetDir();
 
@@ -206,7 +207,7 @@ void Map::MoveDog(Dog* dog, Time delta_t) const {
         std::cerr << "Dog is not on a road!\n";
         return dog->Stop();
     }
-
+    std::cerr << "Setting new dog pos: " << new_pos.x << " " << new_pos.y << '\n';
     dog->SetPos(new_pos);
 }
 PointDbl Map::ComputeMaxMove(Dog* dog, const Road* road, Time delta_t) const {
