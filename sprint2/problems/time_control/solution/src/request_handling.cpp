@@ -301,8 +301,8 @@ StringResponse ApiHandler::HandleApiRequest(const StringRequest& req) {
                 throw ApiError(ErrCode::time_tick_invalid_argument);
             }
             game_app_->AdvanceGameTime(delta_t);
+            return to_html_game(http::status::ok, "{}");
         }
-        return to_html_game(http::status::ok, "{}");
     }
 
     // *Error: Bad request
