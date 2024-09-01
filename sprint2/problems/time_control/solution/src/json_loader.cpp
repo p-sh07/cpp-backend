@@ -16,6 +16,8 @@ static constexpr json::string_view OFFICES_KEY = "offices";
 //https://live.boost.org/doc/libs/1_83_0/libs/json/doc/html/json/examples.html
 void pretty_print( std::ostream& os, json::value const& jv, std::string* indent = nullptr )
 {
+    os << json::serialize(jv);
+    /*
     std::string indent_;
     if(! indent)
         indent = &indent_;
@@ -101,6 +103,7 @@ void pretty_print( std::ostream& os, json::value const& jv, std::string* indent 
 
 //    if(indent->empty())
 //        os << "\n";
+     */
 }
 
 std::string PrintMapList(const model::Game::Maps& map_list) {
