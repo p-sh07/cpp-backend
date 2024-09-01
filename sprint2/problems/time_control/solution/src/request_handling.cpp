@@ -288,9 +288,14 @@ StringResponse ApiHandler::HandleApiRequest(const StringRequest& req) {
                 throw ApiError(ErrCode::bad_method_post_only);
             }
 
-//            if(auto it = req.find(http::field::content_type); it != req.end()) {
-//                throw ApiError(ErrCode::bad_request);
-//            }
+            if(auto it = req.find(http::field::content_type); it == req.end()
+            || it->value() != ContentType::APP_JSON) {
+                throw ApiError(ErrCode::bad_request);
+            }
+
+            if(req.body().empty()) {
+                throw ApiError(ErrCode::time_tick_invalid_argument);
+            }
 
             //NB: Asssume time in request body given in ms -> ParseTick converts to seconds
             double delta_t = 0.0;

@@ -155,9 +155,14 @@ const Road* Map::FindVertRoad(PointDbl pt) const {
     return &roads_[it->second];
 }
 const Road* Map::FindHorRoad(PointDbl pt) const {
+    auto pt_is_not_on_road = [&](const Road* rd, const PointDbl& pt) {
+        return (pt.x < std::min(rd->GetStart().x, rd->GetEnd().x))
+        || ((std::max(rd->GetStart().x, rd->GetEnd().x) < pt.x));
+    };
+
     //TODO:static cast or round? road width == 0.4
     auto it = RoadYtoIndex_.find(static_cast<Coord>(pt.y));
-    if(it == RoadYtoIndex_.end()) {
+    if(it == RoadYtoIndex_.end() || pt_is_not_on_road(&roads_[it->second], pt)) {
         return nullptr;
     }
     return &roads_[it->second];
@@ -191,6 +196,13 @@ void Map::MoveDog(Dog* dog, Time delta_t) const {
 //              << preferred_road->GetEnd().x << ", " << preferred_road->GetEnd().y << "] from pt ("
 //              << dog->GetPos().x << ", " << dog->GetPos().y << ") to pt ("
 //              << new_pos.x << ", " << new_pos.y << std::endl;
+
+    const auto roadV_check = FindVertRoad(new_pos);
+    const auto roadH_check = FindHorRoad(new_pos);
+
+    if(!roadV_check && !roadH_check) {
+        throw std::runtime_error("Dog is not on a road!");
+    }
 
     dog->SetPos(new_pos);
 }
@@ -261,11 +273,11 @@ void Dog::SetMove(Dir dir, double s_val) {
     switch(dir) {
         case Dir::NORTH:SetSpeed({0.0, -s_val});
             break;
-        case Dir::WEST:SetSpeed({s_val, 0.0});
+        case Dir::WEST:SetSpeed({-s_val, 0.0});
             break;
         case Dir::SOUTH:SetSpeed({0, s_val});
             break;
-        case Dir::EAST:SetSpeed({-s_val, 0.0});
+        case Dir::EAST:SetSpeed({+s_val, 0.0});
             break;
 
         default:SetSpeed({0.0, 0.0});

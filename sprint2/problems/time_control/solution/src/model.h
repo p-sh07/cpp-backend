@@ -38,9 +38,9 @@ struct Speed {
 //Progresses clockwise
 enum class Dir : char {
     NORTH = 'U',
-    EAST = 'L',
+    EAST = 'R',
     SOUTH = 'D',
-    WEST = 'R',
+    WEST = 'L',
 };
 
 struct Size {
