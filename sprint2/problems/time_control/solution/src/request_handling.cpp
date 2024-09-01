@@ -288,14 +288,14 @@ StringResponse ApiHandler::HandleApiRequest(const StringRequest& req) {
                 throw ApiError(ErrCode::bad_method_post_only);
             }
 
-            if(auto it = req.find(http::field::content_type); it != req.end()) {
-                throw ApiError(ErrCode::bad_request);
-            }
+//            if(auto it = req.find(http::field::content_type); it != req.end()) {
+//                throw ApiError(ErrCode::bad_request);
+//            }
 
             //NB: Asssume time in request body given in ms -> ParseTick converts to seconds
             double delta_t = 0.0;
             try {
-                double delta_t = json_loader::ParseTick(req.body());
+                delta_t = json_loader::ParseTick(req.body());
             } catch (...) {
                 //parsing error
                 throw ApiError(ErrCode::time_tick_invalid_argument);
