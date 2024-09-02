@@ -139,7 +139,7 @@ class Dog {
 
     //Move dog for delta t = 10 ms => moves 0.1 m at speed 1;
     //TODO: Assuming speed = 1 unit / sec; !
-    PointDbl ComputeMove(double delta_t) const;
+    PointDbl ComputeMove(Time delta_t) const;
 
     void SetPos(PointDbl pos);
     void SetSpeed(Speed sp);

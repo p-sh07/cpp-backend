@@ -266,6 +266,8 @@ StringResponse ApiHandler::HandleApiRequest(const StringRequest& req) {
             const auto move_char_cmd = json_loader::ParseMove(req.body());
 
             //TODO: Check valid func
+            std::cerr << "-Recieved dir: " << move_char_cmd << '\n';
+
             const std::string allowed = "LURD"s;
             if(!isblank(move_char_cmd) && allowed.find(move_char_cmd) == allowed.npos) {
                 throw ApiError(ErrCode::token_invalid_argument);

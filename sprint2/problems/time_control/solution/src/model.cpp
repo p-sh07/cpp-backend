@@ -191,7 +191,7 @@ const Road* Map::FindHorRoad(PointDbl pt) const {
     return &roads_[it->second];
 }
 void Map::MoveDog(Dog* dog, Time delta_t) const {
-    std::cerr << "=> Moving dog: delta_t = " << delta_t << ", curr.pos = " << dog->GetPos() << ", dir: " << static_cast<char>(dog->GetDir())  << '\n';
+    std::cerr << "=> Start Moving dog: [" << dog->GetId() << "] delta_t = " << delta_t << ", curr.pos = " << dog->GetPos() << ", dir: " << static_cast<char>(dog->GetDir())  << '\n';
     auto start = dog->GetPos();
     auto dir = dog->GetDir();
 
@@ -322,17 +322,29 @@ void Dog::SetDir(Dir dir) {
 }
 void Dog::SetMove(Dir dir, double s_val) {
     direction_ = dir;
+    if(isblank(static_cast<char>(dir))) {
+        std::cerr << "Got empty move char\n";
+    } else {
+        std::cerr << "Setting dir = " << static_cast<char>(dir) << '\n';
+    }
+
     switch(dir) {
-        case Dir::NORTH:SetSpeed({0.0, -s_val});
+        case Dir::NORTH:
+            SetSpeed({0.0, -s_val});
             break;
-        case Dir::WEST:SetSpeed({-s_val, 0.0});
+        case Dir::WEST:
+            SetSpeed({-s_val, 0.0});
             break;
-        case Dir::SOUTH:SetSpeed({0, s_val});
+        case Dir::SOUTH:
+            SetSpeed({0, s_val});
             break;
-        case Dir::EAST:SetSpeed({+s_val, 0.0});
+        case Dir::EAST:
+            SetSpeed({s_val, 0.0});
             break;
 
-        default:SetSpeed({0.0, 0.0});
+        default:
+            std::cerr << "setting speed to 0,0 in Dog->SetMove()\n";
+            SetSpeed({0.0, 0.0});
             break;
     }
 }
@@ -343,7 +355,7 @@ Dog::Label Dog::GetLabel() const {
 void Dog::SetPos(PointDbl pos) {
     pos_ = pos;
 }
-PointDbl Dog::ComputeMove(double delta_t) const {
+PointDbl Dog::ComputeMove(Time delta_t) const {
     return {pos_.x + 1.0 * delta_t * speed_.vx /1000, pos_.y + 1.0 * delta_t * speed_.vy/1000};
 //    switch(direction_) {
 //        case Dir::NORTH:
