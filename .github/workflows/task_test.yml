@@ -1,4 +1,4 @@
-name: test time_control
+cname: test command_line
 
 on:
   push:
@@ -35,10 +35,10 @@ jobs:
           pip install -U conan==1.59.0
           cp -R /home/forconan/.conan /github/home/.conan
   
-      - name: run tests sprint2 time_control
+      - name: run tests sprint2 command_line
         run: |
           cd cpp-backend-tests-practicum/scripts/sprint2
-          ./time_control/run.sh
+          ./command_line/run.sh
 
       - name: Publish XML reports
         uses: EnricoMi/publish-unit-test-result-action@v2
