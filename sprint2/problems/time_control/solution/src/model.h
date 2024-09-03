@@ -2,6 +2,7 @@
 #include <optional>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 #include <deque>
 
@@ -205,8 +206,8 @@ class Map {
 
     Offices offices_;
     OfficeIdToIndex warehouse_id_to_index_;
-    std::unordered_map<Coord, size_t> RoadXtoIndex_;
-    std::unordered_map<Coord, size_t> RoadYtoIndex_;
+    std::unordered_map<Coord, std::unordered_set<size_t>> RoadXtoIndex_;
+    std::unordered_map<Coord, std::unordered_set<size_t>> RoadYtoIndex_;
 
     PointDbl ComputeMaxMove(Dog* dog, const Road* road, Time delta_t) const;
 };
