@@ -1,4 +1,4 @@
-cname: test command_line
+name: test command_line
 
 on:
   push:
@@ -12,7 +12,7 @@ permissions:
 
 
 jobs:
-  sprint_2:
+sprint_2:
     runs-on: ubuntu-22.04
     container:
       image: praktikumcpp/practicum_cpp_backend:latest
@@ -34,7 +34,7 @@ jobs:
           pip uninstall conan -y
           pip install -U conan==1.59.0
           cp -R /home/forconan/.conan /github/home/.conan
-  
+
       - name: run tests sprint2 command_line
         run: |
           cd cpp-backend-tests-practicum/scripts/sprint2
