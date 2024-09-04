@@ -119,9 +119,19 @@ fs::path ConvertFromUrl(std::string_view url) {
 
 //==================================================================
 //======================= Api Request Handler ======================
-ApiHandler::ApiHandler(Strand api_strand, std::shared_ptr<app::GameInterface> game_app)
+ApiHandler::ApiHandler(Strand api_strand, std::shared_ptr<app::GameInterface> game_app, bool use_debug_tick)
     : strand_(api_strand)
-    , game_app_(std::move(game_app)) {
+    , game_app_(std::move(game_app))
+    , use_http_tick_debug_(use_debug_tick) {
+    //TODO: Call tick here for the first time, then it should call itself after steady periods of time
+    //TODO: tick freq as parameter? NB: set to 50ms tick
+    if(!use_http_tick_debug_) {
+        ticker_ = std::make_shared<Ticker>(api_strand, 50ms,
+                                           [&](model::Time delta) { game_app_->AdvanceGameTime(delta); }
+        );
+        ticker_->Start();
+    }
+
 }
 
 std::string_view ApiHandler::ExtractMapId(std::string_view uri) const {
@@ -266,7 +276,7 @@ StringResponse ApiHandler::HandleApiRequest(const StringRequest& req) {
             const auto move_char_cmd = json_loader::ParseMove(req.body());
 
             //TODO: Check valid func
-            std::cerr << "-Recieved dir: " << move_char_cmd << '\n';
+            //std::cerr << "-Recieved dir: " << move_char_cmd << '\n';
 
             const std::string allowed = "LURD"s;
             if(!isblank(move_char_cmd) && allowed.find(move_char_cmd) == allowed.npos) {
@@ -279,7 +289,7 @@ StringResponse ApiHandler::HandleApiRequest(const StringRequest& req) {
         }
 
         /// -->> Time tick for testing
-        if(RemoveIfHasPrefix(Uri::time_tick, api_uri)) {
+        if(use_http_tick_debug_ && RemoveIfHasPrefix(Uri::time_tick, api_uri)) {
             if(req.method() != http::verb::post) {
                 throw ApiError(ErrCode::bad_method_post_only);
             }
@@ -412,6 +422,11 @@ StringResponse FileHandler::ReportFileError(unsigned version, bool keep_alive) c
 
 //==================================================================
 //================== Request Handling Interface ====================
+RequestHandler::RequestHandler(fs::path root, Strand api_strand, std::shared_ptr<app::GameInterface> game_app, bool tick_debug_enable)
+: file_handler_(std::make_shared<FileHandler>(std::move(root)))
+, api_handler_(std::make_shared<ApiHandler>(api_strand, std::move(game_app), tick_debug_enable)) {
+}
+
 StringResponse RequestHandler::ReportServerError(const ServerError& err, unsigned version, bool keep_alive) const {
     auto error_report = MakeStringResponse(err.status(), err.what(), version, keep_alive);
     if(err.status() == http::status::method_not_allowed) {
@@ -427,6 +442,46 @@ StringResponse RequestHandler::ReportServerError(const ServerError& err, unsigne
 StringResponse RequestHandler::ReportServerError(unsigned version, bool keep_alive) const {
     return MakeStringResponse(http::status::unknown, "Request handling error occured"sv, version, keep_alive);
 }
+
+
+//==================================================================
+//================== Ticker Class ====================
+Ticker::Ticker(Strand strand, std::chrono::milliseconds period, Handler handler)
+        : strand_{strand}
+        , period_{period}
+        , handler_{std::move(handler)} {
+    }
+
+    void Ticker::Start() {
+        net::dispatch(strand_, [self = shared_from_this()] {
+            self->last_tick_ = Clock::now();
+            self->ScheduleTick();
+        });
+    }
+
+    void Ticker::ScheduleTick() {
+        assert(strand_.running_in_this_thread());
+        timer_.expires_after(period_);
+        timer_.async_wait([self = shared_from_this()](sys::error_code ec) {
+            self->OnTick(ec);
+        });
+    }
+
+    void Ticker::OnTick(sys::error_code ec) {
+        using namespace std::chrono;
+        assert(strand_.running_in_this_thread());
+
+        if (!ec) {
+            auto this_tick = Clock::now();
+            model::Time delta = duration_cast<milliseconds>(this_tick - last_tick_).count();
+            last_tick_ = this_tick;
+            try {
+                handler_(delta);
+            } catch (...) {
+            }
+            ScheduleTick();
+        }
+    }
 } // namespace http_handler
 
 

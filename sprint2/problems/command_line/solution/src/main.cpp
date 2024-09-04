@@ -1,5 +1,6 @@
 #include "sdk.h"
 
+#include <boost/program_options.hpp>
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/signal_set.hpp>
 #include <iostream>
@@ -13,6 +14,50 @@ namespace json = boost::json;
 namespace logging = boost::log;
 
 using namespace std::literals;
+
+struct Args {
+    std::string static_root;
+    std::string config_path;
+    bool tick_debug = false;
+};
+
+[[nodiscard]] std::optional<Args> ParseCommandLine(int argc, const char* const argv[]) {
+    namespace po = boost::program_options;
+
+    po::options_description desc{"All options"s};
+
+    Args args;
+    desc.add_options()
+        // Добавляем опцию --help и её короткую версию -h
+        ("help,h", "Show help")
+        ("tick_debug,t", po::bool_switch(&args.tick_debug), "Debug time control via http")
+        ("static,s", po::value(&args.static_root)->value_name("static"s), "Server static files root")
+        ("config,c", po::value(&args.config_path)->value_name("config"s), "Game config file path");
+
+    // variables_map хранит значения опций после разбора
+    po::variables_map vm;
+    po::store(po::parse_command_line(argc, argv, desc), vm);
+    po::notify(vm);
+
+    if (vm.contains("help"s)) {
+        // Если был указан параметр --help, то выводим справку и возвращаем nullopt
+        std::cout << desc;
+        return std::nullopt;
+    }
+
+    std::cerr << "debug tick flag is: " << std::boolalpha << args.tick_debug << std::endl;
+
+    // Проверяем наличие опций src и dst
+    if (!vm.contains("static"s)) {
+        throw std::runtime_error("Static files have not been specified"s);
+    }
+    if (!vm.contains("config"s)) {
+        throw std::runtime_error("Config file path is not specified"s);
+    }
+
+    // С опциями программы всё в порядке, возвращаем структуру args
+    return args;
+}
 
 namespace {
 
@@ -35,8 +80,8 @@ void RunWorkers(unsigned n, const Fn& fn) {
 
 }  // namespace
 
-int main(int argc, const char*argv[]) {
-    if(argc != 3) {
+int main(int argc, const char* argv[]) {
+    if(argc < 3) {
         std::cerr << "Usage: game_server <game-config-json> <path-to-static>"sv << std::endl;
         return EXIT_FAILURE;
     }
@@ -51,8 +96,15 @@ int main(int argc, const char*argv[]) {
         // 0. Инициализируем
         server_logger::InitLogging();
 
+        // 0.1. Парсим аргументы переданные в функцию
+        auto args = ParseCommandLine(argc, argv);
+        if(!args) {
+            //failed to parse arguments
+            throw std::runtime_error("Failed to parse command line arguments");
+        }
+
         // 1. Загружаем карту из файла и создаем модель игры TODO: move game constructor into game app? or keep separate instances?
-        auto game = std::make_shared<model::Game>(json_loader::LoadGame(argv[1]));
+        auto game = std::make_shared<model::Game>(json_loader::LoadGame(args->config_path));
         auto game_app = std::make_shared<app::GameInterface>(game);
 
         // 2. Инициализируем io_context и другие переменные
@@ -71,7 +123,7 @@ int main(int argc, const char*argv[]) {
         });
 
         //4. Создаем handler и оборачиваем его в логирующий декоратор
-        auto handler = std::make_shared<http_handler::RequestHandler>(argv[2], api_strand, game_app);
+        auto handler = std::make_shared<http_handler::RequestHandler>(args->static_root, api_strand, game_app, args->tick_debug);
 
         server_logger::LoggingRequestHandler logging_handler{
             [handler](auto&& endpoint, auto&& req, auto&& send) {

@@ -221,14 +221,40 @@ bool IsSubPath(fs::path path, fs::path base);
 
 //Конвертирует URL-кодированную строку в путь
 fs::path ConvertFromUrl(std::string_view url);
+
+//===================================================================
+//======================= Async Ticker ==============================
+class Ticker : public std::enable_shared_from_this<Ticker> {
+ public:
+    using Strand = net::strand<net::io_context::executor_type>;
+    using Handler = std::function<void(model::Time delta)>;
+
+    // Функция handler будет вызываться внутри strand с интервалом period
+    Ticker(Strand strand, std::chrono::milliseconds period, Handler handler);
+    void Start();
+
+ private:
+    void ScheduleTick();
+    void OnTick(sys::error_code ec);
+
+    using Clock = std::chrono::steady_clock;
+    Strand strand_;
+    std::chrono::milliseconds period_;
+    net::steady_timer timer_{strand_};
+    Handler handler_;
+    std::chrono::steady_clock::time_point last_tick_;
+};
+
 } //local namespace
+
+
 //===================================================================
 //======================= Api Request Handler =======================
 
 class ApiHandler : public std::enable_shared_from_this<ApiHandler> {
  public:
     using Strand = net::strand<net::io_context::executor_type>;
-    ApiHandler(Strand api_strand, std::shared_ptr<app::GameInterface> game_app);
+    ApiHandler(Strand api_strand, std::shared_ptr<app::GameInterface> game_app, bool use_debug_tick = false);
 
     ApiHandler(const ApiHandler&) = delete;
     ApiHandler& operator=(const ApiHandler&) = delete;
@@ -257,8 +283,10 @@ class ApiHandler : public std::enable_shared_from_this<ApiHandler> {
         static constexpr std::string_view time_tick{"tick"sv};
     };
 
+    bool use_http_tick_debug_ = false;
     Strand strand_;
     std::shared_ptr<app::GameInterface> game_app_;
+    std::shared_ptr<Ticker> ticker_;
 
     std::string_view ExtractMapId(std::string_view uri) const;
     static std::pair<std::string, std::string> ExtractMapIdPlayerName (const std::string& request_body);
@@ -301,7 +329,6 @@ void ApiHandler::Execute(http::request<Body, http::basic_fields<Allocator>>&& re
         send(ReportApiError(version, keep_alive));
     }
 }
-
 
 //===================================================================
 //======================= File Request Handler ======================
@@ -351,10 +378,7 @@ class RequestHandler {
  public:
     using Strand = net::strand<net::io_context::executor_type>;
 
-    RequestHandler(fs::path root, Strand api_strand, std::shared_ptr<app::GameInterface> game_app)
-        : file_handler_(std::make_shared<FileHandler>(std::move(root)))
-        , api_handler_(std::make_shared<ApiHandler>(api_strand, std::move(game_app))) {
-    }
+    RequestHandler(fs::path root, Strand api_strand, std::shared_ptr<app::GameInterface> game_app, bool tick_debug_enable = false);
 
     RequestHandler(const RequestHandler&) = delete;
     RequestHandler& operator=(const RequestHandler&) = delete;
