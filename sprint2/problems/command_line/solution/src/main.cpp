@@ -18,7 +18,7 @@ using namespace std::literals;
 struct Args {
     std::string config_path;
     std::string static_root;
-    uint64_t tick_period;
+    uint64_t tick_period = 0;
     bool randomize_spawn_points = false;
 };
 

@@ -303,7 +303,7 @@ StringResponse ApiHandler::HandleApiRequest(const StringRequest& req) {
                 throw ApiError(ErrCode::time_tick_invalid_argument);
             }
 
-            //NB: Asssume time in request body given in ms -> ParseTick converts to seconds
+            //NB: Asssume time in request body given in ms
             model::TimeMs delta_t{0};
             try {
                 delta_t = json_loader::ParseTick(req.body());
