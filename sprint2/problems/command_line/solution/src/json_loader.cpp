@@ -218,7 +218,6 @@ const char ParseMove(const std::string& request_body) {
 model::TimeMs ParseTick(const std::string& request_body) {
     auto j_obj = json::parse(request_body).as_object();
     if(!j_obj.at("timeDelta").as_int64()) {
-        //TODO: better way?
         throw std::invalid_argument("expected a number for time");
     }
     return model::TimeMs{j_obj.at("timeDelta").as_int64()};
@@ -228,8 +227,6 @@ model::Game LoadGame(const std::filesystem::path& json_path) {
     try {
         // Загрузить содержимое файла json_path, например, в виде строки
         std::ifstream input_file(json_path);
-
-        //TODO: Add file opennign error handling
         std::string input(std::istreambuf_iterator<char>(input_file), {});
 
         // Распарсить строку как JSON, используя boost::json::parse

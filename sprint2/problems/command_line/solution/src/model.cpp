@@ -39,12 +39,12 @@ Point Road::GetRandomPt() const {
     if(IsHorizontal()) {
         auto rand_x = util::random_num(start_.x, end_.x);
         Point pt{static_cast<Coord>(rand_x), start_.y};
-        std::cerr << "selecting random between: " << start_.x << " & " << end_.x << " == " << rand_x << '\n';
+//        std::cerr << "selecting random between: " << start_.x << " & " << end_.x << " == " << rand_x << '\n';
         return pt;
     }
     auto rand_y = util::random_num(start_.y, end_.y);
     Point pt{start_.x, static_cast<Coord>(rand_y)};
-    std::cerr << "selecting random between: " << start_.y << " & " << end_.y << " == " << rand_y << '\n';
+//    std::cerr << "selecting random between: " << start_.y << " & " << end_.y << " == " << rand_y << '\n';
     return pt;
     //return {static_cast<Coord>(start_.x, util::random_num(start_.y, end_.y))};
 }
@@ -214,7 +214,6 @@ const Road* Map::FindHorRoad(PointDbl pt) const {
 }
 
 void Map::MoveDog(Dog* dog, TimeMs delta_t) const {
-//    std::cerr << "=> Start Moving dog: [" << dog->GetId() << "] delta_t = " << delta_t << ", curr.pos = " << dog->GetPos() << ", dir: " << static_cast<char>(dog->GetDir())  << '\n';
     auto start = dog->GetPos();
     auto dir = dog->GetDir();
 
@@ -222,46 +221,37 @@ void Map::MoveDog(Dog* dog, TimeMs delta_t) const {
     const auto roadH = FindHorRoad(start);
 
     if(!roadH && !roadV) {
+        dog->Stop();
         throw std::runtime_error("Dog is not on a road!");
-        //std::cerr << " !! Stopping dog !\n";
-        return dog->Stop();
     }
 
     //move dog for max move or until road limit is hit
     const Road* preferred_road;
     PointDbl new_pos;
+
     if(dir == Dir::NORTH || dir == Dir::SOUTH) {
         //choose vertical road if moving vertically and is available
         preferred_road = roadV ? roadV : roadH;
-        new_pos = ComputeMaxMove(dog, preferred_road, delta_t);
+        new_pos = ComputeMove(dog, preferred_road, delta_t);
     } else {
         preferred_road = roadH ? roadH : roadV;
-        new_pos = ComputeMaxMove(dog, preferred_road, delta_t);
+        new_pos = ComputeMove(dog, preferred_road, delta_t);
     }
-
-    //TODO:remove debug output
-//    std::cerr << "Moved dog in Dir[" << (static_cast<char>(dog->GetDir())) << "] along road ["
-//              << preferred_road->GetStart().x << ", " << preferred_road->GetStart().y << "]["
-//              << preferred_road->GetEnd().x << ", " << preferred_road->GetEnd().y << "] from pt ("
-//              << dog->GetPos().x << ", " << dog->GetPos().y << ") to pt ("
-//              << new_pos.x << ", " << new_pos.y << std::endl;
 
     const auto roadV_check = FindVertRoad(new_pos);
     const auto roadH_check = FindHorRoad(new_pos);
 
     if(!roadV_check && !roadH_check) {
+        dog->Stop();
         throw std::runtime_error("Dog has moved outside of a road!");
-        //std::cerr << "Dog is not on a road!\n";
-        //return dog->Stop();
     }
+
     dog->SetPos(new_pos);
 }
 
-PointDbl Map::ComputeMaxMove(Dog* dog, const Road* road, TimeMs delta_t) const {
+PointDbl Map::ComputeMove(Dog* dog, const Road* road, TimeMs delta_t) const {
     //Maximum point dog can reach in delta_t if no road limit is hit
-    auto max_move = dog->ComputeMove(delta_t);
-    //std::cerr << "max move: " << max_move << " speed: " << dog->GetSpeed() << " time(msec): " << delta_t << '\n';
-    //std::cerr << "calc: " << dog->GetSpeed().vx * delta_t / 1000 << ", " << dog->GetSpeed().vy * delta_t / 1000 << '\n';
+    auto max_move = dog->ComputeMaxMove(delta_t);
     switch (dog->GetDir()) {
         case Dir::NORTH: {
             auto road_limit_y = 1.0 * std::min(road->GetStart().y, road->GetEnd().y) - 0.4;
@@ -343,12 +333,6 @@ void Dog::SetDir(Dir dir) {
 }
 void Dog::SetMove(Dir dir, double s_val) {
     direction_ = dir;
-    if(isblank(static_cast<char>(dir))) {
-        //std::cerr << "Got empty move char\n";
-    } else {
-        //std::cerr << "Setting dir = " << static_cast<char>(dir) << '\n';
-    }
-
     switch(dir) {
         case Dir::NORTH:
             SetSpeed({0.0, -s_val});
@@ -364,7 +348,6 @@ void Dog::SetMove(Dir dir, double s_val) {
             break;
 
         default:
-            //std::cerr << "setting speed to 0,0 in Dog->SetMove()\n";
             SetSpeed({0.0, 0.0});
             break;
     }
@@ -376,10 +359,7 @@ Dog::Label Dog::GetLabel() const {
 void Dog::SetPos(PointDbl pos) {
     pos_ = pos;
 }
-PointDbl Dog::ComputeMove(TimeMs delta_t) const {
-    //get time in ms, convert to s
-    //std::cerr << "- computing dog [" << GetId() << "] max move: {" << (1.0 * delta_t / 1000.0) * speed_.vx << ", " << (1.0 * delta_t / 1000.0) * speed_.vy << "}\n";
-
+PointDbl Dog::ComputeMaxMove(TimeMs delta_t) const {
     //converts to seconds
     double delta_t_sec = std::chrono::duration<double>(delta_t).count();
     return {pos_.x + delta_t_sec * speed_.vx, pos_.y + delta_t_sec * speed_.vy};
@@ -394,7 +374,6 @@ Session::Session(size_t id, Map* map_ptr, bool random_dog_spawn)
 }
 
 Dog* Session::AddDog(std::string name) {
-    //TODO: Change from First Point !!!
     if(randomize_dog_spawn_) {
         return &dogs_.emplace_back(next_dog_id_++, std::move(name), map_->GetRandomRoadPt());
     }
@@ -635,5 +614,7 @@ Office tag_invoke(const json::value_to_tag<Office>&, json::value const& jv) {
         Offset{value_to<int>(obj.at("offsetX")), value_to<int>(obj.at("offsetY"))}
     };
 }
+
+
 
 }  // namespace model

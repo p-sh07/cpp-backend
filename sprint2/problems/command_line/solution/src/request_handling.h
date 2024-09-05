@@ -215,13 +215,6 @@ StringResponse MakeStringResponse(http::status status, std::string_view body,
 
 http::response<http::file_body> MakeResponseFromFile(const char* file_path, unsigned http_version, bool keep_alive);
 
-//TODO: move to utils?
-//Возвращает true, если каталог p содержится внутри base.
-bool IsSubPath(fs::path path, fs::path base);
-
-//Конвертирует URL-кодированную строку в путь
-fs::path ConvertFromUrl(std::string_view url);
-
 //===================================================================
 //======================= Async Ticker ==============================
 class Ticker : public std::enable_shared_from_this<Ticker> {

@@ -96,6 +96,11 @@ size_t TokenHasher::operator()(const Token& token) const {
     return str_hasher(*token);
 }
 
+//GameInterface::GameInterface(const fs::path& game_config)
+//    : game_(std::make_shared<Game>(/*load from json*/))
+//    , players_(game_){
+//}
+
 GameInterface::GameInterface(GamePtr& game_ptr)
     : game_(game_ptr)
     , players_(game_){

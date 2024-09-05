@@ -141,7 +141,7 @@ class Dog {
 
     //Move dog for delta t = 10 ms => moves 0.1 m at speed 1;
     //TODO: Assuming speed = 1 unit / sec; !
-    PointDbl ComputeMove(TimeMs delta_t) const;
+    PointDbl ComputeMaxMove(TimeMs delta_t) const;
 
     void SetPos(PointDbl pos);
     void SetSpeed(Speed sp);
@@ -210,7 +210,7 @@ class Map {
     std::unordered_map<Coord, std::unordered_set<size_t>> RoadXtoIndex_;
     std::unordered_map<Coord, std::unordered_set<size_t>> RoadYtoIndex_;
 
-    PointDbl ComputeMaxMove(Dog* dog, const Road* road, TimeMs delta_t) const;
+    PointDbl ComputeMove(Dog* dog, const Road* road, TimeMs delta_t) const;
 };
 
 class Session {

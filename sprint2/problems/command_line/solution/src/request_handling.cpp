@@ -70,49 +70,13 @@ http::response<http::file_body> MakeResponseFromFile(const char* file_path, unsi
     file_body::value_type file;
 
     if(sys::error_code ec; file.open(file_path, beast::file_mode::read, ec), ec) {
-        //TODO: Failed to open file;
+        throw std::runtime_error("Failed to open file to make response");
     }
 
     res.body() = std::move(file);
     res.prepare_payload();
 
     return res;
-}
-
-// Возвращает true, если каталог p содержится внутри base_path.
-bool IsSubPath(fs::path path, fs::path base) {
-    // Приводим оба пути к каноничному виду (без . и ..)
-    path = fs::weakly_canonical(path);
-    base = fs::weakly_canonical(base);
-
-    // Проверяем, что все компоненты base содержатся внутри path
-    for(auto b = base.begin(), p = path.begin(); b != base.end(); ++b, ++p) {
-        if(p == path.end() || *p != *b) {
-            return false;
-        }
-    }
-    return true;
-}
-
-//Конвертирует URL-кодированную строку в путь
-fs::path ConvertFromUrl(std::string_view url) {
-    if(url.empty()) {
-        return {};
-    }
-
-    std::string path_string;
-
-    for(size_t pos = 0; pos < url.size();) {
-        if(url[pos] == '%') {
-            //decode
-            char decoded = std::stoul(std::string(url.substr(pos + 1, 2)), nullptr, 16);
-            path_string.push_back(decoded);
-            pos += 3;
-        } else {
-            path_string.push_back(url[pos++]);
-        }
-    }
-    return path_string;
 }
 } //local namespace
 
@@ -220,7 +184,6 @@ StringResponse ApiHandler::HandleApiRequest(const StringRequest& req) {
             auto join_map_player = ExtractMapIdPlayerName(req.body());
 
             //Requested map doesnt exist
-            //TODO: Refactor error throw?
             if(!game_app_->GetMap(join_map_player.first)) {
                 throw ApiError(ErrCode::map_not_found);
             }
@@ -274,9 +237,6 @@ StringResponse ApiHandler::HandleApiRequest(const StringRequest& req) {
 
             auto player = AuthorizePlayer(req);
             const auto move_char_cmd = json_loader::ParseMove(req.body());
-
-            //TODO: Check valid func
-            //std::cerr << "-Recieved dir: " << move_char_cmd << '\n';
 
             const std::string allowed = "LURD"s;
             if(!isblank(move_char_cmd) && allowed.find(move_char_cmd) == allowed.npos) {
@@ -389,7 +349,7 @@ FileHandler::FileRequestResult FileHandler::HandleFileRequest(const StringReques
         if(!request_uri.empty() && request_uri[0] == '/') {
             request_uri.remove_prefix(1);
         }
-        requested_file = fs::weakly_canonical(root_ / ConvertFromUrl(request_uri));
+        requested_file = fs::weakly_canonical(root_ / util::ConvertFromUrl(request_uri));
     }
 
     //Error if requested file does not exist
@@ -399,7 +359,7 @@ FileHandler::FileRequestResult FileHandler::HandleFileRequest(const StringReques
                        ContentType::TEXT_PLAIN);;
     }
         //File outside filesystem root
-    else if(!IsSubPath(requested_file, root_)) {
+    else if(!util::IsSubPath(requested_file, root_)) {
         return to_html(http::status::bad_request,
                        "Access denied"s,
                        ContentType::TEXT_PLAIN);
@@ -410,13 +370,12 @@ FileHandler::FileRequestResult FileHandler::HandleFileRequest(const StringReques
 }
 
 StringResponse FileHandler::ReportFileError(const FileError& err, unsigned version, bool keep_alive) const {
-    //TODO: Handle error
+    //TODO: handle file errors in this function
     return {};
 }
 
 StringResponse FileHandler::ReportFileError(unsigned version, bool keep_alive) const {
-    //TODO: Handle error
-    return {};
+    return MakeStringResponse(http::status::unknown, "File handling error occured"sv, version, keep_alive);
 }
 
 
@@ -434,7 +393,6 @@ StringResponse RequestHandler::ReportServerError(const ServerError& err, unsigne
     }
 
     //NB: Can add other cases:
-
 
     return error_report;
 }

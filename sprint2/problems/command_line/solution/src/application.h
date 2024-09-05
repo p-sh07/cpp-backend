@@ -3,6 +3,7 @@
 //
 #pragma once
 #include <deque>
+#include <filesystem>
 #include <memory>
 #include <random>
 #include <unordered_map>
@@ -22,6 +23,8 @@ using model::Game;
 using model::Map;
 using model::Dog;
 using model::Session;
+
+namespace fs = std::filesystem;
 
 using SessionPtr = Session*;
 using DogPtr = Dog*;
@@ -94,6 +97,7 @@ struct JoinGameResult {
 
 class GameInterface {
  public:
+    //GameInterface(const fs::path& game_config);
     GameInterface(GamePtr& game_ptr);
 
     //use cases

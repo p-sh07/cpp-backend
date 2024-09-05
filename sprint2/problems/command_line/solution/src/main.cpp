@@ -18,7 +18,7 @@ using namespace std::literals;
 struct Args {
     std::string config_path;
     std::string static_root;
-    uint64_t tick_period = 0;
+    int64_t tick_period = 0;
     bool randomize_spawn_points = false;
 };
 
@@ -102,7 +102,7 @@ int main(int argc, const char* argv[]) {
             throw std::runtime_error("Failed to parse command line arguments");
         }
 
-        // 1. Загружаем карту из файла и создаем модель игры TODO: move game constructor into game app? or keep separate instances?
+        // 1. Загружаем карту из файла, создаем модель и интерфейс (application) игры
         auto game = std::make_shared<model::Game>(json_loader::LoadGame(args->config_path));
         auto game_app = std::make_shared<app::GameInterface>(game);
 
@@ -110,8 +110,6 @@ int main(int argc, const char* argv[]) {
         const auto num_threads = std::thread::hardware_concurrency();
         net::io_context ioc(static_cast<int>(num_threads));
         auto api_strand = net::make_strand(ioc);
-
-//        net::dispatch(api_strand, )
 
         // 3. Добавляем асинхронный обработчик сигналов SIGINT и SIGTERM
         net::signal_set signals(ioc, SIGINT, SIGTERM);

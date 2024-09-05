@@ -53,7 +53,6 @@ void SessionBase::OnWrite(bool close, beast::error_code ec, [[maybe_unused]] std
     Read();
 }
 
-//TODO: Handle error, e.g. ReportError or check return code
 void SessionBase::Close() {
     beast::error_code ec;
     stream_.socket().shutdown(tcp::socket::shutdown_send, ec);

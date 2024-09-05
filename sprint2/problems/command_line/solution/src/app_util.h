@@ -1,5 +1,6 @@
 #pragma once
 #include <compare>
+#include <filesystem>
 #include <random>
 
 //DEBUG
@@ -94,4 +95,41 @@ inline bool is_len32hex_num(std::string_view str) {
     });
 }
 
+namespace fs = std::filesystem;
+
+//Возвращает true, если каталог p содержится внутри base.
+inline bool IsSubPath(fs::path path, fs::path base) {
+    // Приводим оба пути к каноничному виду (без . и ..)
+    path = fs::weakly_canonical(path);
+    base = fs::weakly_canonical(base);
+
+    // Проверяем, что все компоненты base содержатся внутри path
+    for(auto b = base.begin(), p = path.begin(); b != base.end(); ++b, ++p) {
+        if(p == path.end() || *p != *b) {
+            return false;
+        }
+    }
+    return true;
+}
+
+//Конвертирует URL-кодированную строку в путь
+inline fs::path ConvertFromUrl(std::string_view url) {
+    if(url.empty()) {
+        return {};
+    }
+
+    std::string path_string;
+
+    for(size_t pos = 0; pos < url.size();) {
+        if(url[pos] == '%') {
+            //decode
+            char decoded = std::stoul(std::string(url.substr(pos + 1, 2)), nullptr, 16);
+            path_string.push_back(decoded);
+            pos += 3;
+        } else {
+            path_string.push_back(url[pos++]);
+        }
+    }
+    return path_string;
+}
 }  // namespace util
