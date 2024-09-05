@@ -12,7 +12,7 @@ permissions:
 
 
 jobs:
-sprint_2:
+  sprint_2:
     runs-on: ubuntu-22.04
     container:
       image: praktikumcpp/practicum_cpp_backend:latest

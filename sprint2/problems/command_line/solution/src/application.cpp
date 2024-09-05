@@ -134,9 +134,8 @@ const Map* GameInterface::GetMap(std::string_view map_id) const {
     return game_->FindMap(id);
 }
 
-void GameInterface::AdvanceGameTime(model::Time delta_t) {
+void GameInterface::AdvanceGameTime(model::TimeMs delta_t) {
     auto& sessions = game_->GetSessions();
-    //std::cerr << "*Advancing time by " << delta_t << " ms\n";
     for(auto& session : sessions) {
         session.AdvanceTime(delta_t);
     }

@@ -227,7 +227,7 @@ fs::path ConvertFromUrl(std::string_view url);
 class Ticker : public std::enable_shared_from_this<Ticker> {
  public:
     using Strand = net::strand<net::io_context::executor_type>;
-    using Handler = std::function<void(model::Time delta)>;
+    using Handler = std::function<void(model::TimeMs delta)>;
 
     // Функция handler будет вызываться внутри strand с интервалом period
     Ticker(Strand strand, std::chrono::milliseconds period, Handler handler);
@@ -254,7 +254,7 @@ class Ticker : public std::enable_shared_from_this<Ticker> {
 class ApiHandler : public std::enable_shared_from_this<ApiHandler> {
  public:
     using Strand = net::strand<net::io_context::executor_type>;
-    ApiHandler(Strand api_strand, std::shared_ptr<app::GameInterface> game_app, bool use_debug_tick = false);
+    ApiHandler(Strand api_strand, std::shared_ptr<app::GameInterface> game_app, model::TimeMs tick_period);
 
     ApiHandler(const ApiHandler&) = delete;
     ApiHandler& operator=(const ApiHandler&) = delete;
@@ -378,7 +378,7 @@ class RequestHandler {
  public:
     using Strand = net::strand<net::io_context::executor_type>;
 
-    RequestHandler(fs::path root, Strand api_strand, std::shared_ptr<app::GameInterface> game_app, bool tick_debug_enable = false);
+    RequestHandler(fs::path root, Strand api_strand, std::shared_ptr<app::GameInterface> game_app, model::TimeMs tick_period);
 
     RequestHandler(const RequestHandler&) = delete;
     RequestHandler& operator=(const RequestHandler&) = delete;

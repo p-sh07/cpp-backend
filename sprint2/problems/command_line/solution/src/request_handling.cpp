@@ -119,15 +119,15 @@ fs::path ConvertFromUrl(std::string_view url) {
 
 //==================================================================
 //======================= Api Request Handler ======================
-ApiHandler::ApiHandler(Strand api_strand, std::shared_ptr<app::GameInterface> game_app, bool use_debug_tick)
+ApiHandler::ApiHandler(Strand api_strand, std::shared_ptr<app::GameInterface> game_app, model::TimeMs tick_period)
     : strand_(api_strand)
     , game_app_(std::move(game_app))
-    , use_http_tick_debug_(use_debug_tick) {
-    //TODO: Call tick here for the first time, then it should call itself after steady periods of time
-    //TODO: tick freq as parameter? NB: set to 50ms tick
+    , use_http_tick_debug_(tick_period.count() == 0) {
+
     if(!use_http_tick_debug_) {
-        ticker_ = std::make_shared<Ticker>(api_strand, 50ms,
-                                           [&](model::Time delta) { game_app_->AdvanceGameTime(delta); }
+        ticker_ = std::make_shared<Ticker>(api_strand, tick_period,
+                                           [&](model::TimeMs delta) {
+            game_app_->AdvanceGameTime(delta); }
         );
         ticker_->Start();
     }
@@ -288,7 +288,7 @@ StringResponse ApiHandler::HandleApiRequest(const StringRequest& req) {
             return to_html(http::status::ok, "{}");
         }
 
-        /// -->> Time tick for testing
+        /// -->> TimeMs tick for testing
         if(use_http_tick_debug_ && RemoveIfHasPrefix(Uri::time_tick, api_uri)) {
             if(req.method() != http::verb::post) {
                 throw ApiError(ErrCode::bad_method_post_only);
@@ -304,7 +304,7 @@ StringResponse ApiHandler::HandleApiRequest(const StringRequest& req) {
             }
 
             //NB: Asssume time in request body given in ms -> ParseTick converts to seconds
-            double delta_t = 0.0;
+            model::TimeMs delta_t{0};
             try {
                 delta_t = json_loader::ParseTick(req.body());
             } catch (...) {
@@ -422,9 +422,9 @@ StringResponse FileHandler::ReportFileError(unsigned version, bool keep_alive) c
 
 //==================================================================
 //================== Request Handling Interface ====================
-RequestHandler::RequestHandler(fs::path root, Strand api_strand, std::shared_ptr<app::GameInterface> game_app, bool tick_debug_enable)
+RequestHandler::RequestHandler(fs::path root, Strand api_strand, std::shared_ptr<app::GameInterface> game_app, model::TimeMs tick_period)
 : file_handler_(std::make_shared<FileHandler>(std::move(root)))
-, api_handler_(std::make_shared<ApiHandler>(api_strand, std::move(game_app), tick_debug_enable)) {
+, api_handler_(std::make_shared<ApiHandler>(api_strand, std::move(game_app), tick_period)) {
 }
 
 StringResponse RequestHandler::ReportServerError(const ServerError& err, unsigned version, bool keep_alive) const {
@@ -473,7 +473,7 @@ Ticker::Ticker(Strand strand, std::chrono::milliseconds period, Handler handler)
 
         if (!ec) {
             auto this_tick = Clock::now();
-            model::Time delta = duration_cast<milliseconds>(this_tick - last_tick_).count();
+            model::TimeMs delta = duration_cast<milliseconds>(this_tick - last_tick_);
             last_tick_ = this_tick;
             try {
                 handler_(delta);

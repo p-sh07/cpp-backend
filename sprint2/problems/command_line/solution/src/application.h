@@ -101,7 +101,7 @@ class GameInterface {
     const Game::Maps& ListAllMaps() const;
 
     void MovePlayer(PlayerPtr player, const char move_command);
-    void AdvanceGameTime(model::Time delta_t);
+    void AdvanceGameTime(model::TimeMs delta_t);
 
     JoinGameResult JoinGame(std::string_view map_id_str, std::string_view player_dog_name);
     PlayerPtr FindPlayerByToken(const Token& token) const;

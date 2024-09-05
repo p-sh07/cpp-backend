@@ -1,4 +1,5 @@
 #pragma once
+#include <chrono>
 #include <optional>
 #include <string>
 #include <unordered_map>
@@ -18,7 +19,7 @@ using Coord = Dimension;
 using DimensionDbl = double;
 using CoordDbl = DimensionDbl;
 
-using Time = uint64_t;
+using TimeMs = std::chrono::milliseconds;
 
 struct Point {
     Coord x, y;
@@ -140,7 +141,7 @@ class Dog {
 
     //Move dog for delta t = 10 ms => moves 0.1 m at speed 1;
     //TODO: Assuming speed = 1 unit / sec; !
-    PointDbl ComputeMove(Time delta_t) const;
+    PointDbl ComputeMove(TimeMs delta_t) const;
 
     void SetPos(PointDbl pos);
     void SetSpeed(Speed sp);
@@ -193,7 +194,7 @@ class Map {
         return roads_.at(0).GetStart();
     }
 
-    void MoveDog(Dog* dog, Time delta_t) const;
+    void MoveDog(Dog* dog, TimeMs delta_t) const;
 
  private:
     using OfficeIdToIndex = std::unordered_map<Office::Id, size_t, util::TaggedHasher<Office::Id>>;
@@ -209,12 +210,12 @@ class Map {
     std::unordered_map<Coord, std::unordered_set<size_t>> RoadXtoIndex_;
     std::unordered_map<Coord, std::unordered_set<size_t>> RoadYtoIndex_;
 
-    PointDbl ComputeMaxMove(Dog* dog, const Road* road, Time delta_t) const;
+    PointDbl ComputeMaxMove(Dog* dog, const Road* road, TimeMs delta_t) const;
 };
 
 class Session {
  public:
-    Session(size_t id, Map* map)  ;
+    Session(size_t id, Map* map, bool random_dog_spawn = false);
 
     size_t GetId() const;
     const Map::Id& GetMapId() const;
@@ -227,17 +228,18 @@ class Session {
     //At construction there are 0 dogs. Session is always on 1 map
     //When a player is added, he gets a new dog to control
     Dog* AddDog(std::string name);
-    void AdvanceTime(Time delta_t);
+    void AdvanceTime(TimeMs delta_t);
 
  private:
     const size_t id_;
     Map* map_;
-    Time time_ = 0;
+    TimeMs time_;
+    bool randomize_dog_spawn_ = false;
 
     size_t next_dog_id_ = 0;
     std::deque<Dog> dogs_;
 
-    void MoveAllDogs(Time delta_t);
+    void MoveAllDogs(TimeMs delta_t);
 
 };
 

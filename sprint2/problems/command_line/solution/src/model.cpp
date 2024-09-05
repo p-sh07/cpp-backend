@@ -37,9 +37,16 @@ std::ostream& operator<<(std::ostream& os, const Speed& pt) {
 //=================== Road ========================
 Point Road::GetRandomPt() const {
     if(IsHorizontal()) {
-        return {static_cast<Coord>(util::random_num(start_.x, end_.x)), start_.y};
+        auto rand_x = util::random_num(start_.x, end_.x);
+        Point pt{static_cast<Coord>(rand_x), start_.y};
+        std::cerr << "selecting random between: " << start_.x << " & " << end_.x << " == " << rand_x << '\n';
+        return pt;
     }
-    return {static_cast<Coord>(start_.x, util::random_num(start_.y, end_.y))};
+    auto rand_y = util::random_num(start_.y, end_.y);
+    Point pt{start_.x, static_cast<Coord>(rand_y)};
+    std::cerr << "selecting random between: " << start_.y << " & " << end_.y << " == " << rand_y << '\n';
+    return pt;
+    //return {static_cast<Coord>(start_.x, util::random_num(start_.y, end_.y))};
 }
 Road::Road(Road::VerticalTag, Point start, Coord end_y)
     : start_{start}
@@ -206,7 +213,7 @@ const Road* Map::FindHorRoad(PointDbl pt) const {
     return nullptr;
 }
 
-void Map::MoveDog(Dog* dog, Time delta_t) const {
+void Map::MoveDog(Dog* dog, TimeMs delta_t) const {
 //    std::cerr << "=> Start Moving dog: [" << dog->GetId() << "] delta_t = " << delta_t << ", curr.pos = " << dog->GetPos() << ", dir: " << static_cast<char>(dog->GetDir())  << '\n';
     auto start = dog->GetPos();
     auto dir = dog->GetDir();
@@ -215,8 +222,8 @@ void Map::MoveDog(Dog* dog, Time delta_t) const {
     const auto roadH = FindHorRoad(start);
 
     if(!roadH && !roadV) {
-        //throw std::runtime_error("Dog is not on a road!");
-//        std::cerr << " !! Stopping dog !\n";
+        throw std::runtime_error("Dog is not on a road!");
+        //std::cerr << " !! Stopping dog !\n";
         return dog->Stop();
     }
 
@@ -243,14 +250,14 @@ void Map::MoveDog(Dog* dog, Time delta_t) const {
     const auto roadH_check = FindHorRoad(new_pos);
 
     if(!roadV_check && !roadH_check) {
-        //throw std::runtime_error("Dog is not on a road!");
+        throw std::runtime_error("Dog has moved outside of a road!");
         //std::cerr << "Dog is not on a road!\n";
         //return dog->Stop();
     }
     dog->SetPos(new_pos);
 }
 
-PointDbl Map::ComputeMaxMove(Dog* dog, const Road* road, Time delta_t) const {
+PointDbl Map::ComputeMaxMove(Dog* dog, const Road* road, TimeMs delta_t) const {
     //Maximum point dog can reach in delta_t if no road limit is hit
     auto max_move = dog->ComputeMove(delta_t);
     //std::cerr << "max move: " << max_move << " speed: " << dog->GetSpeed() << " time(msec): " << delta_t << '\n';
@@ -369,21 +376,28 @@ Dog::Label Dog::GetLabel() const {
 void Dog::SetPos(PointDbl pos) {
     pos_ = pos;
 }
-PointDbl Dog::ComputeMove(Time delta_t) const {
+PointDbl Dog::ComputeMove(TimeMs delta_t) const {
     //get time in ms, convert to s
     //std::cerr << "- computing dog [" << GetId() << "] max move: {" << (1.0 * delta_t / 1000.0) * speed_.vx << ", " << (1.0 * delta_t / 1000.0) * speed_.vy << "}\n";
-    return {pos_.x + (1.0 * delta_t / 1000.0) * speed_.vx, pos_.y + (1.0 * delta_t / 1000.0) * speed_.vy};
+
+    //converts to seconds
+    double delta_t_sec = std::chrono::duration<double>(delta_t).count();
+    return {pos_.x + delta_t_sec * speed_.vx, pos_.y + delta_t_sec * speed_.vy};
 }
 
 //=================================================
 //=================== Session =====================
-Session::Session(size_t id, Map* map_ptr)
+Session::Session(size_t id, Map* map_ptr, bool random_dog_spawn)
     : id_(id)
-    , map_(map_ptr) {
+    , map_(map_ptr)
+    , randomize_dog_spawn_(random_dog_spawn) {
 }
 
 Dog* Session::AddDog(std::string name) {
     //TODO: Change from First Point !!!
+    if(randomize_dog_spawn_) {
+        return &dogs_.emplace_back(next_dog_id_++, std::move(name), map_->GetRandomRoadPt());
+    }
     return &dogs_.emplace_back(next_dog_id_++, std::move(name), map_->GetFirstRoadPt());
 }
 
@@ -398,10 +412,10 @@ const Map::Id& Session::GetMapId() const {
 const std::deque<Dog>& Session::GetAllDogs() const {
     return dogs_;
 }
-void Session::AdvanceTime(Time delta_t) {
+void Session::AdvanceTime(TimeMs delta_t) {
     MoveAllDogs(delta_t);
 }
-void Session::MoveAllDogs(Time delta_t) {
+void Session::MoveAllDogs(TimeMs delta_t) {
     for(auto& dog : dogs_) {
         map_->MoveDog(&dog, delta_t);
     }

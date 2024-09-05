@@ -215,13 +215,13 @@ const char ParseMove(const std::string& request_body) {
 }
 
 //Return time in seconds, assume timeDelta is always in ms
-model::Time ParseTick(const std::string& request_body) {
+model::TimeMs ParseTick(const std::string& request_body) {
     auto j_obj = json::parse(request_body).as_object();
     if(!j_obj.at("timeDelta").as_int64()) {
         //TODO: better way?
         throw std::invalid_argument("expected a number for time");
     }
-    return j_obj.at("timeDelta").as_int64();
+    return model::TimeMs{j_obj.at("timeDelta").as_int64()};
 }
 
 model::Game LoadGame(const std::filesystem::path& json_path) {

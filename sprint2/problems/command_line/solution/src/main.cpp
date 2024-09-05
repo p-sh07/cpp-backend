@@ -16,9 +16,10 @@ namespace logging = boost::log;
 using namespace std::literals;
 
 struct Args {
-    std::string static_root;
     std::string config_path;
-    bool tick_debug = false;
+    std::string static_root;
+    uint64_t tick_period;
+    bool randomize_spawn_points = false;
 };
 
 [[nodiscard]] std::optional<Args> ParseCommandLine(int argc, const char* const argv[]) {
@@ -30,9 +31,10 @@ struct Args {
     desc.add_options()
         // Добавляем опцию --help и её короткую версию -h
         ("help,h", "Show help")
-        ("tick_debug,t", po::bool_switch(&args.tick_debug), "Debug time control via http")
-        ("static,s", po::value(&args.static_root)->value_name("static"s), "Server static files root")
-        ("config,c", po::value(&args.config_path)->value_name("config"s), "Game config file path");
+        ("tick-period,t", po::value(&args.tick_period)->value_name("tick period"s), "set tick period")
+        ("www-root,w", po::value(&args.static_root)->value_name("static_root"s), "set config file path")
+        ("config-file,c", po::value(&args.config_path)->value_name("config_path"s), "set static files root")
+        ("randomize_spawn_points", po::bool_switch(&args.randomize_spawn_points), "spawn dogs at random positions");
 
     // variables_map хранит значения опций после разбора
     po::variables_map vm;
@@ -42,16 +44,13 @@ struct Args {
     if (vm.contains("help"s)) {
         // Если был указан параметр --help, то выводим справку и возвращаем nullopt
         std::cout << desc;
-        return std::nullopt;
     }
-
-    std::cerr << "debug tick flag is: " << std::boolalpha << args.tick_debug << std::endl;
 
     // Проверяем наличие опций src и dst
-    if (!vm.contains("static"s)) {
-        throw std::runtime_error("Static files have not been specified"s);
+    if (!vm.contains("www-root"s)) {
+        throw std::runtime_error("Static files path has not been specified"s);
     }
-    if (!vm.contains("config"s)) {
+    if (!vm.contains("config-file"s)) {
         throw std::runtime_error("Config file path is not specified"s);
     }
 
@@ -123,7 +122,7 @@ int main(int argc, const char* argv[]) {
         });
 
         //4. Создаем handler и оборачиваем его в логирующий декоратор
-        auto handler = std::make_shared<http_handler::RequestHandler>(args->static_root, api_strand, game_app, args->tick_debug);
+        auto handler = std::make_shared<http_handler::RequestHandler>(args->static_root, api_strand, game_app, model::TimeMs{args->tick_period});
 
         server_logger::LoggingRequestHandler logging_handler{
             [handler](auto&& endpoint, auto&& req, auto&& send) {
