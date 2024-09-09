@@ -1,4 +1,4 @@
-cname: test command_line
+name: test command_line
 
 on:
   push:
