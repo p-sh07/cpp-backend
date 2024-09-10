@@ -57,6 +57,8 @@ def make_graph():
     fgp1 = subprocess.Popen(["./FlameGraph/stackcollapse-perf.pl"], stdin=perf.stdout, stdout=subprocess.PIPE)
     subprocess.Popen(["./FlameGraph/flamegraph.pl"], stdin=fgp1.stdout, stdout=graph_file)
     
+    time.sleep(1)
+    graph_file.close()
     print("Done making graph")
 
 
@@ -75,6 +77,7 @@ print('make graph.svg')
 make_graph()
 
 print('Job done')
+time.sleep(5)
 
 
     #Alt method for running a shell cmd, not recommended:
