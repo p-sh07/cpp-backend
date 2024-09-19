@@ -6,6 +6,7 @@
 #include "readfile.h"
 #include "dotgen.h"
 #include "config.h"
+#include "log_duration.h"
 
 NodeListNode * nodelist = NULL;
 
@@ -16,6 +17,7 @@ void printUsage()
 
 int main (int argc, char ** argv)
 {
+	// LOG_DURATION("Program v1 total duration");
 	GraphList g;
 
 	if ((argc != 2) 
