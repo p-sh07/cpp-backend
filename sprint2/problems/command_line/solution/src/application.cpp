@@ -96,6 +96,11 @@ size_t TokenHasher::operator()(const Token& token) const {
     return str_hasher(*token);
 }
 
+//GameInterface::GameInterface(const fs::path& game_config)
+//    : game_(std::make_shared<Game>(/*load from json*/))
+//    , players_(game_){
+//}
+
 GameInterface::GameInterface(GamePtr& game_ptr)
     : game_(game_ptr)
     , players_(game_){
@@ -134,9 +139,8 @@ const Map* GameInterface::GetMap(std::string_view map_id) const {
     return game_->FindMap(id);
 }
 
-void GameInterface::AdvanceGameTime(model::Time delta_t) {
+void GameInterface::AdvanceGameTime(model::TimeMs delta_t) {
     auto& sessions = game_->GetSessions();
-    std::cerr << "*Advancing time by " << delta_t << " ms\n";
     for(auto& session : sessions) {
         session.AdvanceTime(delta_t);
     }

@@ -4,6 +4,7 @@ project(game_server CXX)
 set(CMAKE_CXX_STANDARD 20)
 
 add_compile_definitions(BOOST_BEAST_USE_STD_STRING_VIEW)
+set(CONAN_DISABLE_CHECK_COMPILER True)
 #suppress warnings
 add_definitions(-w)
 

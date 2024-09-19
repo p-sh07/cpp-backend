@@ -70,7 +70,7 @@ http::response<http::file_body> MakeResponseFromFile(const char* file_path, unsi
     file_body::value_type file;
 
     if(sys::error_code ec; file.open(file_path, beast::file_mode::read, ec), ec) {
-        //TODO: Failed to open file;
+        throw std::runtime_error("Failed to open file to make response");
     }
 
     res.body() = std::move(file);
@@ -78,50 +78,24 @@ http::response<http::file_body> MakeResponseFromFile(const char* file_path, unsi
 
     return res;
 }
-
-// Возвращает true, если каталог p содержится внутри base_path.
-bool IsSubPath(fs::path path, fs::path base) {
-    // Приводим оба пути к каноничному виду (без . и ..)
-    path = fs::weakly_canonical(path);
-    base = fs::weakly_canonical(base);
-
-    // Проверяем, что все компоненты base содержатся внутри path
-    for(auto b = base.begin(), p = path.begin(); b != base.end(); ++b, ++p) {
-        if(p == path.end() || *p != *b) {
-            return false;
-        }
-    }
-    return true;
-}
-
-//Конвертирует URL-кодированную строку в путь
-fs::path ConvertFromUrl(std::string_view url) {
-    if(url.empty()) {
-        return {};
-    }
-
-    std::string path_string;
-
-    for(size_t pos = 0; pos < url.size();) {
-        if(url[pos] == '%') {
-            //decode
-            char decoded = std::stoul(std::string(url.substr(pos + 1, 2)), nullptr, 16);
-            path_string.push_back(decoded);
-            pos += 3;
-        } else {
-            path_string.push_back(url[pos++]);
-        }
-    }
-    return path_string;
-}
 } //local namespace
 
 
 //==================================================================
 //======================= Api Request Handler ======================
-ApiHandler::ApiHandler(Strand api_strand, std::shared_ptr<app::GameInterface> game_app)
+ApiHandler::ApiHandler(Strand api_strand, std::shared_ptr<app::GameInterface> game_app, model::TimeMs tick_period)
     : strand_(api_strand)
-    , game_app_(std::move(game_app)) {
+    , game_app_(std::move(game_app))
+    , use_http_tick_debug_(tick_period.count() == 0) {
+
+    if(!use_http_tick_debug_) {
+        ticker_ = std::make_shared<Ticker>(api_strand, tick_period,
+                                           [&](model::TimeMs delta) {
+            game_app_->AdvanceGameTime(delta); }
+        );
+        ticker_->Start();
+    }
+
 }
 
 std::string_view ApiHandler::ExtractMapId(std::string_view uri) const {
@@ -210,7 +184,6 @@ StringResponse ApiHandler::HandleApiRequest(const StringRequest& req) {
             auto join_map_player = ExtractMapIdPlayerName(req.body());
 
             //Requested map doesnt exist
-            //TODO: Refactor error throw?
             if(!game_app_->GetMap(join_map_player.first)) {
                 throw ApiError(ErrCode::map_not_found);
             }
@@ -265,9 +238,6 @@ StringResponse ApiHandler::HandleApiRequest(const StringRequest& req) {
             auto player = AuthorizePlayer(req);
             const auto move_char_cmd = json_loader::ParseMove(req.body());
 
-            //TODO: Check valid func
-            std::cerr << "-Recieved dir: " << move_char_cmd << '\n';
-
             const std::string allowed = "LURD"s;
             if(!isblank(move_char_cmd) && allowed.find(move_char_cmd) == allowed.npos) {
                 throw ApiError(ErrCode::token_invalid_argument);
@@ -278,8 +248,8 @@ StringResponse ApiHandler::HandleApiRequest(const StringRequest& req) {
             return to_html(http::status::ok, "{}");
         }
 
-        /// -->> Time tick for testing
-        if(RemoveIfHasPrefix(Uri::time_tick, api_uri)) {
+        /// -->> TimeMs tick for testing
+        if(use_http_tick_debug_ && RemoveIfHasPrefix(Uri::time_tick, api_uri)) {
             if(req.method() != http::verb::post) {
                 throw ApiError(ErrCode::bad_method_post_only);
             }
@@ -293,8 +263,8 @@ StringResponse ApiHandler::HandleApiRequest(const StringRequest& req) {
                 throw ApiError(ErrCode::time_tick_invalid_argument);
             }
 
-            //NB: Asssume time in request body given in ms -> ParseTick converts to seconds
-            double delta_t = 0.0;
+            //NB: Asssume time in request body given in ms
+            model::TimeMs delta_t{0};
             try {
                 delta_t = json_loader::ParseTick(req.body());
             } catch (...) {
@@ -379,7 +349,7 @@ FileHandler::FileRequestResult FileHandler::HandleFileRequest(const StringReques
         if(!request_uri.empty() && request_uri[0] == '/') {
             request_uri.remove_prefix(1);
         }
-        requested_file = fs::weakly_canonical(root_ / ConvertFromUrl(request_uri));
+        requested_file = fs::weakly_canonical(root_ / util::ConvertFromUrl(request_uri));
     }
 
     //Error if requested file does not exist
@@ -389,7 +359,7 @@ FileHandler::FileRequestResult FileHandler::HandleFileRequest(const StringReques
                        ContentType::TEXT_PLAIN);;
     }
         //File outside filesystem root
-    else if(!IsSubPath(requested_file, root_)) {
+    else if(!util::IsSubPath(requested_file, root_)) {
         return to_html(http::status::bad_request,
                        "Access denied"s,
                        ContentType::TEXT_PLAIN);
@@ -400,18 +370,22 @@ FileHandler::FileRequestResult FileHandler::HandleFileRequest(const StringReques
 }
 
 StringResponse FileHandler::ReportFileError(const FileError& err, unsigned version, bool keep_alive) const {
-    //TODO: Handle error
+    //TODO: handle file errors in this function
     return {};
 }
 
 StringResponse FileHandler::ReportFileError(unsigned version, bool keep_alive) const {
-    //TODO: Handle error
-    return {};
+    return MakeStringResponse(http::status::unknown, "File handling error occured"sv, version, keep_alive);
 }
 
 
 //==================================================================
 //================== Request Handling Interface ====================
+RequestHandler::RequestHandler(fs::path root, Strand api_strand, std::shared_ptr<app::GameInterface> game_app, model::TimeMs tick_period)
+: file_handler_(std::make_shared<FileHandler>(std::move(root)))
+, api_handler_(std::make_shared<ApiHandler>(api_strand, std::move(game_app), tick_period)) {
+}
+
 StringResponse RequestHandler::ReportServerError(const ServerError& err, unsigned version, bool keep_alive) const {
     auto error_report = MakeStringResponse(err.status(), err.what(), version, keep_alive);
     if(err.status() == http::status::method_not_allowed) {
@@ -420,13 +394,52 @@ StringResponse RequestHandler::ReportServerError(const ServerError& err, unsigne
 
     //NB: Can add other cases:
 
-
     return error_report;
 }
 
 StringResponse RequestHandler::ReportServerError(unsigned version, bool keep_alive) const {
     return MakeStringResponse(http::status::unknown, "Request handling error occured"sv, version, keep_alive);
 }
+
+
+//==================================================================
+//================== Ticker Class ====================
+Ticker::Ticker(Strand strand, std::chrono::milliseconds period, Handler handler)
+        : strand_{strand}
+        , period_{period}
+        , handler_{std::move(handler)} {
+    }
+
+    void Ticker::Start() {
+        net::dispatch(strand_, [self = shared_from_this()] {
+            self->last_tick_ = Clock::now();
+            self->ScheduleTick();
+        });
+    }
+
+    void Ticker::ScheduleTick() {
+        assert(strand_.running_in_this_thread());
+        timer_.expires_after(period_);
+        timer_.async_wait([self = shared_from_this()](sys::error_code ec) {
+            self->OnTick(ec);
+        });
+    }
+
+    void Ticker::OnTick(sys::error_code ec) {
+        using namespace std::chrono;
+        assert(strand_.running_in_this_thread());
+
+        if (!ec) {
+            auto this_tick = Clock::now();
+            model::TimeMs delta = duration_cast<milliseconds>(this_tick - last_tick_);
+            last_tick_ = this_tick;
+            try {
+                handler_(delta);
+            } catch (...) {
+            }
+            ScheduleTick();
+        }
+    }
 } // namespace http_handler
 
 

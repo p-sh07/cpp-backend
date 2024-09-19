@@ -3,6 +3,7 @@
 //
 #pragma once
 #include <deque>
+#include <filesystem>
 #include <memory>
 #include <random>
 #include <unordered_map>
@@ -22,6 +23,8 @@ using model::Game;
 using model::Map;
 using model::Dog;
 using model::Session;
+
+namespace fs = std::filesystem;
 
 using SessionPtr = Session*;
 using DogPtr = Dog*;
@@ -94,6 +97,7 @@ struct JoinGameResult {
 
 class GameInterface {
  public:
+    //GameInterface(const fs::path& game_config);
     GameInterface(GamePtr& game_ptr);
 
     //use cases
@@ -101,7 +105,7 @@ class GameInterface {
     const Game::Maps& ListAllMaps() const;
 
     void MovePlayer(PlayerPtr player, const char move_command);
-    void AdvanceGameTime(model::Time delta_t);
+    void AdvanceGameTime(model::TimeMs delta_t);
 
     JoinGameResult JoinGame(std::string_view map_id_str, std::string_view player_dog_name);
     PlayerPtr FindPlayerByToken(const Token& token) const;
@@ -112,74 +116,5 @@ class GameInterface {
     Players players_;
 
 };
-
-class Ticker : public std::enable_shared_from_this<Ticker> {
- public:
-    using Strand = net::strand<net::io_context::executor_type>;
-    using Handler = std::function<void(std::chrono::milliseconds delta)>;
-
-    // Функция handler будет вызываться внутри strand с интервалом period
-    Ticker(Strand strand, std::chrono::milliseconds period, Handler handler)
-        : strand_{strand}
-        , period_{period}
-        , handler_{std::move(handler)} {
-    }
-
-    void Start() {
-        net::dispatch(strand_, [self = shared_from_this()] {
-            last_tick_ = Clock::now();
-            self->ScheduleTick();
-        });
-    }
-
- private:
-    void ScheduleTick() {
-        assert(strand_.running_in_this_thread());
-        timer_.expires_after(period_);
-        timer_.async_wait([self = shared_from_this()](sys::error_code ec) {
-            self->OnTick(ec);
-        });
-    }
-
-    void OnTick(sys::error_code ec) {
-        using namespace std::chrono;
-        assert(strand_.running_in_this_thread());
-
-        if (!ec) {
-            auto this_tick = Clock::now();
-            auto delta = duration_cast<milliseconds>(this_tick - last_tick_);
-            last_tick_ = this_tick;
-            try {
-                handler_(delta);
-            } catch (...) {
-            }
-            ScheduleTick();
-        }
-    }
-
-    using Clock = std::chrono::steady_clock;
-
-    Strand strand_;
-    std::chrono::milliseconds period_;
-    net::steady_timer timer_{strand_};
-    Handler handler_;
-    std::chrono::steady_clock::time_point last_tick_;
-};
-
-net::io_context ioc;
-...
-// Объект Application содержит сценарии использования
-Application app{/* ... */};
-
-// strand, используемый для доступа к API
-auto api_strand = net::make_strand(ioc);
-
-// Настраиваем вызов метода Application::Tick каждые 50 миллисекунд внутри strand
-auto ticker = std::make_shared<Ticker>(api_strand, 50ms,
-                                       [&app](std::chrono::milliseconds delta) { app.Tick(delta); }
-);
-ticker->Start();
-...
-
 
 }
