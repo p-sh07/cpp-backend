@@ -4,17 +4,21 @@
 
 #include "game_data.h"
 
-boost::json::array gamedata::LootTypeInfo::AsJsonArray() const {
+namespace gamedata {
+
+boost::json::array LootTypeInfo::AsJsonArray() const {
     return map_loot_types_;
 }
-gamedata::LootTypeInfo::LootTypeInfo(boost::json::array map_loot_types)
+LootTypeInfo::LootTypeInfo(boost::json::array map_loot_types)
     : map_loot_types_(std::move(map_loot_types)) {
 }
 
-size_t gamedata::LootTypeInfo::Size() {
+size_t LootTypeInfo::Size() {
     return map_loot_types_.size();
 }
 
-const size_t gamedata::LootTypeInfo::Size() const {
+const size_t LootTypeInfo::Size() const {
     return map_loot_types_.size();
+}
+
 }

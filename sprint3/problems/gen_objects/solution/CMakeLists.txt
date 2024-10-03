@@ -22,14 +22,14 @@ add_executable(game_server
         src/application.h
         src/application.cpp
         src/boost_json.cpp
-        src/game_data.cpp
         src/game_data.h
+        src/game_data.cpp
         src/http_server.h
         src/http_server.cpp
         src/json_loader.h
         src/json_loader.cpp
-        src/loot_generator.cpp
         src/loot_generator.h
+        src/loot_generator.cpp
         src/main.cpp
         src/model.h
         src/model.cpp
@@ -53,6 +53,9 @@ add_executable(game_server_tests
         src/app_util.h
         src/loot_generator.h
         src/loot_generator.cpp
+        src/boost_json.cpp
+        src/game_data.h
+        src/game_data.cpp
         src/model.h
         src/model.cpp
         tests/loot_generator_tests.cpp
