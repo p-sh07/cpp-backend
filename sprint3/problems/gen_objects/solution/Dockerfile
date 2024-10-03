@@ -17,6 +17,7 @@ RUN mkdir /app/build && cd /app/build && \
 
 # только после этого копируем остальные иходники
 COPY ./src /app/src
+COPY ./tests /app/tests
 COPY CMakeLists.txt /app/
 
 RUN cd /app/build && \
