@@ -217,7 +217,8 @@ StringResponse ApiHandler::HandleApiRequest(const StringRequest& req) {
             }
 
             auto player = AuthorizePlayer(req);
-            auto json_str_body = json_loader::PrintPlayerState(game_app_->GetPlayerList(player));
+
+            auto json_str_body = json_loader::PrintGameState(player, game_app_);
 
             return to_html(http::status::ok, json_str_body);
         }
@@ -441,30 +442,3 @@ Ticker::Ticker(Strand strand, std::chrono::milliseconds period, Handler handler)
         }
     }
 } // namespace http_handler
-
-
-/*
-template <typename Fn>
-StringResponse ExecuteAuthorized(Fn&& action) {
-    if (auto token = TryExtractToken(request)) {
-        return action(*token);
-    } else {
-        return MakeUnauthorizedError();
-    }
-}
-
-StringResponse GetPlayers(const StringRequest& request) {
-    return ExecuteAuthorized([](const Token& token){
-});
-}
-
-StringResponse SetPlayerAction(const StringRequest& request) {
-    return ExecuteAuthorized([](const Token& token){
-    });
-}
-
-StringResponse GetGameState(const StringRequest& request) {
-    return ExecuteAuthorized([](const Token& token){
-    });
-}
-*/

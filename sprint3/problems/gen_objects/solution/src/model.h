@@ -10,6 +10,8 @@
 #include <boost/json.hpp>
 
 #include "app_util.h"
+#include "game_data.h"
+#include "loot_generator.h"
 
 namespace model {
 
@@ -161,6 +163,12 @@ class Dog {
     Dir direction_ {Dir::NORTH};
 };
 
+using LootType = unsigned;
+
+struct Loot {
+    LootType type;
+    PointDbl pos;
+};
 
 class Map {
  public:
@@ -168,6 +176,7 @@ class Map {
     using Roads = std::vector<Road>;
     using Buildings = std::vector<Building>;
     using Offices = std::vector<Office>;
+
 
     Map(Id id, std::string name);
 
@@ -177,6 +186,7 @@ class Map {
     const Buildings& GetBuildings() const;
     const Roads& GetRoads() const;
     const Offices& GetOffices() const;
+    const gamedata::LootTypeInfo* GetLootInfo() const;
 
     double GetDogSpeed() const;
     void SetDogSpeed(double speed);
@@ -184,6 +194,12 @@ class Map {
     void AddRoad(const Road& road);
     void AddBuilding(const Building& building);
     void AddOffice(Office office);
+
+    template<typename LootTypeData>
+    void AddLootInfo(LootTypeData&& loot_types) {
+        //NB: using forward here, check in case of obscure compile errors!
+        loot_types_ = std::make_unique<gamedata::LootTypeInfo>(std::forward<LootTypeData>(loot_types));
+    }
 
     const Road* FindVertRoad(PointDbl pt) const;
     const Road* FindHorRoad(PointDbl pt) const;
@@ -195,6 +211,7 @@ class Map {
     }
 
     void MoveDog(Dog* dog, TimeMs delta_t) const;
+    LootType GetRandomLootTypeNum() const;
 
  private:
     using OfficeIdToIndex = std::unordered_map<Office::Id, size_t, util::TaggedHasher<Office::Id>>;
@@ -211,23 +228,30 @@ class Map {
     std::unordered_map<Coord, std::unordered_set<size_t>> RoadYtoIndex_;
 
     PointDbl ComputeMove(Dog* dog, const Road* road, TimeMs delta_t) const;
+    std::unique_ptr<gamedata::LootTypeInfo> loot_types_ = nullptr;
 };
+
+using LootGenPtr = std::shared_ptr<loot_gen::LootGenerator>;
 
 class Session {
  public:
-    Session(size_t id, Map* map, bool random_dog_spawn = false);
+    Session(size_t id, Map* map, LootGenPtr loot_generator, bool random_dog_spawn = false);
 
     size_t GetId() const;
     const Map::Id& GetMapId() const;
-    const Map* GetMap() const {
-        return map_;
-    }
+    const Map* GetMap() const;
+    size_t GetDogCount() const;
+    size_t GetLootCount() const;
 
     const std::deque<Dog>& GetAllDogs() const;
+    const std::deque<Loot>& GetLootItems() const;
 
     //At construction there are 0 dogs. Session is always on 1 map
     //When a player is added, he gets a new dog to control
     Dog* AddDog(std::string name);
+    //Todo: add function later, when loot usage is clear
+    //Loot* AddLoot(...);
+
     void AdvanceTime(TimeMs delta_t);
 
  private:
@@ -235,11 +259,16 @@ class Session {
     Map* map_;
     TimeMs time_;
     bool randomize_dog_spawn_ = false;
+    LootGenPtr loot_generator_ = nullptr;
 
     size_t next_dog_id_ = 0;
+    size_t next_loot_id_ = 0;
+
     std::deque<Dog> dogs_;
+    std::deque<Loot> loot_items_;
 
     void MoveAllDogs(TimeMs delta_t);
+    void GenerateLoot(TimeMs delta_t);
 
 };
 
@@ -262,6 +291,9 @@ class Game {
     Session* JoinSession(const Map::Id& id);
     Sessions& GetSessions();
 
+    //TODO: add loot gen with time ticks
+    void ConfigLootGenerator(TimeMs base_interval, double probability);
+
  private:
     size_t next_session_id_{0};
     double default_dog_speed_{1.0};
@@ -274,11 +306,12 @@ class Game {
     Maps maps_;
     Sessions sessions_;
 
+    LootGenPtr loot_generator_ = nullptr;
+
     MapIdToSessions map_to_sessions_;
     MapIdToIndex map_id_to_index_;
 
-    Session MakeNewSessionOnMap(Map* map);
-
+    Session MakeNewSessionOnMap(Map* map, LootGenPtr loot_generator);
 };
 
 //======= Json conversion overloads ===========
@@ -312,5 +345,9 @@ Building tag_invoke(const json::value_to_tag<Building>&, json::value const& jv);
 //Office
 void tag_invoke(const json::value_from_tag&, json::value& jv, Office const& offc);
 Office tag_invoke(const json::value_to_tag<Office>&, json::value const& jv);
+
+//TODO: Loot types? Or keep as json for now
+//void tag_invoke(const json::value_from_tag&, json::value& jv, Office const& offc);
+//Office tag_invoke(const json::value_to_tag<Office>&, json::value const& jv);
 
 } // namespace model

@@ -71,7 +71,8 @@ class Players {
     PlayerPtr GetByMapDogId(const  Map::Id& map_id, size_t dog_id) const;
     TokenPtr GetToken(const Player& player) const;
 
-    std::vector<PlayerPtr> GetSessionPlayerList(const Player& player);
+    std::vector<PlayerPtr> GetSessionPlayerList(const Player& player) const;
+    const std::deque<model::Loot>& GetSessionLootList(const Player& player) const;
 
  private:
     GamePtr game_;
@@ -109,7 +110,8 @@ class GameInterface {
 
     JoinGameResult JoinGame(std::string_view map_id_str, std::string_view player_dog_name);
     PlayerPtr FindPlayerByToken(const Token& token) const;
-    std::vector<PlayerPtr> GetPlayerList(PlayerPtr player);
+    std::vector<PlayerPtr> GetPlayerList(PlayerPtr player) const;
+    const std::deque<model::Loot>& GetLootList(PlayerPtr player) const;
 
  private:
     GamePtr game_;

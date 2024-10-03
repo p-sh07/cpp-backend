@@ -39,12 +39,12 @@ Point Road::GetRandomPt() const {
     if(IsHorizontal()) {
         auto rand_x = util::random_num(start_.x, end_.x);
         Point pt{static_cast<Coord>(rand_x), start_.y};
-//        std::cerr << "selecting random between: " << start_.x << " & " << end_.x << " == " << rand_x << '\n';
+        //std::cerr << "selecting random between: " << start_.x << " & " << end_.x << " == " << rand_x << '\n';
         return pt;
     }
     auto rand_y = util::random_num(start_.y, end_.y);
     Point pt{start_.x, static_cast<Coord>(rand_y)};
-//    std::cerr << "selecting random between: " << start_.y << " & " << end_.y << " == " << rand_y << '\n';
+    //std::cerr << "selecting random between: " << start_.y << " & " << end_.y << " == " << rand_y << '\n';
     return pt;
     //return {static_cast<Coord>(start_.x, util::random_num(start_.y, end_.y))};
 }
@@ -119,8 +119,10 @@ void Map::AddOffice(Office office) {
 }
 
 Point Map::GetRandomRoadPt() const {
-    auto& random_road = roads_[util::random_num(0, roads_.size())];
-    return random_road.GetRandomPt();
+    auto& random_road = roads_.at(util::random_num(0, roads_.size()));
+    auto pt = random_road.GetRandomPt();
+
+    return pt;
 }
 
 Map::Map(Map::Id id, std::string name)
@@ -295,6 +297,14 @@ PointDbl Map::ComputeMove(Dog* dog, const Road* road, TimeMs delta_t) const {
     return {dog->GetPos().x, dog->GetPos().y};
 }
 
+LootType Map::GetRandomLootTypeNum() const {
+    return static_cast<LootType>(util::random_num(0, loot_types_->Size()));
+}
+
+const gamedata::LootTypeInfo* Map::GetLootInfo() const {
+    return loot_types_.get();
+}
+
 //=================================================
 //=================== Dog =========================
 Dog::Dog(size_t id, std::string name, PointDbl pos = {0.0, 0.0})
@@ -365,11 +375,13 @@ PointDbl Dog::ComputeMaxMove(TimeMs delta_t) const {
     return {pos_.x + delta_t_sec * speed_.vx, pos_.y + delta_t_sec * speed_.vy};
 }
 
+
 //=================================================
 //=================== Session =====================
-Session::Session(size_t id, Map* map_ptr, bool random_dog_spawn)
+Session::Session(size_t id, Map* map_ptr, LootGenPtr loot_generator, bool random_dog_spawn)
     : id_(id)
     , map_(map_ptr)
+    , loot_generator_(loot_generator)
     , randomize_dog_spawn_(random_dog_spawn) {
 }
 
@@ -391,14 +403,42 @@ const Map::Id& Session::GetMapId() const {
 const std::deque<Dog>& Session::GetAllDogs() const {
     return dogs_;
 }
+
+const std::deque<Loot>& Session::GetLootItems() const {
+    return loot_items_;
+}
+
 void Session::AdvanceTime(TimeMs delta_t) {
     MoveAllDogs(delta_t);
+    GenerateLoot(delta_t);
 }
+
 void Session::MoveAllDogs(TimeMs delta_t) {
     for(auto& dog : dogs_) {
         map_->MoveDog(&dog, delta_t);
     }
 }
+
+void Session::GenerateLoot(TimeMs delta_t) {
+    auto add_loot_count = loot_generator_->Generate(delta_t, GetLootCount(), GetDogCount());
+    for(int i = 0; i < add_loot_count; ++i) {
+        //add a random loot item on a random road point
+        loot_items_.push_back({map_->GetRandomLootTypeNum(), map_->GetRandomRoadPt()});
+    }
+}
+
+const Map* Session::GetMap() const {
+    return map_;
+}
+
+size_t Session::GetDogCount() const {
+    return dogs_.size();
+}
+
+size_t Session::GetLootCount() const {
+    return loot_items_.size();
+}
+
 
 //=================================================
 //=================== Game ========================
@@ -451,7 +491,8 @@ Session* Game::JoinSession(const Map::Id& id) {
     auto session_it = map_to_sessions_.find(id);
     if(session_it == map_to_sessions_.end()) {
         try {
-            return &sessions_.emplace_back(std::move(MakeNewSessionOnMap(map_ptr)));
+            //NB: using default loot generator for every session here!
+            return &sessions_.emplace_back(std::move(MakeNewSessionOnMap(map_ptr, loot_generator_)));
         } catch(...) {
             map_to_sessions_.erase(id);
             throw;
@@ -468,9 +509,9 @@ std::optional<size_t> Game::GetMapIndex(const Map::Id& id) const {
     return std::nullopt;
 }
 
-Session Game::MakeNewSessionOnMap(Map* map) {
+Session Game::MakeNewSessionOnMap(Map* map, LootGenPtr loot_generator) {
     map_to_sessions_[map->GetId()] = next_session_id_;
-    return {next_session_id_++, map};
+    return {next_session_id_++, map, std::move(loot_generator)};
 }
 
 const Game::Maps& Game::GetMaps() const {
@@ -480,8 +521,13 @@ const Game::Maps& Game::GetMaps() const {
 void Game::SetDefaultDogSpeed(double speed) {
     default_dog_speed_ = speed;
 }
+
 Game::Sessions& Game::GetSessions() {
     return sessions_;
+}
+
+void Game::ConfigLootGenerator(TimeMs base_interval, double probability) {
+    loot_generator_ = std::make_shared<loot_gen::LootGenerator>(base_interval, probability);
 }
 
 

@@ -79,7 +79,7 @@ Token Players::GenerateToken() const {
     return Token{std::move(ss.str())};
 }
 
-std::vector<PlayerPtr> Players::GetSessionPlayerList(const Player& player) {
+std::vector<PlayerPtr> Players::GetSessionPlayerList(const Player& player) const {
     std::vector<PlayerPtr> result;
 
     auto player_session = player.GetSession();
@@ -89,6 +89,10 @@ std::vector<PlayerPtr> Players::GetSessionPlayerList(const Player& player) {
         result.push_back(GetByMapDogId(map_id, dog.GetId()));
     }
     return result;
+}
+
+const std::deque<model::Loot>& Players::GetSessionLootList(const Player& player) const {
+    return player.GetSession()->GetLootItems();
 }
 
 size_t TokenHasher::operator()(const Token& token) const {
@@ -106,8 +110,12 @@ GameInterface::GameInterface(GamePtr& game_ptr)
     , players_(game_){
 }
 
-std::vector<PlayerPtr> GameInterface::GetPlayerList(PlayerPtr player) {
+std::vector<PlayerPtr> GameInterface::GetPlayerList(PlayerPtr player) const {
     return players_.GetSessionPlayerList(*player);
+}
+
+const std::deque<model::Loot>& GameInterface::GetLootList(PlayerPtr player) const {
+    return players_.GetSessionLootList(*player);
 }
 
 PlayerPtr GameInterface::FindPlayerByToken(const Token& token) const {
@@ -145,4 +153,5 @@ void GameInterface::AdvanceGameTime(model::TimeMs delta_t) {
         session.AdvanceTime(delta_t);
     }
 }
+
 }

@@ -3,7 +3,6 @@
 #include <functional>
 
 namespace loot_gen {
-
 /*
  *  Генератор трофеев
  */

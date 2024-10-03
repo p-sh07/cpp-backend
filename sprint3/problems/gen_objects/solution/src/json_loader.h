@@ -3,7 +3,6 @@
 #include <filesystem>
 #include <boost/json.hpp>
 
-#include "server_logger.h"
 #include "application.h"
 
 namespace json_loader {
@@ -18,7 +17,7 @@ const char ParseMove(const std::string& request_body);
 model::TimeMs ParseTick(const std::string& request_body);
 
 std::string PrintPlayerList(const std::vector<app::PlayerPtr>& players);
-std::string PrintPlayerState(const std::vector<app::PlayerPtr>& players);
+std::string PrintGameState(const app::PlayerPtr player, const std::shared_ptr<app::GameInterface>& game_app);
 
 model::Game LoadGame(const std::filesystem::path& json_path);
 } // namespace json_loader

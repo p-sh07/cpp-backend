@@ -1,11 +1,14 @@
 #pragma once
 #include <algorithm>
+#include <chrono>
 #include <compare>
 #include <filesystem>
 #include <random>
 
 //DEBUG
-#include "iostream"
+#ifdef DEBUG
+#include <iostream>
+#endif
 
 namespace util {
 
@@ -85,6 +88,14 @@ inline size_t random_num(size_t limit1, size_t limit2) {
     size_t max = std::max(limit1, limit2);
 
     thread_local static std::uniform_int_distribution<size_t> dist(min, max);
+
+#ifdef DEBUG
+    std::cerr << "min: " << min << " & max: " << max;
+    size_t num = dist(rg);
+    std::cerr << " ->rand = " << num << std::endl;
+    return num;
+#endif
+
     return dist(rg);
 }
 
@@ -133,4 +144,10 @@ inline fs::path ConvertFromUrl(std::string_view url) {
     }
     return path_string;
 }
+
+//Конвертирует double Секунды в Миллисекунды chrono
+inline std::chrono::milliseconds ConvertSecToMsec(double seconds) {
+    return std::chrono::milliseconds(static_cast<long long>(seconds * 1000));
+}
+
 }  // namespace util

@@ -1,4 +1,6 @@
 #include "json_loader.h"
+#include "server_logger.h"
+
 #include <fstream>
 #include <iostream>
 #include <sstream>
@@ -8,16 +10,17 @@ namespace logging = boost::log;
 using namespace model;
 using namespace std::literals;
 
+static constexpr json::string_view LOOT_GEN_KEY = "lootGeneratorConfig";
 static constexpr json::string_view MAPS_KEY = "maps";
 static constexpr json::string_view ROADS_KEY = "roads";
 static constexpr json::string_view BUILDINGS_KEY = "buildings";
 static constexpr json::string_view OFFICES_KEY = "offices";
+static constexpr json::string_view LOOT_TYPES_KEY = "lootTypes";
 
 //https://live.boost.org/doc/libs/1_83_0/libs/json/doc/html/json/examples.html
-void pretty_print( std::ostream& os, json::value const& jv, std::string* indent = nullptr )
+void print_json( std::ostream& os, json::value const& jv, std::string* indent = nullptr )
 {
-    os << json::serialize(jv);
-    /*
+#ifdef JSON_PRETTY_PRINT
     std::string indent_;
     if(! indent)
         indent = &indent_;
@@ -34,7 +37,7 @@ void pretty_print( std::ostream& os, json::value const& jv, std::string* indent 
                 for(;;)
                 {
                     os << *indent << json::serialize(it->key()) << ": ";
-                    pretty_print(os, it->value(), indent);
+                    print_json(os, it->value(), indent);
                     if(++it == obj.end())
                         break;
                     os << ",\n";
@@ -58,7 +61,7 @@ void pretty_print( std::ostream& os, json::value const& jv, std::string* indent 
                 {
                     std::string zero_indent;
                     //os << *indent;
-                    pretty_print( os, *it, &zero_indent);
+                    print_json( os, *it, &zero_indent);
                     if(++it == arr.end())
                         break;
                     os << ", "; //\n";
@@ -103,7 +106,9 @@ void pretty_print( std::ostream& os, json::value const& jv, std::string* indent 
 
 //    if(indent->empty())
 //        os << "\n";
-     */
+#else
+    os << json::serialize(jv);
+#endif
 }
 
 std::string PrintMapList(const model::Game::Maps& map_list) {
@@ -113,7 +118,7 @@ std::string PrintMapList(const model::Game::Maps& map_list) {
         map_list_js.push_back(json::value_from(map));
     }
     std::stringstream ss;
-    pretty_print(ss, map_list_js);
+    print_json(ss, map_list_js);
 
     return ss.str();
     //return json::serialize(map_list_js);
@@ -121,50 +126,78 @@ std::string PrintMapList(const model::Game::Maps& map_list) {
 
 std::string PrintMap(const Map& map) {
     std::stringstream ss;
-    pretty_print(ss, MapToValue(map));
+    print_json(ss, MapToValue(map));
 
     return ss.str();
 }
 
-std::string PrintPlayerList(const std::vector<app::PlayerPtr>& players) {
-    json::object result;
-    for(const auto& p_ptr : players) {
-        result.emplace(std::to_string(p_ptr->GetId()),
+json::object MakePlayerListJson(const std::vector<app::PlayerPtr>& plist) {
+    json::object player_list;
+    for(const auto& p_ptr : plist) {
+        player_list.emplace(std::to_string(p_ptr->GetId()),
                        json::object{
                            {"name", std::string(p_ptr->GetDog()->GetName())}
                        }
         );
     }
-    std::stringstream ss;
-    pretty_print(ss, result);
-
-    return ss.str();
+    return player_list;
 }
 
-std::string PrintPlayerState(const std::vector<app::PlayerPtr>& players) {
+template<typename PlayerPtrContainer>
+json::object MakePlayerStateJson(const PlayerPtrContainer& plist) {
     json::object player_state;
-    for(const auto& p_ptr : players) {
+    for(const auto& p_ptr : plist) {
         auto dog = p_ptr->GetDog();
-        const auto pos_ja = json::value_from(dog->GetPos()).as_array();
-        const auto speed_ja = json::value_from(dog->GetSpeed()).as_array();
-        const auto dir_jv = json::value_from(dog->GetDir());
 
-        player_state.emplace(std::to_string(p_ptr->GetId()),
-                             json::object{
-                                 {"pos", pos_ja},
-                                 {"speed", speed_ja},
-                                 {"dir", dir_jv}
-                             }
+        player_state.emplace(std::to_string(p_ptr->GetId())
+            , json::object{
+                {"pos", json::value_from(dog->GetPos()).as_array()},
+                {"speed", json::value_from(dog->GetSpeed()).as_array()},
+                {"dir", json::value_from(dog->GetDir())}
+            }
         );
     }
+    return player_state;
+}
+
+template<typename LootObjContainer>
+json::object MakeLostObjectsJson(const LootObjContainer& loot_objects) {
+    json::object loot_jobj;
+    size_t num = 0;
+    for(const auto& item : loot_objects) {
+
+        loot_jobj.emplace(std::to_string(num++)
+            , json::object{
+                {"type", item.type},
+                { "pos", json::value_from(item.pos).as_array()}
+            }
+        );
+    }
+    return loot_jobj;
+}
+
+std::string PrintPlayerList(const std::vector<app::PlayerPtr>& players) {
+
     std::stringstream ss;
-    pretty_print(ss, json::object{{"players", player_state}});
-//    std::cerr << ss.str() << std::endl;
+    print_json(ss, std::move(MakePlayerListJson(players)));
+
     return ss.str();
 }
 
-//json::object MakePlayerListJson(const std::vector<app::PlayerPtr>& plist) {
-//json::object MakePlayerStateJson(const std::vector<app::PlayerPtr>& plist)
+std::string PrintGameState(const app::PlayerPtr player, const std::shared_ptr<app::GameInterface>& game_app) {
+    std::stringstream ss;
+    json::object game_state;
+    game_state.emplace("players"
+        , std::move( MakePlayerStateJson(game_app->GetPlayerList(player)) )
+    );
+
+    game_state.emplace("lostObjects"
+        , std::move( MakeLostObjectsJson(game_app->GetLootList(player)) )
+    );
+
+    print_json(ss, game_state);
+    return ss.str();
+}
 
 Map ParseMap(const json::value& map_json) {
     //if keys can be absent, use 'if (const auto ptr = map_obj.if_contains())'
@@ -190,6 +223,9 @@ Map ParseMap(const json::value& map_json) {
     for(const auto& offc_jv : map_json.at(OFFICES_KEY).as_array()) {
         map.AddOffice(value_to<Office>(offc_jv));
     }
+
+    //Add Loot info
+    map.AddLootInfo(std::move(map_json.at(LOOT_TYPES_KEY).as_array()));
     return map;
 }
 
@@ -201,6 +237,7 @@ json::value MapToValue(const Map& map) {
         {"roads", json::value_from(map.GetRoads())},
         {"buildings", json::value_from(map.GetBuildings())},
         {"offices", json::value_from(map.GetOffices())},
+        {"lootTypes", map.GetLootInfo()->AsJsonArray()},
     };
 }
 
@@ -234,7 +271,7 @@ model::Game LoadGame(const std::filesystem::path& json_path) {
         const auto map_array_ptr = doc.as_object().if_contains(MAPS_KEY);
 
         if(!map_array_ptr) {
-            throw std::logic_error("No maps in file");
+            throw std::logic_error("No maps found in json file");
         }
 
         // Загрузить модель игры из файла
@@ -244,6 +281,14 @@ model::Game LoadGame(const std::filesystem::path& json_path) {
         const auto& j_obj = doc.as_object();
         if(auto it = j_obj.find("defaultDogSpeed"); it != j_obj.end()) {
             game.SetDefaultDogSpeed(it->value().as_double());
+        }
+
+        //Loot gen config
+        if(auto it = j_obj.find("lootGeneratorConfig"); it != j_obj.end()) {
+            //NB: Currently period is given as a double in seconds in json! Converting to chrono::duration in msec
+            game.ConfigLootGenerator(util::ConvertSecToMsec(it->value().at("period").as_double())
+                                     , it->value().at("probability").as_double()
+            );
         }
 
         for(const auto& json_map : map_array_ptr->as_array()) {
