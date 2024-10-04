@@ -71,8 +71,6 @@ struct ContentType {
 enum class ErrCode {
     bad_method,
     bad_request,
-    bad_method_post_only,
-    bad_method_get_head_only,
 
     //join_game:
     map_not_found,
@@ -97,10 +95,7 @@ struct ErrInfo {
 
 class ServerError : public std::runtime_error {
  public:
-    ServerError(ErrCode ec)
-        : ec_(ec)
-        , runtime_error("Server Error") {
-    }
+    ServerError(ErrCode ec);
 
     virtual ErrCode ec() const { return ec_; }
     virtual http::status status() const { return GetInfo(ec_).status; }
@@ -109,92 +104,38 @@ class ServerError : public std::runtime_error {
  protected:
     ErrCode ec_;
 
-    virtual ErrInfo GetInfo(ErrCode ec) const {
-        switch(ec) {
-            case ErrCode::bad_method:
-                return {http::status::method_not_allowed, ""sv, "Invalid method"sv};
-        }
-    }
-
+    virtual ErrInfo GetInfo(ErrCode ec) const;
 };
 
 class ApiError : public ServerError {
+ private:
+    using FieldValueMap = std::unordered_map<http::field, std::string>;
+
  public:
     using ServerError::ServerError;
     //TODO: add optional message to override one in error
 
-    std::string print_json() const {
-        auto err_info = GetInfo(ec_);
-        json::value jv{
-            {"code", err_info.code},
-            {"message", err_info.msg}
-        };
-        return json::serialize(jv);
-    }
+    std::string print_json() const;
+    const FieldValueMap& http_fields() const { return additional_error_http_fields_; }
+
+    template<typename Val, typename... Vals>
+    ApiError& AddHttpField(http::field&& field, Val&& val, Vals&&... other_vals);
 
  private:
-
-    ErrInfo GetInfo(ErrCode ec) const override {
-        switch(ec) {
-            case ErrCode::bad_request:
-                return {http::status::bad_request,
-                        "badRequest"sv,
-                        "Bad request"sv};
-                break;
-            case ErrCode::bad_method_get_head_only:
-                return {http::status::method_not_allowed,
-                        "invalidMethod"sv,
-                        "Invalid method in Player list request"sv};
-                break;
-            case ErrCode::map_not_found:
-                return {http::status::not_found,
-                        "mapNotFound"sv,
-                        "Map not found"sv};
-                break;
-            case ErrCode::invalid_player_name:
-                return {http::status::bad_request,
-                        "invalidArgument"sv,
-                        "Invalid name"sv};
-                break;
-            case ErrCode::join_game_parse_err:
-                return {http::status::bad_request,
-                        "invalidArgument"sv,
-                        "Join game request parse error"sv};
-                break;
-            case ErrCode::bad_method_post_only:
-                return {http::status::method_not_allowed,
-                        "invalidMethod"sv,
-                        "Only POST method is expected"sv};
-                break;
-            case ErrCode::invalid_token:
-                return {http::status::unauthorized,
-                        "invalidToken"sv,
-                        "Auth header not found or incorrect token format"sv};
-                break;
-            case ErrCode::unknown_token:
-                return {http::status::unauthorized,
-                        "unknownToken"sv,
-                        "Player token has not been found"sv};
-                break;
-            case ErrCode::token_invalid_argument:
-                return {http::status::unauthorized,
-                        "invalidArgument"sv,
-                        "Failed to parse json"sv};
-                break;
-            case ErrCode::invalid_content_type:
-                return {http::status::unauthorized,
-                        "invalidArgument"sv,
-                        "Invalid content type"sv};
-                break;
-            case ErrCode::time_tick_invalid_argument:
-                return {http::status::bad_request,
-                        "invalidArgument"sv,
-                        "Failed to parse tick request"sv};
-                break;
-
-        }
-    }
+    FieldValueMap additional_error_http_fields_;
+    ErrInfo GetInfo(ErrCode ec) const override;
 };
+
+template<typename Val, typename... Vals>
+ApiError& ApiError::AddHttpField(http::field&& field, Val&& val, Vals&&... other_vals) {
+    std::stringstream ss;
+    //concat args into a single string
+    ss << std::forward<Val>(val);
+    ((ss << ", " << http::to_string(std::forward<Vals>(other_vals))), ...);
+
+    additional_error_http_fields_[std::move(field)] = ss.str();
+    return *this;
+}
 
 class FileError : public ServerError {
  public:
@@ -293,6 +234,9 @@ class ApiHandler : public std::enable_shared_from_this<ApiHandler> {
 
     StringResponse ReportApiError(const ApiError& err, unsigned version, bool keep_alive) const;
     StringResponse ReportApiError(unsigned version, bool keep_alive) const;
+
+    template<typename... Args>
+    void CheckHttpMethod(const http::verb& received, Args&&... allowed) const;
 };
 
 template<typename Body, typename Allocator, typename Send>
@@ -321,6 +265,15 @@ void ApiHandler::Execute(http::request<Body, http::basic_fields<Allocator>>&& re
         //TODO: What error can be caught here?
         send(ReportApiError(version, keep_alive));
     }
+}
+
+template<typename... Args>
+void ApiHandler::CheckHttpMethod(const http::verb& received, Args&&... allowed) const {
+    if(((received == allowed) || ...)) {
+        //no throw if at least one match
+        return;
+    }
+    throw ApiError(ErrCode::bad_method).AddHttpField(http::field::allow, std::forward<Args>(allowed)...);
 }
 
 //===================================================================
@@ -380,7 +333,6 @@ class RequestHandler {
     void operator()(tcp::endpoint&&, http::request<Body, http::basic_fields<Allocator>>&& req, Send&& send);
 
  private:
-
     std::shared_ptr<ApiHandler> api_handler_;
     std::shared_ptr<FileHandler> file_handler_;
 

@@ -82,6 +82,86 @@ http::response<http::file_body> MakeResponseFromFile(const char* file_path, unsi
 
 
 //==================================================================
+//================== Error class for handler =======================
+ServerError::ServerError(ErrCode ec)
+    : ec_(ec)
+    , runtime_error("Server Error") {
+}
+
+ErrInfo ServerError::GetInfo(ErrCode ec) const {
+    switch(ec) {
+        case ErrCode::bad_method:
+            return {http::status::method_not_allowed, ""sv, "Invalid method"sv};
+    }
+}
+
+std::string ApiError::print_json() const {
+    auto err_info = GetInfo(ec_);
+    json::value jv{
+        {"code", err_info.code},
+        {"message", err_info.msg}
+    };
+    return json::serialize(jv);
+}
+
+ErrInfo ApiError::GetInfo(ErrCode ec) const {
+    switch(ec) {
+        case ErrCode::bad_request:
+            return {http::status::bad_request,
+                    "badRequest"sv,
+                    "Bad request"sv};
+            break;
+        case ErrCode::bad_method:
+            return {http::status::method_not_allowed,
+                    "invalidMethod"sv,
+                    "Invalid method in request"sv};
+            break;
+        case ErrCode::map_not_found:
+            return {http::status::not_found,
+                    "mapNotFound"sv,
+                    "Map not found"sv};
+            break;
+        case ErrCode::invalid_player_name:
+            return {http::status::bad_request,
+                    "invalidArgument"sv,
+                    "Invalid name"sv};
+            break;
+        case ErrCode::join_game_parse_err:
+            return {http::status::bad_request,
+                    "invalidArgument"sv,
+                    "Join game request parse error"sv};
+            break;
+        case ErrCode::invalid_token:
+            return {http::status::unauthorized,
+                    "invalidToken"sv,
+                    "Auth header not found or incorrect token format"sv};
+            break;
+        case ErrCode::unknown_token:
+            return {http::status::unauthorized,
+                    "unknownToken"sv,
+                    "Player token has not been found"sv};
+            break;
+        case ErrCode::token_invalid_argument:
+            return {http::status::unauthorized,
+                    "invalidArgument"sv,
+                    "Failed to parse json"sv};
+            break;
+        case ErrCode::invalid_content_type:
+            return {http::status::unauthorized,
+                    "invalidArgument"sv,
+                    "Invalid content type"sv};
+            break;
+        case ErrCode::time_tick_invalid_argument:
+            return {http::status::bad_request,
+                    "invalidArgument"sv,
+                    "Failed to parse tick request"sv};
+            break;
+
+    }
+}
+
+
+//==================================================================
 //======================= Api Request Handler ======================
 ApiHandler::ApiHandler(Strand api_strand, std::shared_ptr<app::GameInterface> game_app, model::TimeMs tick_period)
     : strand_(api_strand)
@@ -159,6 +239,8 @@ StringResponse ApiHandler::HandleApiRequest(const StringRequest& req) {
 
     /// ->> Request a map - contains full prefix for map list & map_id
     if(auto map_id = ExtractMapId(api_uri); !map_id.empty()) {
+        CheckHttpMethod(req.method(), http::verb::get, http::verb::head);
+
         if(auto map = game_app_->GetMap(map_id)) {
             return to_html(http::status::ok,
                            json_loader::PrintMap(*map));
@@ -168,6 +250,7 @@ StringResponse ApiHandler::HandleApiRequest(const StringRequest& req) {
 
     /// ->> Request for map list
     if(RemoveIfHasPrefix(Uri::map_list, api_uri)) {
+        CheckHttpMethod(req.method(), http::verb::get, http::verb::head);
         return to_html(http::status::ok,
                        json_loader::PrintMapList(game_app_->ListAllMaps()));
     }
@@ -177,9 +260,7 @@ StringResponse ApiHandler::HandleApiRequest(const StringRequest& req) {
 
         /// -->> Join game
         if(RemoveIfHasPrefix(Uri::join_game, api_uri)) {
-            if(req.method() != http::verb::post) {
-                throw ApiError(ErrCode::bad_method_post_only);
-            }
+            CheckHttpMethod(req.method(), http::verb::post);
 
             auto join_map_player = ExtractMapIdPlayerName(req.body());
 
@@ -200,9 +281,7 @@ StringResponse ApiHandler::HandleApiRequest(const StringRequest& req) {
 
         /// -->> Get player list
         if(RemoveIfHasPrefix(Uri::player_list, api_uri)) {
-            if(req.method() != http::verb::get && req.method() != http::verb::head) {
-                throw ApiError(ErrCode::bad_method_get_head_only);
-            }
+            CheckHttpMethod(req.method(), http::verb::get, http::verb::head);
 
             auto player = AuthorizePlayer(req);
             auto json_str_body = json_loader::PrintPlayerList(game_app_->GetPlayerList(player));
@@ -212,12 +291,9 @@ StringResponse ApiHandler::HandleApiRequest(const StringRequest& req) {
 
         /// -->> Game state
         if(RemoveIfHasPrefix(Uri::game_state, api_uri)) {
-            if(req.method() != http::verb::get && req.method() != http::verb::head) {
-                throw ApiError(ErrCode::bad_method_get_head_only);
-            }
+            CheckHttpMethod(req.method(), http::verb::get, http::verb::head);
 
             auto player = AuthorizePlayer(req);
-
             auto json_str_body = json_loader::PrintGameState(player, game_app_);
 
             return to_html(http::status::ok, json_str_body);
@@ -225,14 +301,11 @@ StringResponse ApiHandler::HandleApiRequest(const StringRequest& req) {
 
         ///->> Player action
         if(RemoveIfHasPrefix(Uri::player_action, api_uri)) {
-            if(req.method() != http::verb::post) {
-                throw ApiError(ErrCode::bad_method_post_only);
-            }
+            CheckHttpMethod(req.method(), http::verb::post);
 
             //Check content header exists and contains app-json
             if(auto it = req.find(http::field::content_type);
-                it == req.end() || it->value() != ContentType::APP_JSON)
-            {
+                it == req.end() || it->value() != ContentType::APP_JSON) {
                 throw ApiError(ErrCode::invalid_content_type);
             }
 
@@ -251,9 +324,7 @@ StringResponse ApiHandler::HandleApiRequest(const StringRequest& req) {
 
         /// -->> TimeMs tick for testing
         if(use_http_tick_debug_ && RemoveIfHasPrefix(Uri::time_tick, api_uri)) {
-            if(req.method() != http::verb::post) {
-                throw ApiError(ErrCode::bad_method_post_only);
-            }
+            CheckHttpMethod(req.method(), http::verb::post);
 
             if(auto it = req.find(http::field::content_type); it == req.end()
             || it->value() != ContentType::APP_JSON) {
@@ -287,12 +358,12 @@ StringResponse ApiHandler::ReportApiError(const ApiError& err, unsigned version,
                                    keep_alive, ContentType::APP_JSON);
     resp.set(http::field::cache_control, "no-cache"s);
 
-    if(err.ec() == ErrCode::bad_method_post_only) {
-        resp.set(http::field::allow, "POST"s);
+    if(err.ec() == ErrCode::bad_method) {
+        for(const auto [field, value] : err.http_fields()) {
+            resp.set(field, value);
+        }
     }
-    if(err.ec() == ErrCode::bad_method_get_head_only) {
-        resp.set(http::field::allow, "GET, HEAD"s);
-    }
+
     return resp;
 }
 
@@ -441,4 +512,5 @@ Ticker::Ticker(Strand strand, std::chrono::milliseconds period, Handler handler)
             ScheduleTick();
         }
     }
+
 } // namespace http_handler
