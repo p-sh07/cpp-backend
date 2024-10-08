@@ -298,7 +298,7 @@ PointDbl Map::ComputeMove(Dog* dog, const Road* road, TimeMs delta_t) const {
 }
 
 LootType Map::GetRandomLootTypeNum() const {
-    return static_cast<LootType>(util::random_num(0, loot_types_->Size()));
+    return static_cast<LootType>( util::random_num(0, loot_types_->Size() - 1) );
 }
 
 const gamedata::LootTypeInfo* Map::GetLootInfo() const {
