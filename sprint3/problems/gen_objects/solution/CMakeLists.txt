@@ -14,6 +14,10 @@ file(GLOB_RECURSE CONNAN_FILE_PATH "conanbuildinfo.cmake" ${PROJECT_SOURCE_DIR})
 include(${CONNAN_FILE_PATH})
 conan_basic_setup(TARGETS)
 
+#For CTest
+include(CTest)
+include(${CONAN_BUILD_DIRS_CATCH2}/Catch.cmake)
+
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
 
@@ -58,8 +62,10 @@ add_executable(game_server_tests
         src/game_data.cpp
         src/model.h
         src/model.cpp
-        tests/loot_generator_tests.cpp
-        tests/model_tests.cpp
+        tests/game_server_tests.cpp
 )
+#Catch2 Ctest
+catch_discover_tests(game_server_tests)
+
 target_include_directories(game_server_tests PRIVATE  CONAN_PKG::boost)
 target_link_libraries(game_server_tests PRIVATE CONAN_PKG::catch2 CONAN_PKG::boost Threads::Threads)

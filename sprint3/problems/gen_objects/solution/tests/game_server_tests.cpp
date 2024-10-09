@@ -1,7 +1,10 @@
-#include <cmath>
 #include <catch2/catch_test_macros.hpp>
 
-#include "../src/loot_generator.h"
+#include "../src/model.h"
+
+SCENARIO("Game model testing") {
+ //... ?
+}
 
 using namespace std::literals;
 
@@ -59,8 +62,8 @@ SCENARIO("Loot generation") {
 
     GIVEN("a loot generator with custom random generator") {
         LootGenerator gen{1s, 0.5, [] {
-                              return 0.5;
-                          }};
+            return 0.5;
+        }};
         WHEN("loot is generated") {
             THEN("number of loot is proportional to random generated values") {
                 const auto time_interval
@@ -72,3 +75,21 @@ SCENARIO("Loot generation") {
         }
     }
 }
+
+///Main Example
+/**
+ void DownloadTestResources();
+
+int main(int argc, char* argv[]) {
+    std::cout << "Downloading files for test..." << std::endl;
+    DownloadTestResources();
+
+    int result = Catch::Session().run(argc, argv);
+
+    return result;
+}
+
+ ///Часть параметров командной строки можно обработать вручную. Но так делать не рекомендуется. Лучше расширить парсер библиотеки Catch2. Не будем останавливаться на этом моменте, он описан в документации.
+ ///https://github.com/catchorg/Catch2/blob/devel/docs/own-main.md#adding-your-own-command-line-options
+*/
+
