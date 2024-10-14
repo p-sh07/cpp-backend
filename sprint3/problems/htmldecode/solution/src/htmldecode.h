@@ -18,4 +18,6 @@
  * - M&amp;M&APOSs декодируется в M&M's
  * - &amp;lt; декодируется в &lt;
  */
-std::string HtmlDecode(std::string_view str);
+std::string HtmlDecode(std::string_view str) {
+
+}
