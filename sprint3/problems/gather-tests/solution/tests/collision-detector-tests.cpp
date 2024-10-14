@@ -13,20 +13,14 @@
 
 using namespace std::literals;
 
-static constexpr double DOUBLE_EQUALS_MARGIN = 10e-10;
+static constexpr double DBL_EQUALS_MARGIN = 10e-10;
 
 namespace collision_detector {
 bool operator==(const GatheringEvent& lhs, const GatheringEvent& rhs) {
-//    std::cerr << "Ids: " << lhs.item_id << " & " << rhs.item_id << " Gids: " << lhs.gatherer_id << " & " << rhs.gatherer_id << '\n';
-//    std::cerr << "Dists: " << lhs.sq_distance << ", " << rhs.sq_distance << " dist diff: " <<  std::abs(lhs.sq_distance - rhs.sq_distance)
-//        << std::boolalpha << " Result = " << (std::abs(lhs.sq_distance - rhs.sq_distance) < DOUBLE_EQUALS_MARGIN) << '\n';
-//    std::cerr << "Times: " << lhs.time << ", " << rhs.time<< " time diff: " <<  std::abs(lhs.time - rhs.time)
-//        << std::boolalpha << " Result = " << (std::abs(lhs.time - rhs.time) < DOUBLE_EQUALS_MARGIN)<< '\n' << std::endl;
-
     return lhs.item_id == rhs.item_id
         && lhs.gatherer_id == rhs.gatherer_id
-        && std::abs(lhs.sq_distance - rhs.sq_distance) < DOUBLE_EQUALS_MARGIN
-        && std::abs(lhs.time - rhs.time) < DOUBLE_EQUALS_MARGIN;
+        && std::abs(lhs.sq_distance - rhs.sq_distance) < DBL_EQUALS_MARGIN
+        && std::abs(lhs.time - rhs.time) < DBL_EQUALS_MARGIN;
 }
 }// collision_detector
 
@@ -37,7 +31,7 @@ template<>
 struct StringMaker<collision_detector::GatheringEvent> {
     static std::string convert(GatheringEvent const& value) {
         std::ostringstream tmp;
-        tmp << "(" << value.gatherer_id << "," << value.item_id << "," << value.sq_distance << "," << value.time << ")";
+        tmp << "(" << value.item_id << "," << value.gatherer_id << "," << value.sq_distance << "," << value.time << ")";
 
         return tmp.str();
     }
@@ -68,17 +62,6 @@ class TestGathererProvider : public ItemGathererProvider {
         return gatherers_.at(idx);
     }
  private:
-    //For reference:
-    //struct Item {
-    //    geom::Point2D position;
-    //    double width;
-    //};
-    //
-    //struct Gatherer {
-    //    geom::Point2D start_pos;
-    //    geom::Point2D end_pos;
-    //    double width;
-    //};
     const std::vector<Item> items_;
     const std::vector<Gatherer> gatherers_;
 };
@@ -106,7 +89,7 @@ struct EventVectorMatcher : Catch::Matchers::MatcherGenericBase {
     }
 
     std::string describe() const override {
-        return "Equals: " + Catch::rangeToString(vec_);
+        return "\nMust Equal:\n" + Catch::rangeToString(vec_);
     }
 
  private:
@@ -135,7 +118,7 @@ auto EventsMatcher(const EventVector& vec) -> EventVectorMatcher {
 };
  */
 
-TEST_CASE("Moving in a straight line one gatherer", "[CollisionDetect]") {
+TEST_CASE("One gatherer, moving in a straight line", "[CollisionDetect]") {
     //Calculated manually:
     EventVector CorrectResult = {
         {0, 0, 0, 0.0},
@@ -164,7 +147,7 @@ TEST_CASE("Moving in a straight line one gatherer", "[CollisionDetect]") {
     REQUIRE_THAT(FunctionResult, EventsMatcher(CorrectResult));
 }
 
-TEST_CASE("Moving in a straight line two gatherers, not in sync", "[CollisionDetect]") {
+TEST_CASE("Two gatherers, moving in a straight line, not in sync", "[CollisionDetect]") {
     //Calculated manually:
     EventVector CorrectResult = {
         {0, 0, 0, 0.0},
@@ -198,7 +181,7 @@ TEST_CASE("Moving in a straight line two gatherers, not in sync", "[CollisionDet
     REQUIRE_THAT(FunctionResult, EventsMatcher(CorrectResult));
 }
 
-TEST_CASE("Moving diagonally one gatherer", "[CollisionDetect]") {
+TEST_CASE("One gatherer, moving diagonally", "[CollisionDetect]") {
     //Calculated manually:
     EventVector CorrectResult = {
         {0, 0, 0, 0.0},
@@ -227,7 +210,7 @@ TEST_CASE("Moving diagonally one gatherer", "[CollisionDetect]") {
     REQUIRE_THAT(FunctionResult, EventsMatcher(CorrectResult));
 }
 
-TEST_CASE("Two gatherers different objects", "[CollisionDetect]") {
+TEST_CASE("Two gatherers, different objects", "[CollisionDetect]") {
     //Calculated manually:
     EventVector CorrectResult = {
         {5, 0, 0, 0.0},   // straight gatherer
@@ -267,7 +250,7 @@ TEST_CASE("Two gatherers different objects", "[CollisionDetect]") {
     REQUIRE_THAT(FunctionResult, EventsMatcher(CorrectResult));
 }
 
-TEST_CASE("One gatherer negative coord", "[CollisionDetect]") {
+TEST_CASE("One gatherer, negative coord", "[CollisionDetect]") {
     //Calculated manually:
     EventVector CorrectResult = {
         {0, 0, 0, 0.0},
@@ -296,7 +279,7 @@ TEST_CASE("One gatherer negative coord", "[CollisionDetect]") {
     REQUIRE_THAT(FunctionResult, EventsMatcher(CorrectResult));
 }
 
-TEST_CASE("One gatherer no collect", "[CollisionDetect]") {
+TEST_CASE("One gatherer, no collect", "[CollisionDetect]") {
     //To use with function:
     const std::vector<Item> items {
         {{-1,-1}, 0.1},
@@ -315,7 +298,7 @@ TEST_CASE("One gatherer no collect", "[CollisionDetect]") {
     REQUIRE(FunctionResult.empty());
 }
 
-TEST_CASE("One gatherer no move", "[CollisionDetect]") {
+TEST_CASE("One gatherer, no move", "[CollisionDetect]") {
     //To use with function:
     const std::vector<Item> items {
         {{0,0}, 0.1},

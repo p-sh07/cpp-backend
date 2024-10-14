@@ -94,10 +94,10 @@ jobs:
           cd cpp-backend-tests-practicum/scripts/sprint3
           ./gather-tests_wrong5/run.sh
 
-      # - name: run tests sprint3 gather
-      #   run: |
-      #     cd cpp-backend-tests-practicum/scripts/sprint3
-      #     ./gather/run.sh
+      - name: run tests sprint3 gather
+        run: |
+          cd cpp-backend-tests-practicum/scripts/sprint3
+          ./gather/run.sh
 
       # - name: run tests sprint3 find_return
       #   run: |
