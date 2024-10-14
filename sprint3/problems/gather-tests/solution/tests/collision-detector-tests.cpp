@@ -17,6 +17,12 @@ static constexpr double DOUBLE_EQUALS_MARGIN = 10e-10;
 
 namespace collision_detector {
 bool operator==(const GatheringEvent& lhs, const GatheringEvent& rhs) {
+//    std::cerr << "Ids: " << lhs.item_id << " & " << rhs.item_id << " Gids: " << lhs.gatherer_id << " & " << rhs.gatherer_id << '\n';
+//    std::cerr << "Dists: " << lhs.sq_distance << ", " << rhs.sq_distance << " dist diff: " <<  std::abs(lhs.sq_distance - rhs.sq_distance)
+//        << std::boolalpha << " Result = " << (std::abs(lhs.sq_distance - rhs.sq_distance) < DOUBLE_EQUALS_MARGIN) << '\n';
+//    std::cerr << "Times: " << lhs.time << ", " << rhs.time<< " time diff: " <<  std::abs(lhs.time - rhs.time)
+//        << std::boolalpha << " Result = " << (std::abs(lhs.time - rhs.time) < DOUBLE_EQUALS_MARGIN)<< '\n' << std::endl;
+
     return lhs.item_id == rhs.item_id
         && lhs.gatherer_id == rhs.gatherer_id
         && std::abs(lhs.sq_distance - rhs.sq_distance) < DOUBLE_EQUALS_MARGIN
@@ -92,8 +98,11 @@ struct EventVectorMatcher : Catch::Matchers::MatcherGenericBase {
         }
 
         for(size_t i = 0; i < vec_.size(); ++i) {
-            vec_[i] == other[i];
+            if(vec_[i] != other[i]) {
+                return false;
+            }
         }
+        return true;
     }
 
     std::string describe() const override {
@@ -138,15 +147,15 @@ TEST_CASE("Moving in a straight line one gatherer", "[CollisionDetect]") {
 
     //To use with function:
     const std::vector<Item> items {
-        {{0,0}, 1.0},
-        {{1,0}, 1.0},
-        {{2,0}, 1.0},
-        {{3,0}, 1.0},
-        {{4,0}, 1.0},
+        {{0,0}, 0.1},
+        {{1,0}, 0.1},
+        {{2,0}, 0.1},
+        {{3,0}, 0.1},
+        {{4,0}, 0.1},
     };
 
     const std::vector<Gatherer> gatherers {
-        {{0,0}, {4,0}, 1.0},
+        {{0,0}, {4,0}, 0.1},
     };
 
     TestGathererProvider tgp(items, gatherers);
@@ -161,7 +170,7 @@ TEST_CASE("Moving in a straight line two gatherers, not in sync", "[CollisionDet
         {0, 0, 0, 0.0},
         {1, 1, 0, 0.125},
         {1, 0, 0, 0.25},
-        {2, 1, 0, 0.275},
+        {2, 1, 0, 0.375},
         {2, 0, 0, 0.50},
         {3, 1, 0, 0.625},
         {3, 0, 0, 0.75},
@@ -171,16 +180,16 @@ TEST_CASE("Moving in a straight line two gatherers, not in sync", "[CollisionDet
 
     //To use with function:
     const std::vector<Item> items {
-        {{0,0}, 1.0},
-        {{1,0}, 1.0},
-        {{2,0}, 1.0},
-        {{3,0}, 1.0},
-        {{4,0}, 1.0},
+        {{0,0}, 0.1},
+        {{1,0}, 0.1},
+        {{2,0}, 0.1},
+        {{3,0}, 0.1},
+        {{4,0}, 0.1},
     };
 
     const std::vector<Gatherer> gatherers {
-        {{0,0}, {4,0}, 1.0},
-        {{0.5,0}, {4.5,0}, 1.0},
+        {{0,0}, {4,0}, 0.1},
+        {{0.5,0}, {4.5,0}, 0.1},
     };
 
     TestGathererProvider tgp(items, gatherers);
@@ -201,15 +210,15 @@ TEST_CASE("Moving diagonally one gatherer", "[CollisionDetect]") {
 
     //To use with function:
     const std::vector<Item> items {
-        {{0,0}, 1.0},
-        {{1,1}, 1.0},
-        {{2,2}, 1.0},
-        {{3,3}, 1.0},
-        {{4,4}, 1.0}
+        {{0,0}, 0.1},
+        {{1,1}, 0.1},
+        {{2,2}, 0.1},
+        {{3,3}, 0.1},
+        {{4,4}, 0.1}
     };
 
     const std::vector<Gatherer> gatherers {
-        {{0,0}, {4,4}, 1.0}
+        {{0,0}, {4,4}, 0.1}
     };
 
     TestGathererProvider tgp(items, gatherers);
@@ -224,7 +233,7 @@ TEST_CASE("Two gatherers different objects", "[CollisionDetect]") {
         {5, 0, 0, 0.0},   // straight gatherer
         {1, 1, 0, 0.125}, // diag. gatherer
         {6, 0, 0, 0.25},
-        {2, 1, 0, 0.275},
+        {2, 1, 0, 0.375},
         {7, 0, 0, 0.50},
         {3, 1, 0, 0.625},
         {8, 0, 0, 0.75},
@@ -234,22 +243,22 @@ TEST_CASE("Two gatherers different objects", "[CollisionDetect]") {
 
     //To use with function:
     const std::vector<Item> items {
-        {{-1,-1}, 1.0}, // id = 0
-        {{1,1}, 1.0},
-        {{2,2}, 1.0},
-        {{3,3}, 1.0},
-        {{4,4}, 1.0}, // id = 4
+        {{-1,-1}, 0.1}, // id = 0
+        {{1,1}, 0.1},
+        {{2,2}, 0.1},
+        {{3,3}, 0.1},
+        {{4,4}, 0.1}, // id = 4
 
-        {{0,0}, 1.0}, // id = 5
-        {{1,0}, 1.0},
-        {{2,0}, 1.0},
-        {{3,0}, 1.0},
-        {{4,0}, 1.0}, // id = 9
+        {{0,0}, 0.1}, // id = 5
+        {{1,0}, 0.1},
+        {{2,0}, 0.1},
+        {{3,0}, 0.1},
+        {{4,0}, 0.1}, // id = 9
     };
 
     const std::vector<Gatherer> gatherers {
-        {{0,0}, {4,0}, 1.0},
-        {{0.5,0.5}, {4.5,4.5}, 1.0}
+        {{0,0}, {4,0}, 0.1},
+        {{0.5,0.5}, {4.5,4.5}, 0.1}
     };
 
     TestGathererProvider tgp(items, gatherers);
@@ -270,15 +279,15 @@ TEST_CASE("One gatherer negative coord", "[CollisionDetect]") {
 
     //To use with function:
     const std::vector<Item> items {
-        {{0,0}, 1.0},
-        {{-1,-1}, 1.0},
-        {{-2,-2}, 1.0},
-        {{-3,-3}, 1.0},
-        {{-4,-4}, 1.0}
+        {{0,0}, 0.1},
+        {{-1,-1}, 0.1},
+        {{-2,-2}, 0.1},
+        {{-3,-3}, 0.1},
+        {{-4,-4}, 0.1}
     };
 
     const std::vector<Gatherer> gatherers {
-        {{0,0}, {-4,-4}, 1.0}
+        {{0,0}, {-4,-4}, 0.1}
     };
 
     TestGathererProvider tgp(items, gatherers);
@@ -290,14 +299,14 @@ TEST_CASE("One gatherer negative coord", "[CollisionDetect]") {
 TEST_CASE("One gatherer no collect", "[CollisionDetect]") {
     //To use with function:
     const std::vector<Item> items {
-        {{-1,-1}, 1.0},
+        {{-1,-1}, 0.1},
         {{5,1}, 0.2},
-        {{-3,-1}, 1.0},
-        {{1,-4}, 1.0}
+        {{-3,-1}, 0.1},
+        {{1,-4}, 0.1}
     };
 
     const std::vector<Gatherer> gatherers {
-        {{0,0}, {4,4}, 1.0}
+        {{0,0}, {4,4}, 0.1}
     };
 
     TestGathererProvider tgp(items, gatherers);
@@ -309,15 +318,15 @@ TEST_CASE("One gatherer no collect", "[CollisionDetect]") {
 TEST_CASE("One gatherer no move", "[CollisionDetect]") {
     //To use with function:
     const std::vector<Item> items {
-        {{0,0}, 1.0},
-        {{1,1}, 1.0},
-        {{2,2}, 1.0},
-        {{3,3}, 1.0},
-        {{4,4}, 1.0}
+        {{0,0}, 0.1},
+        {{1,1}, 0.1},
+        {{2,2}, 0.1},
+        {{3,3}, 0.1},
+        {{4,4}, 0.1}
     };
 
     const std::vector<Gatherer> gatherers {
-        {{1,1}, {1,1}, 1.0}
+        {{1,1}, {1,1}, 0.1}
     };
 
     TestGathererProvider tgp(items, gatherers);
