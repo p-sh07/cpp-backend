@@ -47,23 +47,19 @@ class TestGathererProvider : public ItemGathererProvider {
     {}
 
     size_t ItemsCount() const override {
-        //TODO:
-        return 0;
+        return items_.size();
     }
 
     Item GetItem(size_t idx) const override {
-        //TODO:
-        return {};
+        return items_.at(idx);
     }
 
     size_t GatherersCount() const override {
-        //TODO:
-        return 0;
+        return gatherers_.size();
     }
 
     Gatherer GetGatherer(size_t idx) const override {
-        //TODO:
-        return {};
+        return gatherers_.at(idx);
     }
  private:
     //For reference:
