@@ -76,6 +76,25 @@ SCENARIO("LootItem generation") {
     }
 }
 
+
+
+//Gathering Test
+TEST_CASE("Basic Gather test", "[LootGathering]") {
+    //setup sessiion
+    //gen object
+    //collect object
+    //return object
+    SECTION("collecting object") {
+        //...
+    }
+
+    SECTION("returning object") {
+        //...
+    }
+
+    //etc...
+}
+
 ///Main Example
 /**
  void DownloadTestResources();
@@ -92,4 +111,3 @@ int main(int argc, char* argv[]) {
  ///Часть параметров командной строки можно обработать вручную. Но так делать не рекомендуется. Лучше расширить парсер библиотеки Catch2. Не будем останавливаться на этом моменте, он описан в документации.
  ///https://github.com/catchorg/Catch2/blob/devel/docs/own-main.md#adding-your-own-command-line-options
 */
-

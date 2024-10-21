@@ -19,7 +19,7 @@ struct JsonKeys {
     static constexpr Key offices = "offices";
     static constexpr Key loot_gen = "lootGeneratorConfig";
     static constexpr Key loot_types = "lootTypes";
-    static constexpr Key dog_speed = "DogSpeed";
+    static constexpr Key dog_speed = "dogSpeed";
     static constexpr Key bag_cap = "bagCapacity";
 
     static constexpr Key dog_speed_dflt = "defaultDogSpeed";
@@ -39,3 +39,44 @@ std::string PrintGameState(const app::PlayerPtr player, const std::shared_ptr<ap
 
 model::Game LoadGame(const std::filesystem::path& json_path);
 } // namespace json_loader
+
+
+//======= Json tag_invoke overloads ===========
+//tag_invoke needs to be in namespace model for correct ADL behaviour
+namespace model {
+
+namespace json = boost::json;
+
+//Pos, dir, speed
+void tag_invoke(const json::value_from_tag&, json::value& jv, Point const& pt);
+Point tag_invoke(const json::value_to_tag<Point>&, json::value const& jv);
+
+void tag_invoke(const json::value_from_tag&, json::value& jv, Point2D const& pt);
+Point2D tag_invoke(const json::value_to_tag<Point2D>&, json::value const& jv);
+
+void tag_invoke(const json::value_from_tag&, json::value& jv, Dir const& dir);
+Dir tag_invoke(const json::value_to_tag<Dir>&, json::value const& jv);
+
+void tag_invoke(const json::value_from_tag&, json::value& jv, Speed const& speed);
+Speed tag_invoke(const json::value_to_tag<Speed>&, json::value const& jv);
+
+//Map overloads
+void tag_invoke(const json::value_from_tag&, json::value& jv, Map const& map);
+Map tag_invoke(const json::value_to_tag<Map>&, json::value const& jv);
+
+//Road
+void tag_invoke(const json::value_from_tag&, json::value& jv, Road const& rd);
+Road tag_invoke(const json::value_to_tag<Road>&, json::value const& jv);
+
+//Building
+void tag_invoke(const json::value_from_tag&, json::value& jv, Building const& bd);
+Building tag_invoke(const json::value_to_tag<Building>&, json::value const& jv);
+
+//Office
+void tag_invoke(const json::value_from_tag&, json::value& jv, Office const& offc);
+Office tag_invoke(const json::value_to_tag<Office>&, json::value const& jv);
+
+//Bag Items
+void tag_invoke(const json::value_from_tag&, json::value& jv, BagItems const& bag);
+
+} // namespace model

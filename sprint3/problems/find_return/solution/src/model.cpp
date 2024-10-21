@@ -37,9 +37,8 @@ geom::Point2D to_geom_pt(Point pt) {
     return {1.0 * pt.x, 1.0 * pt.y};
 }
 geom::Point2D to_geom_pt(Point2D pt) {
-    return {pt.x,pt.y};
+    return {pt.x, pt.y};
 }
-
 
 //=================================================
 //=================== Road ========================
@@ -93,7 +92,6 @@ const Rectangle& Building::GetBounds() const {
     return bounds_;
 }
 
-
 //=================================================
 //=================== Office ====================
 Office::Office(Office::Id id, Point position, Offset offset)
@@ -117,7 +115,6 @@ Offset Office::GetOffset() const {
 double Office::GetWidth() const {
     return width_;
 }
-
 
 //=================================================
 //================ Map ============================
@@ -216,7 +213,7 @@ const Road* Map::FindHorRoad(Point2D pt) const {
     auto pt_is_on_road = [&](const Road* rd, const Point2D& pt) {
         Point check{static_cast<Coord>(std::round(pt.x)), static_cast<Coord>(std::round(pt.y))};
         return (check.x >= std::min(rd->GetStart().x, rd->GetEnd().x))
-        && (std::max(rd->GetStart().x, rd->GetEnd().x) >= check.x);
+            && (std::max(rd->GetStart().x, rd->GetEnd().x) >= check.x);
     };
 
     auto it = RoadYtoIndex_.find(static_cast<Coord>(std::round(pt.y)));
@@ -274,7 +271,7 @@ void Map::MoveDog(Dog* dog, TimeMs delta_t) const {
 Point2D Map::ComputeMove(Dog* dog, const Road* road, TimeMs delta_t) const {
     //Maximum point dog can reach in delta_t if no road limit is hit
     auto max_move = dog->ComputeMaxMove(delta_t);
-    switch (dog->GetDir()) {
+    switch(dog->GetDir()) {
         case Dir::NORTH: {
             auto road_limit_y = 1.0 * std::min(road->GetStart().y, road->GetEnd().y) - 0.4;
 
@@ -318,7 +315,7 @@ Point2D Map::ComputeMove(Dog* dog, const Road* road, TimeMs delta_t) const {
 }
 
 LootType Map::GetRandomLootTypeNum() const {
-    return static_cast<LootType>( util::random_num(0, loot_types_->Size() - 1) );
+    return static_cast<LootType>( util::random_num(0, loot_types_->Size() - 1));
 }
 
 const gamedata::LootTypeInfo* Map::GetLootInfo() const {
@@ -332,7 +329,6 @@ size_t Map::GetBagCapacity() const {
 void Map::SetBagCapacity(size_t cap) {
     bag_capacity_ = cap;
 }
-
 
 //=================================================
 //=================== Dog =========================
@@ -382,21 +378,16 @@ Dog& Dog::SetDir(Dir dir) {
 Dog& Dog::SetMove(Dir dir, double speed_value) {
     direction_ = dir;
     switch(dir) {
-        case Dir::NORTH:
-            SetSpeed({0.0, -speed_value});
+        case Dir::NORTH:SetSpeed({0.0, -speed_value});
             break;
-        case Dir::WEST:
-            SetSpeed({-speed_value, 0.0});
+        case Dir::WEST:SetSpeed({-speed_value, 0.0});
             break;
-        case Dir::SOUTH:
-            SetSpeed({0, speed_value});
+        case Dir::SOUTH:SetSpeed({0, speed_value});
             break;
-        case Dir::EAST:
-            SetSpeed({speed_value, 0.0});
+        case Dir::EAST:SetSpeed({speed_value, 0.0});
             break;
 
-        default:
-            SetSpeed({0.0, 0.0});
+        default:SetSpeed({0.0, 0.0});
             break;
     }
     return *this;
@@ -414,6 +405,7 @@ Dog& Dog::SetPos(Point2D pos) {
 
 Dog& Dog::SetWidth(double width) {
     width_ = width;
+    return *this;
 }
 
 Dog& Dog::SetBagCap(size_t capacity) {
@@ -434,23 +426,23 @@ double Dog::GetWidth() const {
 bool Dog::CollectLootItem(LootItem* loot_ptr) {
     if(!BagIsFull()) {
         bag_.push_back(loot_ptr);
+        loot_ptr->collected = true;
         return true;
     }
     return false;
 }
 
 size_t Dog::UnloadAllItems() {
-    //TODO: add value field to loot item? Or return vector of loot types
     size_t sum = 0;
     for(const auto item : bag_) {
-
+        //TODO: add value field to loot item? Or return vector of loot types
     }
     bag_.clear();
     return sum;
 }
 
 bool Dog::BagIsFull() const {
-    return bag_.size() < bag_capacity_;
+    return bag_.size() >= bag_capacity_;
 }
 
 const BagItems& Dog::GetBagItems() const {
@@ -467,6 +459,7 @@ Session::Session(size_t id, Map* map_ptr, LootGenPtr loot_generator, bool random
 }
 
 Dog* Session::AddDog(std::string name) {
+    //TODO: better to use constructor? or a default constructor and set all params?
     Dog new_dog(next_dog_id_++, std::move(name));
 
     new_dog.SetPos(randomize_dog_spawn_ ? map_->GetRandomRoadPt() : map_->GetFirstRoadPt())
@@ -474,21 +467,24 @@ Dog* Session::AddDog(std::string name) {
         .SetWidth(DEFAULT_PLAYER_WIDTH);
 
     dogs_.push_back(std::move(new_dog));
+    return &dogs_.back();
 }
 
-LootItem* Session::AddLootItem(LootType type) {
-    //TODO:
+LootItem* Session::AddLootItem(LootType type, Point2D pos) {
+    LootItem* loot_ptr = &loot_items_.emplace_back(
+        next_loot_id_, type, pos
+    );
+    loot_item_index_[next_loot_id_++] = loot_ptr;
+
+    return loot_ptr;
 }
 
 void Session::AddRandomLootItems(size_t num_items) {
     for(int i = 0; i < num_items; ++i) {
-        //add a random loot item on a random road point
-        auto item_ref = loot_items_.emplace_back(
-            next_loot_id_,
+        AddLootItem(
             map_->GetRandomLootTypeNum(),
             map_->GetRandomRoadPt()
         );
-        loot_item_index_[next_loot_id_++] = &item_ref;
     }
 }
 
@@ -509,9 +505,9 @@ const std::deque<LootItem>& Session::GetLootItems() const {
 }
 
 void Session::AdvanceTime(TimeMs delta_t) {
+    GenerateLoot(delta_t);
     MoveAllDogs(delta_t);
     ProcessCollisions(delta_t);
-    GenerateLoot(delta_t);
 }
 
 void Session::MoveAllDogs(TimeMs delta_t) {
@@ -522,19 +518,6 @@ void Session::MoveAllDogs(TimeMs delta_t) {
 
 void Session::ProcessCollisions(TimeMs delta_t) {
     auto events = collision_detector::FindGatherEvents(*this);
-    /*
-     * struct GatheringEvent {
-    size_t item_id;
-    size_t gatherer_id;
-    double sq_distance;
-    double time;};
-     */
-
-    //Take loot
-    //Miss if bag full
-    //unload at Office
-    //take another loot
-
     //TODO: store gathered items? in player? in dog?
     //TODO: Process collision events in app?
 
@@ -547,8 +530,8 @@ void Session::ProcessCollisions(TimeMs delta_t) {
             //TODO: fix constness? to get rid of cast
             LootItem* loot_item = const_cast<LootItem*>(&GetLootFromGatherEvent(idx));
             if(!loot_item->collected) {
-                //Update item status. Will not collect if bag is full
-                loot_item->collected = dog.CollectLootItem(loot_item);
+                //TODO: set collected inside CollectLootItem? or pass const?
+                dog.CollectLootItem(loot_item);
             }
         } else if(IsOffice(idx)) {
             //TODO: score
@@ -556,22 +539,26 @@ void Session::ProcessCollisions(TimeMs delta_t) {
         } else {
             throw std::logic_error("Invalid collect event index");
         }
+    }
 
-        //Remove collected items from map
-        //Do this after collision event processing to keep all GatherEvent indexes valid!
-        for(auto it = loot_items_.begin(); it != loot_items_.end(); ++it) {
-            if(it->collected) {
-                auto id = it->id;
-                loot_items_.erase(it);
-                loot_item_index_.erase(id);
-            }
+    //Remove collected items from map
+    //Do this after collision event processing to keep all GatherEvent indexes valid!
+    for(auto it = loot_items_.begin(); it != loot_items_.end(); ++it) {
+        if(it->collected) {
+            auto id = it->id;
+            loot_item_index_.erase(id);
+            loot_items_.erase(it);
         }
     }
 }
 
 void Session::GenerateLoot(TimeMs delta_t) {
-    auto num_of_new_items = loot_generator_->Generate(delta_t, GetLootCount(), GetDogCount());
-    AddRandomLootItems(num_of_new_items);
+    //DEBUG:
+    if(loot_items_.empty()) {
+        AddLootItem(0, {0.0, 50.0});
+    }
+    //auto num_of_new_items = loot_generator_->Generate(delta_t, GetLootCount(), GetDogCount());
+    //AddRandomLootItems(num_of_new_items);
 }
 
 const Map* Session::GetMap() const {
@@ -613,12 +600,11 @@ Session::Item Session::GetItem(size_t idx) const {
         return {to_geom_pt(item.pos), item.width};
     }
         //Case 2: Office
-    else if(IsOffice(idx)){
+    else if(IsOffice(idx)) {
         //office vector indexes starting after loot items indexes
         auto& office = GetOfficeFromGatherEvent(idx);
         return {to_geom_pt(office.GetPosition()), office.GetWidth()};
-    }
-    else {
+    } else {
         throw std::logic_error("invalid collision event id");
     }
 }
@@ -631,7 +617,6 @@ Session::Gatherer Session::GetGatherer(size_t idx) const {
     auto& dog = dogs_.at(idx);
     return {to_geom_pt(dog.GetPrevPos()), to_geom_pt(dog.GetPos()), dog.GetWidth()};
 }
-
 
 //=================================================
 //=================== Game ========================
@@ -734,149 +719,4 @@ double Game::GetDefaultDogSpeed() const {
 size_t Game::GetDefaultBagCapacity() const {
     return default_bag_capacity_;
 }
-
-
-//===========================================================
-//================= Tag Invoke overloads ====================
-namespace json = boost::json;
-
-void tag_invoke(const json::value_from_tag&, json::value& jv, Point const& pt) {
-    auto ja = jv.as_array();
-
-    ja.emplace_back(static_cast<int>(pt.x));
-    ja.emplace_back(static_cast<int>(pt.y));
-}
-
-Point tag_invoke(const json::value_to_tag<Point>&, json::value const& jv) {
-    const auto& arr = jv.as_array();
-    return {value_to<int>(arr.at(0)), value_to<int>(arr.at(1))};
-}
-
-void tag_invoke(const json::value_from_tag&, json::value& jv, Point2D const& pt) {
-    auto ja = jv.as_array();
-    ja.emplace_back(pt.x);
-    ja.emplace_back(pt.y);
-}
-
-Point2D tag_invoke(const json::value_to_tag<Point2D>&, json::value const& jv) {
-    const auto& arr = jv.as_array();
-    Point2D pt(value_to<double>(arr.at(0)), value_to<double>(arr.at(1)));
-    return pt;
-}
-
-void tag_invoke(const json::value_from_tag&, json::value& jv, Dir const& dir) {
-    jv = std::string{static_cast<char>(dir)};
-}
-
-Dir tag_invoke(const json::value_to_tag<Dir>&, json::value const& jv) {
-    Dir dir(value_to<Dir>(jv.at("dir")));
-    return dir;
-}
-
-void tag_invoke(const json::value_from_tag&, json::value& jv, Speed const& speed) {
-    auto ja = jv.as_array();
-    ja.emplace_back(static_cast<double>(speed.Vx));
-    ja.emplace_back(static_cast<double>(speed.Vy));
-}
-
-Speed tag_invoke(const json::value_to_tag<Speed>&, json::value const& jv) {
-    auto ja = jv.as_array();
-    Speed sp{value_to<Dimension2D>(jv.at(0)), value_to<Dimension2D>(jv.at(1))};
-    return sp;
-}
-
-void tag_invoke(const json::value_from_tag&, json::value& jv, Map const& map) {
-    jv = {
-        {"id", *map.GetId()},
-        {"name", map.GetName()},
-    };
-}
-
-Map tag_invoke(const json::value_to_tag<Map>&, json::value const& jv) {
-    Map::Id id(value_to<std::string>(jv.at("id")));
-    return {id, value_to<std::string>(jv.at("name"))};
-}
-
-void tag_invoke(const json::value_from_tag&, json::value& jv, Road const& rd) {
-    if(rd.IsHorizontal()) {
-        jv = {
-            {"x0", rd.GetStart().x},
-            {"y0", rd.GetStart().y},
-            {"x1", rd.GetEnd().x}
-        };
-    } else {
-        jv = {
-            {"x0", rd.GetStart().x},
-            {"y0", rd.GetStart().y},
-            {"y1", rd.GetEnd().y}
-        };
-    }
-}
-
-Road tag_invoke(const json::value_to_tag<Road>&, json::value const& jv) {
-    auto const& obj = jv.as_object();
-
-    Point start{
-        value_to<int>(obj.at("x0")),
-        value_to<int>(obj.at("y0"))
-    };
-
-    if(obj.contains("x1")) {
-        //Horisontal road
-        return {Road::HORIZONTAL, start, value_to<int>(obj.at("x1"))};
-    } else {
-        //Vertical road
-        return {Road::VERTICAL, start, value_to<int>(obj.at("y1"))};
-    }
-}
-
-void tag_invoke(const json::value_from_tag&, json::value& jv, Building const& bd) {
-    const auto& rect = bd.GetBounds();
-    jv = {
-        {"x", rect.position.x},
-        {"y", rect.position.y},
-        {"w", rect.size.width},
-        {"h", rect.size.height},
-    };
-}
-
-Building tag_invoke(const json::value_to_tag<Building>&, json::value const& jv) {
-    const auto& obj = jv.as_object();
-    return Building({
-                        //Rectangle:
-                        Point{value_to<int>(obj.at("x")), value_to<int>(obj.at("y"))},
-                        Size{value_to<int>(obj.at("w")), value_to<int>(obj.at("h"))}
-                    });
-}
-
-void tag_invoke(const json::value_from_tag&, json::value& jv, model::Office const& offc) {
-    jv = {
-        {"id", *offc.GetId()},
-        {"x", offc.GetPosition().x},
-        {"y", offc.GetPosition().y},
-        {"offsetX", offc.GetOffset().dx},
-        {"offsetY", offc.GetOffset().dy},
-    };
-}
-
-Office tag_invoke(const json::value_to_tag<Office>&, json::value const& jv) {
-    const auto& obj = jv.as_object();
-    return {
-        Office::Id(value_to<std::string>(obj.at("id"))),
-        Point{value_to<int>(obj.at("x")), value_to<int>(obj.at("y"))},
-        Offset{value_to<int>(obj.at("offsetX")), value_to<int>(obj.at("offsetY"))}
-    };
-}
-
-//Bag Items -> //TODO: can split into LootItem tag invoke & BagItems
-void tag_invoke(const json::value_from_tag&, json::value& jv, BagItems const& bag) {
-    auto& ja = jv.as_array();
-    for(const auto& item : bag) {
-        ja.emplace_back(json::object{
-            {"id", item->id},
-            {"type", item->type}
-        });
-    }
-}
-
-}  // namespace model
+} //namespace model

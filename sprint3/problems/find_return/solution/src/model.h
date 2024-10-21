@@ -292,7 +292,7 @@ class Session : collision_detector::ItemGathererProvider {
     //At construction there are 0 dogs. Session is always on 1 map
     //When a player is added, he gets a new dog to control
     Dog* AddDog(std::string name);
-    LootItem* AddLootItem(LootType type);
+    LootItem* AddLootItem(LootType type, Point2D pos);
     void AddRandomLootItems(size_t num_items);
 
     void AdvanceTime(TimeMs delta_t);
@@ -346,6 +346,7 @@ class Game {
     const Map* FindMap(const Map::Id& id) const;
 
     //std::shared_ptr<Session> AddSession(const Map::Id& id);
+    //TODO: Move sessions out of model to application?
     Session* JoinSession(const Map::Id& id);
     Sessions& GetSessions();
 
@@ -374,40 +375,5 @@ class Game {
 
     Session MakeNewSessionOnMap(Map* map, LootGenPtr loot_generator);
 };
-
-//======= Json conversion overloads ===========
-namespace json = boost::json;
-
-//Pos, dir, speed
-void tag_invoke(const json::value_from_tag&, json::value& jv, Point const& pt);
-Point tag_invoke(const json::value_to_tag<Point>&, json::value const& jv);
-
-void tag_invoke(const json::value_from_tag&, json::value& jv, Point2D const& pt);
-Point2D tag_invoke(const json::value_to_tag<Point2D>&, json::value const& jv);
-
-void tag_invoke(const json::value_from_tag&, json::value& jv, Dir const& dir);
-Dir tag_invoke(const json::value_to_tag<Dir>&, json::value const& jv);
-
-void tag_invoke(const json::value_from_tag&, json::value& jv, Speed const& speed);
-Speed tag_invoke(const json::value_to_tag<Speed>&, json::value const& jv);
-
-//Map overloads
-void tag_invoke(const json::value_from_tag&, json::value& jv, Map const& map);
-Map tag_invoke(const json::value_to_tag<Map>&, json::value const& jv);
-
-//Road
-void tag_invoke(const json::value_from_tag&, json::value& jv, Road const& rd);
-Road tag_invoke(const json::value_to_tag<Road>&, json::value const& jv);
-
-//Building
-void tag_invoke(const json::value_from_tag&, json::value& jv, Building const& bd);
-Building tag_invoke(const json::value_to_tag<Building>&, json::value const& jv);
-
-//Office
-void tag_invoke(const json::value_from_tag&, json::value& jv, Office const& offc);
-Office tag_invoke(const json::value_to_tag<Office>&, json::value const& jv);
-
-//Bag Items
-void tag_invoke(const json::value_from_tag&, json::value& jv, BagItems const& bag);
 
 } // namespace model
