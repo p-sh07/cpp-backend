@@ -41,22 +41,31 @@ geom::Point2D to_geom_pt(Point2D pt) {
     return {pt.x, pt.y};
 }
 
-//=================================================
-//=================== Road ========================
-Point Road::GetRandomPt() const {
-    if(IsHorizontal()) {
-        auto rand_x = util::random_num(start_.x, end_.x);
-        Point pt{static_cast<Coord>(rand_x), start_.y};
-        //std::cerr << "selecting random between: " << start_.x << " & " << end_.x << " == " << rand_x << '\n';
-        return pt;
+//==== Random int generator for use in game model
+int GenRandomNum(int limit1, int limit2) {
+    ///'static' allows to reuse generator in the same thread, since expencive to init
+    static thread_local std::mt19937 gen_local{std::random_device()()};
+
+    //when min max are swapped:
+    size_t min = std::min(limit1, limit2);
+    size_t max = std::max(limit1, limit2);
+
+    //Since using with size(), Generate numbers in non-inclusive range [min, max)
+    if(max > 0) {
+        --max;
     }
-    auto rand_y = util::random_num(start_.y, end_.y);
-    Point pt{start_.x, static_cast<Coord>(rand_y)};
-    //std::cerr << "selecting random between: " << start_.y << " & " << end_.y << " == " << rand_y << '\n';
-    return pt;
-    //return {static_cast<Coord>(start_.x, util::random_num(start_.y, end_.y))};
+    ///distribution is cheap to construct, so no need to reuse
+    std::uniform_int_distribution<int> distr(min,max);
+    return distr(gen_local);
 }
 
+size_t GenRandomNum(size_t limit1, size_t limit2) {
+    int a = static_cast<int>(limit1), b = static_cast<int>(limit2);
+    return static_cast<size_t>(GenRandomNum(a,b));
+}
+
+//=================================================
+//=================== Road ========================
 Road::Road(Road::VerticalTag, Point start, Coord end_y)
     : start_{start}
     , end_{start.x, end_y} {
@@ -81,6 +90,20 @@ Point Road::GetStart() const {
 
 Point Road::GetEnd() const {
     return end_;
+}
+
+Point Road::GetRandomPt() const {
+    if(IsHorizontal()) {
+        auto rand_x = GenRandomNum(start_.x, end_.x);
+        Point pt{static_cast<Coord>(rand_x), start_.y};
+        //std::cerr << "selecting random between: " << start_.x << " & " << end_.x << " == " << rand_x << '\n';
+        return pt;
+    }
+    auto rand_y = GenRandomNum(start_.y, end_.y);
+    Point pt{start_.x, static_cast<Coord>(rand_y)};
+    //std::cerr << "selecting random between: " << start_.y << " & " << end_.y << " == " << rand_y << '\n';
+    return pt;
+    //return {static_cast<Coord>(start_.x, util::random_num(start_.y, end_.y))};
 }
 
 //=================================================
@@ -136,10 +159,8 @@ void Map::AddOffice(Office office) {
 }
 
 Point Map::GetRandomRoadPt() const {
-    auto& random_road = roads_.at(util::random_num(0, roads_.size()));
-    auto pt = random_road.GetRandomPt();
-
-    return pt;
+    auto& random_road = roads_.at(GenRandomNum(roads_.size()));
+    return random_road.GetRandomPt();
 }
 
 Map::Map(Map::Id id, std::string name)
@@ -316,10 +337,9 @@ Point2D Map::ComputeMove(Dog* dog, const Road* road, TimeMs delta_t) const {
 }
 
 LootType Map::GetRandomLootTypeNum() const {
-    //NB: Possible Conversion errors here, try to fix with %
-    LootType max_loot_type_num = static_cast<LootType>(loot_types_->Size() - 1);
-    std::cerr << "max loot type = " << max_loot_type_num << std::endl;
-    return static_cast<LootType>( util::random_num(0, max_loot_type_num)) % max_loot_type_num;
+    auto rand_type = GenRandomNum(loot_types_->Size());
+    assert(rand_type >= 0 && rand_type < loot_types_->Size());
+    return static_cast<LootType>(rand_type);
 }
 
 const gamedata::LootTypeInfo* Map::GetLootInfo() const {

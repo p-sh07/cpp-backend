@@ -57,6 +57,10 @@ std::ostream& operator<<(std::ostream& os, const Speed& pt);
 geom::Point2D to_geom_pt(Point pt);
 geom::Point2D to_geom_pt(Point2D pt);
 
+//==== Random int generator for use in game model
+int GenRandomNum(int limit1, int limit2 = 0);
+size_t GenRandomNum(size_t limit1, size_t limit2 = 0);
+
 //Progresses clockwise
 enum class Dir : char {
     NORTH = 'U',
@@ -351,11 +355,10 @@ class Game {
     const Map* FindMap(const Map::Id& id) const;
 
     //std::shared_ptr<Session> AddSession(const Map::Id& id);
-    //TODO: Move sessions out of model to application?
+    //TODO: Move sessions out of model to application
     Session* JoinSession(const Map::Id& id);
     Sessions& GetSessions();
 
-    //TODO: add loot gen with time ticks
     void ConfigLootGenerator(TimeMs base_interval, double probability);
 
  private:
