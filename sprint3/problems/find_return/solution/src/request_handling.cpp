@@ -219,7 +219,6 @@ app::PlayerPtr ApiHandler::AuthorizePlayer(const auto& request) const {
 }
 
 StringResponse ApiHandler::HandleApiRequest(const StringRequest& req) {
-    try {
         //General purpose string-response forming lambda, CT = App-json by default, cache_control = no-cache
         auto to_html = [&](http::status status, std::string_view text, std::string_view cache_value = "no-cache") {
             auto resp = MakeStringResponse(status, text, req.version(),
@@ -294,6 +293,7 @@ StringResponse ApiHandler::HandleApiRequest(const StringRequest& req) {
                 CheckHttpMethod(req.method(), http::verb::get, http::verb::head);
 
                 auto player = AuthorizePlayer(req);
+                //TODO: catch & report json errors
                 auto json_str_body = json_loader::PrintGameState(player, game_app_);
 
                 return to_html(http::status::ok, json_str_body);
@@ -350,11 +350,6 @@ StringResponse ApiHandler::HandleApiRequest(const StringRequest& req) {
 
         // *Error: Bad request
         throw ApiError(ErrCode::bad_request);
-    }
-    catch (std::exception& ex) {
-        //This block should catch boost (json etc) errors & std exceptions that occur during request handling
-        return ReportApiError(req.version(), req.keep_alive(), ex.what());
-    }
 }
 
 

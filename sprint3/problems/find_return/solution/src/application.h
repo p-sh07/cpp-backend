@@ -89,6 +89,7 @@ class Players {
     MapDogIdToPlayer map_dog_id_to_player_;
 
     Token GenerateToken() const;
+    //TODO: Move sessions here and not inside game?
 };
 
 struct JoinGameResult {
