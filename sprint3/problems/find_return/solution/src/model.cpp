@@ -316,9 +316,10 @@ Point2D Map::ComputeMove(Dog* dog, const Road* road, TimeMs delta_t) const {
 }
 
 LootType Map::GetRandomLootTypeNum() const {
-    auto max_loot_type_num = loot_types_->Size() - 1;
+    //NB: Possible Conversion errors here, try to fix with %
+    LootType max_loot_type_num = static_cast<LootType>(loot_types_->Size() - 1);
     std::cerr << "max loot type = " << max_loot_type_num << std::endl;
-    return static_cast<LootType>( util::random_num(0, max_loot_type_num) % max_loot_type_num);
+    return static_cast<LootType>( util::random_num(0, max_loot_type_num)) % max_loot_type_num;
 }
 
 const gamedata::LootTypeInfo* Map::GetLootInfo() const {
