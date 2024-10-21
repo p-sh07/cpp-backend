@@ -4,6 +4,7 @@
 
 //DEBUG
 #include <iostream>
+//#define GATHER_DEBUG
 
 namespace model {
 using namespace std::literals;
@@ -315,7 +316,9 @@ Point2D Map::ComputeMove(Dog* dog, const Road* road, TimeMs delta_t) const {
 }
 
 LootType Map::GetRandomLootTypeNum() const {
-    return static_cast<LootType>( util::random_num(0, loot_types_->Size() - 1));
+    auto max_loot_type_num = loot_types_->Size() - 1;
+    std::cerr << "max loot type = " << max_loot_type_num << std::endl;
+    return static_cast<LootType>( util::random_num(0, max_loot_type_num) % max_loot_type_num);
 }
 
 const gamedata::LootTypeInfo* Map::GetLootInfo() const {
@@ -432,13 +435,8 @@ bool Dog::CollectLootItem(LootItem* loot_ptr) {
     return false;
 }
 
-size_t Dog::UnloadAllItems() {
-    size_t sum = 0;
-    for(const auto item : bag_) {
-        //TODO: add value field to loot item? Or return vector of loot types
-    }
+void Dog::UnloadAllItems() {
     bag_.clear();
-    return sum;
 }
 
 bool Dog::BagIsFull() const {
@@ -518,7 +516,6 @@ void Session::MoveAllDogs(TimeMs delta_t) {
 
 void Session::ProcessCollisions(TimeMs delta_t) {
     auto events = collision_detector::FindGatherEvents(*this);
-    //TODO: store gathered items? in player? in dog?
     //TODO: Process collision events in app?
 
     //Process events in chronological time:
@@ -530,11 +527,12 @@ void Session::ProcessCollisions(TimeMs delta_t) {
             //TODO: fix constness? to get rid of cast
             LootItem* loot_item = const_cast<LootItem*>(&GetLootFromGatherEvent(idx));
             if(!loot_item->collected) {
-                //TODO: set collected inside CollectLootItem? or pass const?
                 dog.CollectLootItem(loot_item);
             }
         } else if(IsOffice(idx)) {
-            //TODO: score
+            for (const auto& item : dog.GetBagItems()) {
+                player_scores_[dog.GetId()] += map_->GetLootItemValue(item->type);
+            }
             dog.UnloadAllItems();
         } else {
             throw std::logic_error("Invalid collect event index");
@@ -553,12 +551,14 @@ void Session::ProcessCollisions(TimeMs delta_t) {
 }
 
 void Session::GenerateLoot(TimeMs delta_t) {
-    //DEBUG:
-//    if(loot_items_.empty()) {
-//        AddLootItem(0, {0.0, 50.0});
-//    }
+#ifdef GATHER_DEBUG
+    if(loot_items_.empty()) {
+        AddLootItem(0, {0.0, 50.0});
+    }
+#else
     auto num_of_new_items = loot_generator_->Generate(delta_t, GetLootCount(), GetDogCount());
     AddRandomLootItems(num_of_new_items);
+#endif
 }
 
 const Map* Session::GetMap() const {

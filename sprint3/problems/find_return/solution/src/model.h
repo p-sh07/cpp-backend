@@ -180,7 +180,7 @@ class Dog {
     // Item gathering
     bool CollectLootItem(LootItem* loot_ptr);
     //std::vector<LootType>
-    size_t UnloadAllItems();
+    void UnloadAllItems();
 
     //TODO: currently unused:
     struct Label {
@@ -221,6 +221,10 @@ class Map {
     const Buildings& GetBuildings() const;
     const Roads& GetRoads() const;
     const Offices& GetOffices() const;
+
+    const size_t GetLootItemValue(LootType type) const {
+        return loot_types_->GetItemValue(type);
+    }
     const gamedata::LootTypeInfo* GetLootInfo() const;
 
     double GetDogSpeed() const;
@@ -314,6 +318,7 @@ class Session : collision_detector::ItemGathererProvider {
     size_t next_loot_id_ = 0;
 
     std::deque<Dog> dogs_;
+    std::unordered_map<size_t, size_t> player_scores_;
     std::deque<LootItem> loot_items_;
     LootIdToItem loot_item_index_;
 

@@ -176,6 +176,7 @@ json::value MapToValue(const Map& map) {
         //{"dogSpeed", map.GetDogSpeed()},
         {"id", *map.GetId()},
         {"name", map.GetName()},
+        {"bagCapacity", map.GetBagCapacity()},
         {"roads", json::value_from(map.GetRoads())},
         {"buildings", json::value_from(map.GetBuildings())},
         {"offices", json::value_from(map.GetOffices())},
