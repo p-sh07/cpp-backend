@@ -1,6 +1,6 @@
 {
   "defaultDogSpeed": 3.0,
-  "defaultBagCapacity": 2,
+  "defaultBagCapacity": 3,
   "lootGeneratorConfig": {
     "period": 5.0,
     "probability": 0.5
@@ -10,6 +10,7 @@
       "dogSpeed": 4.0,
       "id": "map1",
       "name": "Map 1",
+      "bagCapacity": 5,
       "lootTypes": [
         {
           "name": "key",

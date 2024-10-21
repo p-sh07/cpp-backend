@@ -99,10 +99,10 @@ jobs:
           cd cpp-backend-tests-practicum/scripts/sprint3
           ./gather/run.sh
 
-      # - name: run tests sprint3 find_return
-      #   run: |
-      #     cd cpp-backend-tests-practicum/scripts/sprint3
-      #     ./find_return/run.sh
+      - name: run tests sprint3 find_return
+        run: |
+          cd cpp-backend-tests-practicum/scripts/sprint3
+          ./find_return/run.sh
 
       # - name: run tests sprint3 scores
       #   run: |
