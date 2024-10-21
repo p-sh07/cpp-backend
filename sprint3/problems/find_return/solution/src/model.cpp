@@ -554,11 +554,11 @@ void Session::ProcessCollisions(TimeMs delta_t) {
 
 void Session::GenerateLoot(TimeMs delta_t) {
     //DEBUG:
-    if(loot_items_.empty()) {
-        AddLootItem(0, {0.0, 50.0});
-    }
-    //auto num_of_new_items = loot_generator_->Generate(delta_t, GetLootCount(), GetDogCount());
-    //AddRandomLootItems(num_of_new_items);
+//    if(loot_items_.empty()) {
+//        AddLootItem(0, {0.0, 50.0});
+//    }
+    auto num_of_new_items = loot_generator_->Generate(delta_t, GetLootCount(), GetDogCount());
+    AddRandomLootItems(num_of_new_items);
 }
 
 const Map* Session::GetMap() const {

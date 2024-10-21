@@ -69,6 +69,7 @@ struct ContentType {
 //======================= Error types =======================
 
 enum class ErrCode {
+    std_exception, //TODO: Add std exception with message from ex.what()
     bad_method,
     bad_request,
 
@@ -96,6 +97,9 @@ struct ErrInfo {
 class ServerError : public std::runtime_error {
  public:
     ServerError(ErrCode ec);
+//    ServerError(std::exception& ex, ErrCode ec = ErrCode::std_exception)
+//    {
+//    }
 
     virtual ErrCode ec() const { return ec_; }
     virtual http::status status() const { return GetInfo(ec_).status; }
@@ -233,7 +237,7 @@ class ApiHandler : public std::enable_shared_from_this<ApiHandler> {
     StringResponse HandleApiRequest(const StringRequest& req);
 
     StringResponse ReportApiError(const ApiError& err, unsigned version, bool keep_alive) const;
-    StringResponse ReportApiError(unsigned version, bool keep_alive) const;
+    StringResponse ReportApiError(unsigned version, bool keep_alive, std::string_view msg = ""sv) const;
 
     template<typename... Args>
     void CheckHttpMethod(const http::verb& received, Args&&... allowed) const;
@@ -261,8 +265,8 @@ void ApiHandler::Execute(http::request<Body, http::basic_fields<Allocator>>&& re
 
         return net::dispatch(strand_, handle);
     }
-    catch(...) {
-        //TODO: What error can be caught here?
+    catch(std::exception& ex) {
+        //TODO: Print exception msg
         send(ReportApiError(version, keep_alive));
     }
 }

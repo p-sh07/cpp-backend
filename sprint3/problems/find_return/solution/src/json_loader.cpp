@@ -348,6 +348,7 @@ Point tag_invoke(const json::value_to_tag<Point>&, json::value const& jv) {
     return {value_to<int>(arr.at(0)), value_to<int>(arr.at(1))};
 }
 
+//TODO: When throws errors from here, it doesn't get reported
 void tag_invoke(const json::value_from_tag&, json::value& jv, Point2D const& pt) {
     jv = json::array{
         pt.x, pt.y
