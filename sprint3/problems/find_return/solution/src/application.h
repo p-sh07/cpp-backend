@@ -41,6 +41,13 @@ class Player {
     const Session* GetSession() const { return session_; }
     const Map* GetMap() const { return GetSession()->GetMap(); }
 
+    size_t GetDogId() const { return dog_->GetId(); }
+    model::Point2D GetPos() const { return dog_->GetPos(); }
+    model::Speed GetSpeed() const { return dog_->GetSpeed(); }
+    model::Dir GetDir() const { return dog_->GetDir(); }
+    model::BagItems GetBagItems() const { return dog_->GetBagItems(); }
+    size_t GetScore() const { return session_->GetPlayerScore(GetDogId()); }
+
  private:
     const size_t id_ = 0;
     SessionPtr session_;
@@ -71,8 +78,10 @@ class Players {
     PlayerPtr GetByMapDogId(const  Map::Id& map_id, size_t dog_id) const;
     TokenPtr GetToken(const Player& player) const;
 
-    std::vector<PlayerPtr> GetSessionPlayerList(const Player& player) const;
-    const std::deque<model::LootItem>& GetSessionLootList(const Player& player) const;
+    const Session* GetPlayerGameSession(PlayerPtr player) const;
+
+    std::vector<app::PlayerPtr> GetAllPlayersInSession(PlayerPtr player) const;
+    const std::deque<model::LootItem>& GetSessionLootList(PlayerPtr player) const;
 
  private:
     GamePtr game_;
@@ -89,7 +98,6 @@ class Players {
     MapDogIdToPlayer map_dog_id_to_player_;
 
     Token GenerateToken() const;
-    //TODO: Move sessions here and not inside game?
 };
 
 struct JoinGameResult {
@@ -111,7 +119,12 @@ class GameInterface {
 
     JoinGameResult JoinGame(std::string_view map_id_str, std::string_view player_dog_name);
     PlayerPtr FindPlayerByToken(const Token& token) const;
-    std::vector<PlayerPtr> GetPlayerList(PlayerPtr player) const;
+
+    //Returns the player's game session
+    const model::Session* GetSession(PlayerPtr player) const;
+
+    //Returns vector of all players in same session as player
+    std::vector<app::PlayerPtr> GetPlayerList(PlayerPtr player) const;
     const std::deque<model::LootItem>& GetLootList(PlayerPtr player) const;
 
  private:

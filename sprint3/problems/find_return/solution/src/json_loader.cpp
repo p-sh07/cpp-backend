@@ -125,9 +125,9 @@ std::string PrintMap(const Map& map) {
     return ss.str();
 }
 
-json::object MakePlayerListJson(const std::vector<app::PlayerPtr>& plist) {
+json::object MakePlayerListJson(const std::vector<app::PlayerPtr>& players) {
     json::object player_list;
-    for(const auto& p_ptr : plist) {
+    for(const auto& p_ptr : players) {
         player_list.emplace(std::to_string(p_ptr->GetId()),
                        json::object{
                            {"name", std::string(p_ptr->GetDog()->GetName())}
@@ -137,18 +137,17 @@ json::object MakePlayerListJson(const std::vector<app::PlayerPtr>& plist) {
     return player_list;
 }
 
-template<typename PlayerPtrContainer>
-json::object MakePlayerStateJson(const PlayerPtrContainer& plist) {
+//TODO: move session to app
+json::object MakePlayerStateJson(const std::vector<app::PlayerPtr>& players) {
     json::object player_state;
-    for(const auto& p_ptr : plist) {
-        auto dog = p_ptr->GetDog();
-
-        player_state.emplace(std::to_string(p_ptr->GetId())
+    for(const auto& player : players) {
+        player_state.emplace(std::to_string(player->GetId())
             , json::object{
-                {"pos", json::value_from(dog->GetPos()).as_array()},
-                {"speed", json::value_from(dog->GetSpeed()).as_array()},
-                {"dir", json::value_from(dog->GetDir())},
-                {"bag", json::value_from(dog->GetBagItems()).as_array()},
+                {"pos", json::value_from(player->GetPos()).as_array()},
+                {"speed", json::value_from(player->GetSpeed()).as_array()},
+                {"dir", json::value_from(player->GetDir())},
+                {"bag", json::value_from(player->GetBagItems()).as_array()},
+                {"score", json::value_from(player->GetScore())},
             }
         );
     }
@@ -172,20 +171,22 @@ json::object MakeLostObjectsJson(const LootObjContainer& loot_objects) {
 }
 
 json::value MapToValue(const Map& map) {
-    return {
+    json::value jv{
         //{"dogSpeed", map.GetDogSpeed()},
         {"id", *map.GetId()},
         {"name", map.GetName()},
-        {"bagCapacity", map.GetBagCapacity()},
         {"roads", json::value_from(map.GetRoads())},
         {"buildings", json::value_from(map.GetBuildings())},
         {"offices", json::value_from(map.GetOffices())},
         {"lootTypes", map.GetLootInfo()->AsJsonArray()},
     };
+    if(map.GetBagCapacity().has_value()) {
+        jv.as_object().emplace("bagCapacity", *map.GetBagCapacity());
+    }
+    return jv;
 }
 
 std::string PrintPlayerList(const std::vector<app::PlayerPtr>& players) {
-
     std::stringstream ss;
     print_json(ss, std::move(MakePlayerListJson(players)));
 

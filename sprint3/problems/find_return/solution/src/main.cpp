@@ -107,6 +107,7 @@ int main(int argc, const char* argv[]) {
         auto game_app = std::make_shared<app::GameInterface>(game);
 
         // 2. Инициализируем io_context и другие переменные
+        game->EnableRandomDogSpawn(args->randomize_spawn_points);
         const auto num_threads = std::thread::hardware_concurrency();
         net::io_context ioc(static_cast<int>(num_threads));
         auto api_strand = net::make_strand(ioc);

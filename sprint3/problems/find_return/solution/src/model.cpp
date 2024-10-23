@@ -96,12 +96,12 @@ Point Road::GetRandomPt() const {
     if(IsHorizontal()) {
         auto rand_x = GenRandomNum(start_.x, end_.x);
         Point pt{static_cast<Coord>(rand_x), start_.y};
-        //std::cerr << "selecting random between: " << start_.x << " & " << end_.x << " == " << rand_x << '\n';
+        std::cerr << "selecting random between: " << start_.x << " & " << end_.x << " == " << rand_x << '\n';
         return pt;
     }
     auto rand_y = GenRandomNum(start_.y, end_.y);
     Point pt{start_.x, static_cast<Coord>(rand_y)};
-    //std::cerr << "selecting random between: " << start_.y << " & " << end_.y << " == " << rand_y << '\n';
+    std::cerr << "selecting random between: " << start_.y << " & " << end_.y << " == " << rand_y << '\n';
     return pt;
     //return {static_cast<Coord>(start_.x, util::random_num(start_.y, end_.y))};
 }
@@ -200,7 +200,7 @@ void Map::AddRoad(const Road& road) {
     RoadYtoIndex_[rd.GetStart().y].insert(roads_.size() - 1);
 }
 
-double Map::GetDogSpeed() const {
+std::optional<double> Map::GetDogSpeed() const {
     return dog_speed_;
 }
 
@@ -346,7 +346,7 @@ const gamedata::LootTypeInfo* Map::GetLootInfo() const {
     return loot_types_.get();
 }
 
-size_t Map::GetBagCapacity() const {
+std::optional<size_t> Map::GetBagCapacity() const {
     return bag_capacity_;
 }
 
@@ -356,8 +356,10 @@ void Map::SetBagCapacity(size_t cap) {
 
 //=================================================
 //=================== Dog =========================
-Dog::Dog(size_t id, std::string name)
-    : lbl_{id, std::move(name)} {
+Dog::Dog(size_t id, std::string name, Point2D position, size_t bag_capacity)
+    : lbl_(id, std::move(name))
+    , pos_(position)
+    , bag_capacity_(bag_capacity) {
 }
 
 std::string_view Dog::GetName() const {
@@ -470,23 +472,19 @@ const BagItems& Dog::GetBagItems() const {
 
 //=================================================
 //=================== Session =====================
-Session::Session(size_t id, Map* map_ptr, LootGenPtr loot_generator, bool random_dog_spawn)
+Session::Session(size_t id, Map* map_ptr, const Game* game)
     : id_(id)
+    , game_(game)
     , map_(map_ptr)
-    , loot_generator_(loot_generator)
-    , randomize_dog_spawn_(random_dog_spawn) {
+    , loot_generator_(game_->GetLootGenerator())
+    , randomize_dog_spawn_(game_->IsDogSpawnRandom()) {
 }
 
 Dog* Session::AddDog(std::string name) {
-    //TODO: better to use constructor? or a default constructor and set all params?
-    Dog new_dog(next_dog_id_++, std::move(name));
+    auto starting_pos = randomize_dog_spawn_ ? map_->GetRandomRoadPt() : map_->GetFirstRoadPt();
+    auto bag_capacity = map_->GetBagCapacity().has_value() ? map_->GetBagCapacity().value() : game_->GetDefaultBagCapacity();
 
-    new_dog.SetPos(randomize_dog_spawn_ ? map_->GetRandomRoadPt() : map_->GetFirstRoadPt())
-        .SetBagCap(map_->GetBagCapacity())
-        .SetWidth(DEFAULT_PLAYER_WIDTH);
-
-    dogs_.push_back(std::move(new_dog));
-    return &dogs_.back();
+    return &dogs_.emplace_back(next_dog_id_++, std::move(name), starting_pos, bag_capacity);
 }
 
 LootItem* Session::AddLootItem(LootType type, Point2D pos) {
@@ -639,14 +637,15 @@ Session::Gatherer Session::GetGatherer(size_t idx) const {
     return {to_geom_pt(dog.GetPrevPos()), to_geom_pt(dog.GetPos()), dog.GetWidth()};
 }
 
+size_t Session::GetPlayerScore(size_t dog_id) const {
+    return player_scores_.count(dog_id) > 0
+    ? player_scores_.at(dog_id)
+    : 0;
+}
+
 //=================================================
 //=================== Game ========================
 void Game::AddMap(Map map) {
-    //If map speed has not been set in json, set to game default
-    if(map.GetDogSpeed() == 0.0) {
-        map.SetDogSpeed(default_dog_speed_);
-    }
-
     const size_t index = maps_.size();
     if(auto [it, inserted] = map_id_to_index_.emplace(map.GetId(), index); !inserted) {
         throw std::invalid_argument("Map with id "s + *map.GetId() + " already exists"s);
@@ -691,7 +690,7 @@ Session* Game::JoinSession(const Map::Id& id) {
     if(session_it == map_to_sessions_.end()) {
         try {
             //NB: using default loot generator for every session here!
-            return &sessions_.emplace_back(std::move(MakeNewSessionOnMap(map_ptr, loot_generator_)));
+            return &sessions_.emplace_back(std::move(MakeNewSessionOnMap(map_ptr)));
         } catch(...) {
             map_to_sessions_.erase(id);
             throw;
@@ -708,9 +707,9 @@ std::optional<size_t> Game::GetMapIndex(const Map::Id& id) const {
     return std::nullopt;
 }
 
-Session Game::MakeNewSessionOnMap(Map* map, LootGenPtr loot_generator) {
+Session Game::MakeNewSessionOnMap(Map* map) {
     map_to_sessions_[map->GetId()] = next_session_id_;
-    return {next_session_id_++, map, std::move(loot_generator)};
+    return {next_session_id_++, map, this};
 }
 
 const Game::Maps& Game::GetMaps() const {
@@ -729,8 +728,9 @@ Game::Sessions& Game::GetSessions() {
     return sessions_;
 }
 
-void Game::ConfigLootGenerator(TimeMs base_interval, double probability) {
+LootGenPtr Game::ConfigLootGenerator(TimeMs base_interval, double probability) {
     loot_generator_ = std::make_shared<loot_gen::LootGenerator>(base_interval, probability);
+    return loot_generator_;
 }
 
 double Game::GetDefaultDogSpeed() const {
@@ -739,5 +739,15 @@ double Game::GetDefaultDogSpeed() const {
 
 size_t Game::GetDefaultBagCapacity() const {
     return default_bag_capacity_;
+}
+LootGenPtr Game::GetLootGenerator() const {
+    return loot_generator_;
+}
+bool Game::IsDogSpawnRandom() const {
+    return random_dog_spawn_;
+}
+void Game::EnableRandomDogSpawn(bool enable) {
+    //is disabled by default
+    random_dog_spawn_ = enable;
 }
 } //namespace model

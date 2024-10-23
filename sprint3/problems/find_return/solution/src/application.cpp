@@ -69,7 +69,7 @@ Token Players::GenerateToken() const {
     thread_local static std::mt19937_64 gen2(std::random_device{}());
 
     using int64_num_t = std::mt19937_64::result_type;
-    thread_local static std::uniform_int_distribution<int64_num_t> dist(0, std::numeric_limits<int64_num_t>::max());
+    std::uniform_int_distribution<int64_num_t> dist(0, std::numeric_limits<int64_num_t>::max());
 
     std::stringstream ss;
 
@@ -79,20 +79,24 @@ Token Players::GenerateToken() const {
     return Token{std::move(ss.str())};
 }
 
-std::vector<PlayerPtr> Players::GetSessionPlayerList(const Player& player) const {
+const model::Session* Players::GetPlayerGameSession(PlayerPtr player) const {
+    return player->GetSession();
+}
+
+const std::deque<model::LootItem>& Players::GetSessionLootList(PlayerPtr player) const {
+    return player->GetSession()->GetLootItems();
+}
+
+std::vector<app::PlayerPtr> Players::GetAllPlayersInSession(PlayerPtr player) const {
     std::vector<PlayerPtr> result;
 
-    auto player_session = player.GetSession();
-    auto& map_id = player_session->GetMapId();
+    auto player_session = player->GetSession();
+    const auto& map_id = player_session->GetMapId();
 
     for(const auto& dog : player_session->GetAllDogs()) {
         result.push_back(GetByMapDogId(map_id, dog.GetId()));
     }
     return result;
-}
-
-const std::deque<model::LootItem>& Players::GetSessionLootList(const Player& player) const {
-    return player.GetSession()->GetLootItems();
 }
 
 size_t TokenHasher::operator()(const Token& token) const {
@@ -110,12 +114,15 @@ GameInterface::GameInterface(GamePtr& game_ptr)
     , players_(game_){
 }
 
-std::vector<PlayerPtr> GameInterface::GetPlayerList(PlayerPtr player) const {
-    return players_.GetSessionPlayerList(*player);
+const model::Session* GameInterface::GetSession(PlayerPtr player) const {
+    return players_.GetPlayerGameSession(player);
+}
+std::vector<app::PlayerPtr> GameInterface::GetPlayerList(PlayerPtr player) const {
+    return players_.GetAllPlayersInSession(player);
 }
 
 const std::deque<model::LootItem>& GameInterface::GetLootList(PlayerPtr player) const {
-    return players_.GetSessionLootList(*player);
+    return players_.GetSessionLootList(player);
 }
 
 PlayerPtr GameInterface::FindPlayerByToken(const Token& token) const {
@@ -133,8 +140,12 @@ JoinGameResult GameInterface::JoinGame(std::string_view map_id_str, std::string_
 }
 
 void GameInterface::MovePlayer(PlayerPtr p, const char move_command) {
-    auto map_speed_val = p->GetMap()->GetDogSpeed();
-    p->GetDog()->SetMove(static_cast<model::Dir>(move_command), map_speed_val);
+    //use default speed if map speed not set
+    double speed_value = game_->GetDefaultDogSpeed();
+    if(auto map_speed_val = p->GetMap()->GetDogSpeed(); map_speed_val.has_value()) {
+        speed_value = *map_speed_val;
+    }
+    p->GetDog()->SetMove(static_cast<model::Dir>(move_command), speed_value);
 }
 
 

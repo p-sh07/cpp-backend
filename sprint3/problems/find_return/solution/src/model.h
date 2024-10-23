@@ -1,11 +1,11 @@
 #pragma once
 #include <chrono>
+#include <deque>
 #include <optional>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
-#include <deque>
 
 #include <boost/json.hpp>
 
@@ -155,9 +155,9 @@ using BagItems = std::deque<LootItem*>;
 
 class Dog {
  public:
-    Dog(size_t id, std::string name);
+    Dog(size_t id, std::string name, Point2D position, size_t bag_capacity);
 
-    // Getters
+    // Get
     std::string_view GetName() const;
     size_t GetId() const;
     Point2D GetPos() const;
@@ -168,7 +168,7 @@ class Dog {
     bool BagIsFull() const;
     const BagItems& GetBagItems() const;
 
-    // Setters
+    // Set
     Dog& SetPos(Point2D pos);
     Dog& SetSpeed(Speed sp);
     Dog& SetWidth(double width);
@@ -231,9 +231,9 @@ class Map {
     }
     const gamedata::LootTypeInfo* GetLootInfo() const;
 
-    double GetDogSpeed() const;
+    std::optional<double> GetDogSpeed() const;
     void SetDogSpeed(double speed);
-    size_t GetBagCapacity() const;
+    std::optional<size_t> GetBagCapacity() const;
     void SetBagCapacity(size_t cap);
 
     void AddRoad(const Road& road);
@@ -265,8 +265,8 @@ class Map {
     std::string name_;
     Roads roads_;
     Buildings buildings_;
-    double dog_speed_ = 0.0;
-    size_t bag_capacity_ = 0.0;
+    std::optional<double> dog_speed_;
+    std::optional<size_t> bag_capacity_;
 
     Offices offices_;
     OfficeIdToIndex warehouse_id_to_index_;
@@ -278,6 +278,7 @@ class Map {
 };
 
 using LootGenPtr = std::shared_ptr<loot_gen::LootGenerator>;
+class Game;
 
 class Session : collision_detector::ItemGathererProvider {
     using LootIdToItem = std::unordered_map<size_t, LootItem*>;
@@ -286,13 +287,14 @@ class Session : collision_detector::ItemGathererProvider {
     using GatherEvent = collision_detector::GatheringEvent;
 
  public:
-    Session(size_t id, Map* map, LootGenPtr loot_generator, bool random_dog_spawn = false);
+    Session(size_t id, Map* map, const Game* game);
 
     size_t GetId() const;
     const Map::Id& GetMapId() const;
     const Map* GetMap() const;
     size_t GetDogCount() const;
     size_t GetLootCount() const;
+    size_t GetPlayerScore(size_t dog_id) const;
 
     const std::deque<Dog>& GetAllDogs() const;
     const std::deque<LootItem>& GetLootItems() const;
@@ -314,6 +316,7 @@ class Session : collision_detector::ItemGathererProvider {
  private:
     const size_t id_;
     Map* map_;
+    const Game* game_;
     TimeMs time_;
     bool randomize_dog_spawn_ = false;
     LootGenPtr loot_generator_ = nullptr;
@@ -344,12 +347,16 @@ class Game {
     using Sessions = std::deque<Session>;
 
     void AddMap(Map map);
+    void EnableRandomDogSpawn(bool enable);
     void ModifyDefaultDogSpeed(double speed);
     void ModifyDefaultBagCapacity(size_t capacity);
 
     const Maps& GetMaps() const;
     double GetDefaultDogSpeed() const;
     size_t GetDefaultBagCapacity() const;
+
+    LootGenPtr GetLootGenerator() const;
+    bool IsDogSpawnRandom() const;
 
     Map* FindMap(const Map::Id& id);
     const Map* FindMap(const Map::Id& id) const;
@@ -359,9 +366,10 @@ class Game {
     Session* JoinSession(const Map::Id& id);
     Sessions& GetSessions();
 
-    void ConfigLootGenerator(TimeMs base_interval, double probability);
+    LootGenPtr ConfigLootGenerator(TimeMs base_interval, double probability);
 
  private:
+    bool random_dog_spawn_ = false;
     size_t next_session_id_ = 0;
 
     //NB: Default values set here!
@@ -381,7 +389,7 @@ class Game {
     MapIdToSessions map_to_sessions_;
     MapIdToIndex map_id_to_index_;
 
-    Session MakeNewSessionOnMap(Map* map, LootGenPtr loot_generator);
+    Session MakeNewSessionOnMap(Map* map);
 };
 
 } // namespace model
