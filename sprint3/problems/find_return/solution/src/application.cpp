@@ -141,10 +141,9 @@ JoinGameResult GameInterface::JoinGame(std::string_view map_id_str, std::string_
 
 void GameInterface::MovePlayer(PlayerPtr p, const char move_command) {
     //use default speed if map speed not set
-    double speed_value = game_->GetDefaultDogSpeed();
-    if(auto map_speed_val = p->GetMap()->GetDogSpeed(); map_speed_val.has_value()) {
-        speed_value = *map_speed_val;
-    }
+    double speed_value = p->GetMap()->GetDogSpeed().has_value()
+        ? p->GetMap()->GetDogSpeed().value() : game_->GetDefaultDogSpeed();
+
     p->GetDog()->SetMove(static_cast<model::Dir>(move_command), speed_value);
 }
 

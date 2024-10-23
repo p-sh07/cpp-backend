@@ -239,14 +239,10 @@ void ProcessOptionalMapParams(const json::value& map_json, Map& map, const Game&
     //Add speed, if specified in config
     if(auto it = map_obj.find(JsonKeys::dog_speed); it != map_obj.end()) {
         map.SetDogSpeed(it->value().as_double());
-    } else {
-        map.SetDogSpeed(game.GetDefaultDogSpeed());
     }
     //Add capacity, if specified in config
     if(auto it = map_obj.find(JsonKeys::bag_cap); it != map_obj.end()) {
         map.SetBagCapacity(it->value().as_int64());
-    } else {
-        map.SetBagCapacity(game.GetDefaultBagCapacity());
     }
 }
 
