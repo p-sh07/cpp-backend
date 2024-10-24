@@ -177,8 +177,6 @@ class Dog {
     Dog& SetMove(Dir dir, double speed_value);
     Dog& Stop();
 
-    //Move dog for delta t = 10 ms => moves 0.1 m at speed 1;
-    //TODO: Assuming speed = 1 unit / sec
     Point2D ComputeMaxMove(TimeMs delta_t) const;
 
     // Item gathering
