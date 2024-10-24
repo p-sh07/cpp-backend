@@ -1,0 +1,59 @@
+{
+  "defaultDogSpeed": 3.0,
+  "defaultBagCapacity": 3,
+  "lootGeneratorConfig": {
+    "period": 5.0,
+    "probability": 0.5
+  },
+  "maps": [
+    {
+      "dogSpeed": 10.0,
+      "id": "test_map",
+      "name": "Test Map",
+      "lootTypes": [
+        {
+          "name": "key",
+          "file": "assets/key.obj",
+          "type": "obj",
+          "rotation": 90,
+          "color" : "#338844",
+          "scale": 0.03,
+          "value": 10
+        },
+        {
+          "name": "wallet",
+          "file": "assets/wallet.obj",
+          "type": "obj",
+          "rotation": 0,
+          "color" : "#883344",
+          "scale": 0.01,
+          "value": 30
+        }
+      ],
+      "roads": [
+        {
+          "x0": 0,
+          "y0": 0,
+          "y1": 100
+        }
+      ],
+      "buildings": [
+        {
+          "x": 5,
+          "y": 5,
+          "w": 30,
+          "h": 20
+        }
+      ],
+      "offices": [
+        {
+          "id": "o0",
+          "x": 0,
+          "y": 100,
+          "offsetX": 5,
+          "offsetY": 0
+        }
+      ]
+    }
+  ]
+}
