@@ -149,7 +149,6 @@ class FileError : public ServerError {
 
 //===================================================================
 //======================= Common =======================
-namespace {
 // Определить MIME-тип из расширения запрашиваемого файла
 std::string_view ParseMimeType(const std::string_view& path);
 
@@ -182,9 +181,6 @@ class Ticker : public std::enable_shared_from_this<Ticker> {
     Handler handler_;
     std::chrono::steady_clock::time_point last_tick_;
 };
-
-} //local namespace
-
 
 //===================================================================
 //======================= Api Request Handler =======================

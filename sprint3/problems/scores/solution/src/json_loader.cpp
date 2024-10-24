@@ -12,24 +12,19 @@ using namespace model;
 using namespace std::literals;
 
 //https://live.boost.org/doc/libs/1_83_0/libs/json/doc/html/json/examples.html
-void print_json( std::ostream& os, json::value const& jv, std::string* indent = nullptr )
-{
+void print_json(std::ostream& os, json::value const& jv, std::string* indent = nullptr) {
 #ifdef JSON_PRETTY_PRINT
     std::string indent_;
-    if(! indent)
+    if(!indent)
         indent = &indent_;
-    switch(jv.kind())
-    {
-        case json::kind::object:
-        {
+    switch(jv.kind()) {
+        case json::kind::object: {
             os << "{\n";
             indent->append(2, ' ');
             auto const& obj = jv.get_object();
-            if(! obj.empty())
-            {
+            if(!obj.empty()) {
                 auto it = obj.begin();
-                for(;;)
-                {
+                for(;;) {
                     os << *indent << json::serialize(it->key()) << ": ";
                     print_json(os, it->value(), indent);
                     if(++it == obj.end())
@@ -43,19 +38,16 @@ void print_json( std::ostream& os, json::value const& jv, std::string* indent = 
             break;
         }
 
-        case json::kind::array:
-        {
+        case json::kind::array: {
             os << "["; //\n";
             //indent->append(4, ' ');
             auto const& arr = jv.get_array();
-            if(! arr.empty())
-            {
+            if(!arr.empty()) {
                 auto it = arr.begin();
-                for(;;)
-                {
+                for(;;) {
                     std::string zero_indent;
                     //os << *indent;
-                    print_json( os, *it, &zero_indent);
+                    print_json(os, *it, &zero_indent);
                     if(++it == arr.end())
                         break;
                     os << ", "; //\n";
@@ -68,22 +60,18 @@ void print_json( std::ostream& os, json::value const& jv, std::string* indent = 
             break;
         }
 
-        case json::kind::string:
-        {
+        case json::kind::string: {
             os << json::serialize(jv.get_string());
             break;
         }
 
-        case json::kind::uint64:
-            os << jv.get_uint64();
+        case json::kind::uint64:os << jv.get_uint64();
             break;
 
-        case json::kind::int64:
-            os << jv.get_int64();
+        case json::kind::int64:os << jv.get_int64();
             break;
 
-        case json::kind::double_:
-            os << jv.get_double();
+        case json::kind::double_:os << jv.get_double();
             break;
 
         case json::kind::bool_:
@@ -93,8 +81,7 @@ void print_json( std::ostream& os, json::value const& jv, std::string* indent = 
                 os << "false";
             break;
 
-        case json::kind::null:
-            os << "null";
+        case json::kind::null:os << "null";
             break;
     }
 
@@ -129,9 +116,9 @@ json::object MakePlayerListJson(const std::vector<app::PlayerPtr>& players) {
     json::object player_list;
     for(const auto& p_ptr : players) {
         player_list.emplace(std::to_string(p_ptr->GetId()),
-                       json::object{
-                           {"name", std::string(p_ptr->GetDog()->GetName())}
-                       }
+                            json::object{
+                                {"name", std::string(p_ptr->GetDog()->GetName())}
+                            }
         );
     }
     return player_list;
@@ -141,14 +128,13 @@ json::object MakePlayerListJson(const std::vector<app::PlayerPtr>& players) {
 json::object MakePlayerStateJson(const std::vector<app::PlayerPtr>& players) {
     json::object player_state;
     for(const auto& player : players) {
-        player_state.emplace(std::to_string(player->GetId())
-            , json::object{
-                {"pos", json::value_from(player->GetPos()).as_array()},
-                {"speed", json::value_from(player->GetSpeed()).as_array()},
-                {"dir", json::value_from(player->GetDir())},
-                {"bag", json::value_from(player->GetBagItems()).as_array()},
-                {"score", json::value_from(player->GetScore())},
-            }
+        player_state.emplace(std::to_string(player->GetId()), json::object{
+                                 {"pos", json::value_from(player->GetPos()).as_array()},
+                                 {"speed", json::value_from(player->GetSpeed()).as_array()},
+                                 {"dir", json::value_from(player->GetDir())},
+                                 {"bag", json::value_from(player->GetBagItems()).as_array()},
+                                 {"score", json::value_from(player->GetScore())},
+                             }
         );
     }
     return player_state;
@@ -160,11 +146,10 @@ json::object MakeLostObjectsJson(const LootObjContainer& loot_objects) {
     size_t num = 0;
     for(const auto& item : loot_objects) {
 
-        loot_jobj.emplace(std::to_string(num++)
-            , json::object{
-                {"type", item.type},
-                {"pos", json::value_from(item.pos).as_array()}
-            }
+        loot_jobj.emplace(std::to_string(num++), json::object{
+                              {"type", item.type},
+                              {"pos", json::value_from(item.pos).as_array()}
+                          }
         );
     }
     return loot_jobj;
@@ -196,12 +181,10 @@ std::string PrintPlayerList(const std::vector<app::PlayerPtr>& players) {
 std::string PrintGameState(const app::PlayerPtr player, const std::shared_ptr<app::GameInterface>& game_app) {
     std::stringstream ss;
     json::object game_state;
-    game_state.emplace("players"
-        , std::move( MakePlayerStateJson(game_app->GetPlayerList(player)) )
+    game_state.emplace("players", std::move(MakePlayerStateJson(game_app->GetPlayerList(player)))
     );
 
-    game_state.emplace("lostObjects"
-        , std::move( MakeLostObjectsJson(game_app->GetLootList(player)) )
+    game_state.emplace("lostObjects", std::move(MakeLostObjectsJson(game_app->GetLootList(player)))
     );
 
     print_json(ss, game_state);
@@ -260,8 +243,7 @@ void ProcessOptionalGameParams(const json::object game_obj, Game& game) {
     //LootItem gen config
     if(auto it = game_obj.find(JsonKeys::loot_gen); it != game_obj.end()) {
         //NB: Currently period is given as a double in seconds in json! Converting to chrono::duration in msec
-        game.ConfigLootGenerator(util::ConvertSecToMsec(it->value().at("period").as_double())
-                                 , it->value().at("probability").as_double()
+        game.ConfigLootGenerator(util::ConvertSecToMsec(it->value().at("period").as_double()), it->value().at("probability").as_double()
         );
     }
 }

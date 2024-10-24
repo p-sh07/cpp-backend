@@ -13,7 +13,7 @@ namespace json = boost::json;
 class LootTypeInfo {
  public:
     //json [array of loot types] }
-    LootTypeInfo(json::array map_loot_types);
+    explicit LootTypeInfo(json::array map_loot_types);
 
     json::array AsJsonArray() const;
 

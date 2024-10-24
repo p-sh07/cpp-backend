@@ -9,6 +9,23 @@
 //DEBUG
 #include <iostream>
 
+namespace {
+app::Token GenerateToken() {
+    thread_local static std::mt19937_64 gen1(std::random_device{}());
+    thread_local static std::mt19937_64 gen2(std::random_device{}());
+
+    using int64_num_t = std::mt19937_64::result_type;
+    std::uniform_int_distribution<int64_num_t> dist(0, std::numeric_limits<int64_num_t>::max());
+
+    std::stringstream ss;
+
+    ss << std::hex << std::setfill('0') << std::setw(16) << dist(gen1);
+    ss << std::hex << std::setfill('0') << std::setw(16) << dist(gen2);
+
+    return app::Token{std::move(ss.str())};
+}
+}
+
 namespace app {
 Player::Player(size_t id, SessionPtr session, DogPtr dog)
     : id_(id)
@@ -16,8 +33,8 @@ Player::Player(size_t id, SessionPtr session, DogPtr dog)
     , dog_(std::move(dog)) {
 }
 
-Players::Players(const GamePtr& game_ptr)
-    : game_(game_ptr) {
+Players::Players(const GamePtr& game)
+    : game_(game) {
 }
 
 Players::Players(GamePtr&& game)
@@ -62,21 +79,6 @@ TokenPtr Players::GetToken(const Player& player) const {
     auto& token = (it->second)->first;
     return &token;
 
-}
-
-Token Players::GenerateToken() const {
-    thread_local static std::mt19937_64 gen1(std::random_device{}());
-    thread_local static std::mt19937_64 gen2(std::random_device{}());
-
-    using int64_num_t = std::mt19937_64::result_type;
-    std::uniform_int_distribution<int64_num_t> dist(0, std::numeric_limits<int64_num_t>::max());
-
-    std::stringstream ss;
-
-    ss << std::hex << std::setfill('0') << std::setw(16) << dist(gen1);
-    ss << std::hex << std::setfill('0') << std::setw(16) << dist(gen2);
-
-    return Token{std::move(ss.str())};
 }
 
 const model::Session* Players::GetPlayerGameSession(PlayerPtr player) const {

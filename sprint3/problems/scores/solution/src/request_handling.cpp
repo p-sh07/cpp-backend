@@ -4,7 +4,6 @@ namespace http_handler {
 
 //==================================================================
 //============================ Common ==============================
-namespace {
 // Определить MIME-тип из расширения запрашиваемого файла
 std::string_view ParseMimeType(const std::string_view& path) {
     using beast::iequals;
@@ -78,8 +77,6 @@ http::response<http::file_body> MakeResponseFromFile(const char* file_path, unsi
 
     return res;
 }
-} //local namespace
-
 
 //==================================================================
 //================== Error class for handler =======================
@@ -92,6 +89,8 @@ ErrInfo ServerError::GetInfo(ErrCode ec) const {
     switch(ec) {
         case ErrCode::bad_method:
             return {http::status::method_not_allowed, ""sv, "Invalid method"sv};
+        default:
+            return {http::status::unknown, ""sv, "Undefined server error"sv};
     }
 }
 
@@ -156,7 +155,9 @@ ErrInfo ApiError::GetInfo(ErrCode ec) const {
                     "invalidArgument"sv,
                     "Failed to parse tick request"sv};
             break;
-
+        default:
+            //Should not get here
+            assert(false);
     }
 }
 

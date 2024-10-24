@@ -96,8 +96,6 @@ class Players {
 
     using MapDogIdToPlayer = std::unordered_map< Map::Id, std::unordered_map<DogId, PlayerId>,  util::TaggedHasher<Map::Id>>;
     MapDogIdToPlayer map_dog_id_to_player_;
-
-    Token GenerateToken() const;
 };
 
 struct JoinGameResult {

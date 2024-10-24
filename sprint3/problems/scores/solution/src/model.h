@@ -16,7 +16,7 @@
 #include "loot_generator.h"
 
 namespace model {
-//== NB: Default params
+///== Default params
 static constexpr double DEFAULT_ITEM_WIDTH = 0.0;
 static constexpr double DEFAULT_OFFICE_WIDTH = 0.5;
 static constexpr double DEFAULT_PLAYER_WIDTH = 0.6;
@@ -101,8 +101,8 @@ class Road {
     constexpr static HorizontalTag HORIZONTAL{};
     constexpr static VerticalTag VERTICAL{};
 
-    Road(HorizontalTag, Point start, Coord end_x)  ;
-    Road(VerticalTag, Point start, Coord end_y)  ;
+    Road(HorizontalTag, Point start, Coord end_x);
+    Road(VerticalTag, Point start, Coord end_y);
 
     inline bool IsHorizontal() const;
     inline bool IsVertical() const;
@@ -117,7 +117,7 @@ class Road {
 
 class Building {
  public:
-    explicit Building(Rectangle bounds)  ;
+    explicit Building(Rectangle bounds);
     const Rectangle& GetBounds() const;
 
  private:
@@ -127,7 +127,7 @@ class Building {
 class Office {
  public:
     using Id = util::Tagged<std::string, Office>;
-    Office(Id id, Point position, Offset offset)  ;
+    Office(Id id, Point position, Offset offset);
 
     const Id& GetId() const;
     Point GetPosition() const;
@@ -216,7 +216,6 @@ class Map {
     using Buildings = std::vector<Building>;
     using Offices = std::vector<Office>;
 
-
     Map(Id id, std::string name);
 
     const Id& GetId() const;
@@ -278,6 +277,7 @@ class Map {
 };
 
 using LootGenPtr = std::shared_ptr<loot_gen::LootGenerator>;
+
 class Game;
 
 class Session : collision_detector::ItemGathererProvider {

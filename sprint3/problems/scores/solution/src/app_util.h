@@ -80,28 +80,6 @@ struct TaggedHasher {
     }
 };
 
-///Gives wrong numbers, possibly due to cast?
-///Moved & improved to model.h/cpp
-///Likely because of _static_ int_distribution!!! -> uses same one from before
-//inline size_t random_num(size_t limit1, size_t limit2) {
-//    thread_local static std::mt19937 rg{std::random_device{}()};
-//
-//    //in case when min max are swapped:
-//    size_t min = std::min(limit1, limit2);
-//    size_t max = std::max(limit1, limit2);
-//
-//    thread_local static std::uniform_int_distribution<size_t> dist(min, max);
-//
-//#ifdef DEBUG
-//    std::cerr << "min: " << min << " & max: " << max;
-//    size_t num = dist(rg);
-//    std::cerr << " ->rand = " << num << std::endl;
-//    return num;
-//#endif
-//
-//    return dist(rg);
-//}
-
 inline bool is_len32hex_num(std::string_view str) {
     return str.size() == 32u
     && std::all_of(str.begin(), str.end(),
