@@ -128,7 +128,7 @@ inline fs::path ConvertFromUrl(std::string_view url) {
 
 //Конвертирует double Секунды в Миллисекунды chrono
 inline std::chrono::milliseconds ConvertSecToMsec(double seconds) {
-    return std::chrono::milliseconds(static_cast<long long>(seconds * 1000));
+    return std::chrono::milliseconds(static_cast<uint64_t>(seconds * 1000));
 }
 
 }  // namespace util
