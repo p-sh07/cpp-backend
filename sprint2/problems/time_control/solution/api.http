@@ -1,0 +1,43 @@
+### Запрос на вход в игру:
+# @name join
+POST http://127.0.0.1:8080/api/v1/game/join HTTP/1.1
+content-type: application/json
+
+{
+    "userName": "Scooby Doo", "mapId": "map1"
+}
+
+### Игрок2
+# @name join2
+POST http://127.0.0.1:8080/api/v1/game/join HTTP/1.1
+content-type: application/json
+
+{
+    "userName": "Scooby Doo 2", "mapId": "map1"
+}
+
+### Запрос на получение game_state:
+@authToken = {{join.response.body.authToken}}
+@authToken2 = {{join2.response.body.authToken}}
+GET http://127.0.0.1:8080/api/v1/game/state HTTP/1.1
+Authorization: Bearer {{authToken}}
+
+### Запрос на перемещение 
+POST http://127.0.0.1:8080/api/v1/game/player/action HTTP/1.1
+Content-Type: application/json
+Authorization: Bearer {{authToken}}
+
+{"move": "R"}
+
+### Запрос на перемещение 2
+POST http://127.0.0.1:8080/api/v1/game/player/action HTTP/1.1
+Content-Type: application/json
+Authorization: Bearer {{authToken2}}
+
+{"move": "R"}
+
+### Запрос на изменение времени
+POST http://127.0.0.1:8080/api/v1/game/tick HTTP/1.1
+Content-Type: application/json
+
+{"timeDelta": 8664}
