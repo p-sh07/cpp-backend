@@ -23,9 +23,10 @@ using Coord = Dimension;
 
 struct Point {
     Point() = default;
+
     Point(Coord x, Coord y)
         : x(x)
-        , y(y){
+          , y(y) {
     }
 
     Coord x = 0, y = 0;
@@ -63,17 +64,20 @@ using Score = size_t;
 inline Point2D ToGeomPt(Point pt) {
     return {pt.x * 1.0, pt.y * 1.0};
 }
+
 inline Point ToIntPt(Point2D pt_double) {
     return Point(std::round(pt_double.x), std::round(pt_double.y));
 }
 
 //==== Op overloads ==========//
 Point2D operator+(Point2D pos, Distance dist);
+
 Distance operator*(const Speed& v, TimeMs t);
 
 
 //==== Random int generator for use in game model ==========//
 int GenRandomNum(int limit1, int limit2 = 0);
+
 size_t GenRandomNum(size_t limit1, size_t limit2 = 0);
 
 
@@ -88,51 +92,62 @@ class Road {
         explicit VerticalTag() = default;
     };
 
- public:
+public:
     constexpr static HorizontalTag HORIZONTAL{};
     constexpr static VerticalTag VERTICAL{};
 
     Road(HorizontalTag, Point start, Coord end_x);
+
     Road(VerticalTag, Point start, Coord end_y);
 
     bool IsHorizontal() const;
+
     bool IsVertical() const;
 
     Point GetStart() const;
+
     Point GetEnd() const;
+
     Point GetRandomPt() const;
 
     Coord GetMaxCoordX() const;
+
     Coord GetMinCoordX() const;
+
     Coord GetMaxCoordY() const;
+
     Coord GetMinCoordY() const;
 
- private:
+private:
     Point start_;
     Point end_;
 };
 
 //------------------------------------------------
 class Building {
- public:
+public:
     explicit Building(Rectangle bounds);
-    const Rectangle& GetBounds() const;
 
- private:
+    const Rectangle &GetBounds() const;
+
+private:
     Rectangle bounds_;
 };
 
 //------------------------------------------------
 class Office {
- public:
+public:
     using Id = util::Tagged<std::string, Office>;
+
     Office(Id id, Point position, Offset offset);
 
-    const Id& GetId() const;
+    const Id &GetId() const;
+
     Point GetPosition() const;
+
     Offset GetOffset() const;
 
- private:
+private:
     Id id_;
     Point position_;
     Offset offset_;
@@ -142,18 +157,19 @@ class Office {
 //=================================================
 //========== Temporary Game Objects ===============
 class GameObject {
- public:
+public:
     using Id = size_t;
 
     GameObject(Id id)
-        : id_(id) {}
+        : id_(id) {
+    }
 
     Id GetId() const {
         return id_;
     }
- private:
-    const Id id_;
 
+private:
+    const Id id_;
 };
 
 using GameObjectPtr = std::shared_ptr<GameObject>;
@@ -161,19 +177,20 @@ using ConstGameObject = std::shared_ptr<const GameObject>;
 
 //------------------------------------------------
 class CollisionObject : public GameObject {
- public:
+public:
     CollisionObject(Id id, Point2D pos, double width);
 
     Point2D GetPos() const;
-    Point2D GetPrevPos () const;
 
-    CollisionObject& SetPos(Point2D pos);
-    double GetWidth () const;
+    Point2D GetPrevPos() const;
+
+    CollisionObject &SetPos(Point2D pos);
+
+    double GetWidth() const;
 
     collision_detector::Item AsCollisionItem() const;
 
-
- private:
+private:
     Point2D pos_;
     Point2D prev_pos_;
     const double width_;
@@ -184,25 +201,29 @@ using ConstCollisionObjectPtr = std::shared_ptr<const CollisionObject>;
 
 //------------------------------------------------
 class DynamicObject : public CollisionObject {
- public:
+public:
     using CollisionObject::CollisionObject;
 
-    Speed GetSpeed () const;
-    DynamicObject& SetSpeed(Speed speed);
+    Speed GetSpeed() const;
+
+    DynamicObject &SetSpeed(Speed speed);
 
     Direction GetDirection() const;
-    DynamicObject& SetDirection(Direction dir);
 
-    DynamicObject& SetMovement(Direction dir, double speed_value);
+    DynamicObject &SetDirection(Direction dir);
+
+    DynamicObject &SetMovement(Direction dir, double speed_value);
+
     void Stop();
 
     Point2D ComputeMoveEndPoint(TimeMs delta_t) const;
+
     collision_detector::Gatherer AsGatherer() const;
 
     //TODO: How to do this?
     //virtual void ProcessCollision(CollisionObjectPtr obj) = 0;
 
- private:
+private:
     Speed speed_;
     Direction direction_ = Direction::NORTH;
 };
@@ -212,7 +233,7 @@ using ConstDynamicObjectPtr = std::shared_ptr<const DynamicObject>;
 
 //------------------------------------------------
 class LootItem : public CollisionObject {
- public:
+public:
     using Type = gamedata::LootItemType;
 
     struct Info {
@@ -223,10 +244,12 @@ class LootItem : public CollisionObject {
     LootItem(Id id, Point2D pos, double width, Type type);
 
     Type GetType() const;
+
     bool IsCollected() const;
+
     Info Collect();
 
- private:
+private:
     const Type type_;
     bool is_collected_ = false;
 };
@@ -236,9 +259,10 @@ using ConstLootItemPtr = std::shared_ptr<const LootItem>;
 
 //------------------------------------------------
 class ItemsReturnPoint : public CollisionObject {
+public:
     ItemsReturnPoint(GameObject::Id id, const Office& office, double width);
 
- private:
+private:
     const Office::Id tag_;
 };
 
@@ -249,32 +273,39 @@ using ConstItemsReturnPointPtr = std::shared_ptr<const ItemsReturnPoint>;
 //=================================================
 //=================== Dog =========================
 class Dog : public DynamicObject {
- public:
+public:
     using Tag = util::Tagged<std::string, Dog>;
     using BagContent = std::deque<LootItem::Info>;
 
     Dog(Id id, Point pos, double width, Tag tag, size_t bag_cap);
+
     Dog(Id id, Point2D pos, double width, Tag tag, size_t bag_cap);
 
     Tag GetTag() const;
+
     size_t GetBagCap() const;
-    Dog& SetBagCap(size_t capacity);
-    const BagContent& GetBag() const;
+
+    Dog &SetBagCap(size_t capacity);
+
+    const BagContent &GetBag() const;
 
     void AddScore(Score points);
+
     Score GetScore() const;
 
     bool BagIsFull() const;
+
     void ClearBag();
 
     bool TryCollectItem(const LootItemPtr& loot);
+
     bool TryCollectItem(const LootItem::Info& loot_info);
 
- private:
+private:
     //what is a dog? Upd: A dog is a dynamic collision object
     const Tag tag_;
-    size_t bag_capacity_ {0u};
-    Score score_ {0u};
+    size_t bag_capacity_{0u};
+    Score score_{0u};
 
     BagContent bag_;
 };
@@ -286,7 +317,7 @@ using ConstDogPtr = std::shared_ptr<const Dog>;
 //=================================================
 //=================== Map =========================
 class Map {
- public:
+public:
     using Id = util::Tagged<std::string, Map>;
     using Roads = std::vector<Road>;
     using Buildings = std::vector<Building>;
@@ -299,24 +330,34 @@ class Map {
 
     Map(Id tag, std::string name);
 
-    const Id& GetId() const;
-    const std::string& GetName() const;
+    const Id &GetId() const;
 
-    const Buildings& GetBuildings() const;
-    const Roads& GetRoads() const;
-    const Offices& GetOffices() const;
+    const std::string &GetName() const;
 
-    const gamedata::LootTypesInfo& GetLootTypesInfo() const;
+    const Buildings &GetBuildings() const;
+
+    const Roads &GetRoads() const;
+
+    const Offices &GetOffices() const;
+
+    const gamedata::LootTypesInfo &GetLootTypesInfo() const;
+
     size_t GetLootTypesSize() const;
+
     Score GetLootItemValue(LootType type) const;
 
     std::optional<double> GetDogSpeed() const;
+
     void SetDogSpeed(double speed);
+
     std::optional<size_t> GetBagCapacity() const;
+
     void SetBagCapacity(size_t cap);
 
     void AddRoad(const Road& road);
+
     void AddBuilding(const Building& building);
+
     void AddOffice(Office office);
 
     template<typename LootTypeData>
@@ -325,14 +366,16 @@ class Map {
     }
 
     const Road* FindVertRoad(Point2D point) const;
+
     const Road* FindHorRoad(Point2D point) const;
 
     MoveResult ComputeRoadMove(Point2D start, Point2D end) const;
 
     Point GetRandomRoadPt() const;
+
     Point GetFirstRoadPt() const;
 
- private:
+private:
     using OfficeIdToIndex = std::unordered_map<Office::Id, size_t, util::TaggedHasher<Office::Id>>;
 
     Id id_;
@@ -374,31 +417,36 @@ struct GameSettings {
     const double office_width = 0.5;
 
     double GetDogSpeed() const;
+
     double GetBagCap() const;
 };
 
 
 class Game {
- public:
+public:
     using Maps = std::vector<Map>;
     using MapIdHasher = util::TaggedHasher<Map::Id>;
 
     void AddMap(Map map);
 
     void EnableRandomDogSpawn(bool enable);
+
     void ModifyDefaultDogSpeed(double speed);
+
     void ModifyDefaultBagCapacity(size_t capacity);
+
     void ConfigLootGen(TimeMs base_period, double probability);
 
-    const Maps& GetMaps() const;
+    const Maps &GetMaps() const;
+
     GameSettings GetSettings() const;
 
     MapPtr FindMap(const Map::Id& id);
+
     ConstMapPtr FindMap(const Map::Id& id) const;
 
-
- private:
-    GameSettings settings_ ; //TODO: = gamedata::default_game_settings?;
+private:
+    GameSettings settings_; //TODO: = gamedata::default_game_settings?;
     size_t next_session_id_ = 0;
 
     Maps maps_;
@@ -413,7 +461,7 @@ class ItemEventHandler final : collision_detector::ItemGathererProvider {
     using Gatherer = collision_detector::Gatherer;
     using Event = collision_detector::GatheringEvent;
 
- public:
+public:
     struct EventResult {
         GameObject::Id obj_id;
         GameObject::Id dog_id;
@@ -422,18 +470,18 @@ class ItemEventHandler final : collision_detector::ItemGathererProvider {
     };
 
     ItemEventHandler(const LootContainer& loot_items, const OfficeContainer& offices, const DogContainer& gatherers)
-    : loot_items_(loot_items)
-    , offices_(offices)
-    , gatherers_(gatherers) {
+        : loot_items_(loot_items)
+          , offices_(offices)
+          , gatherers_(gatherers) {
     }
 
     std::vector<EventResult> FindCollisions() const {
         std::vector<EventResult> result;
         auto collision_events = collision_detector::FindGatherEvents(*this);
-        for(const Event& event : collision_events) {
+        for (const Event& event : collision_events) {
             GameObject::Id obj_id = 0;
             bool is_loot_item = IsLootItem(event.item_id);
-            if(is_loot_item) {
+            if (is_loot_item) {
                 obj_id = event.item_id;
             } else {
                 obj_id = GetOfficeIdx(event.item_id);
@@ -448,7 +496,7 @@ class ItemEventHandler final : collision_detector::ItemGathererProvider {
     }
 
     collision_detector::Item GetItem(size_t idx) const override {
-        if(IsLootItem(idx)) {
+        if (IsLootItem(idx)) {
             return loot_items_.at(idx)->AsCollisionItem();
         }
         return offices_.at(GetOfficeIdx(idx))->AsCollisionItem();
@@ -462,7 +510,7 @@ class ItemEventHandler final : collision_detector::ItemGathererProvider {
         return gatherers_.at(idx)->AsGatherer();
     }
 
- private:
+private:
     const LootContainer& loot_items_;
     const OfficeContainer& offices_;
     const DogContainer& gatherers_;
@@ -472,14 +520,14 @@ class ItemEventHandler final : collision_detector::ItemGathererProvider {
     }
 
     bool IsOffice(size_t idx) const {
-        if(IsLootItem()) {
+        if (IsLootItem()) {
             return false;
         }
         return GetOfficeIdx(idx) < offices_.size();
     }
 
     size_t GetOfficeIdx(size_t idx) const {
-        if(IsLootItem(idx)) {
+        if (IsLootItem(idx)) {
             throw std::out_of_range("");
         }
         return idx - loot_items_.size();

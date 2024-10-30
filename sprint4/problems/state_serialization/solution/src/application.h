@@ -94,8 +94,8 @@ class Session {
     void GenerateLoot(model::TimeMs delta_t);
     void ProcessCollisions() const;
 
-    static void HandleCollision(const model::LootItemPtr& loot, const model::DogPtr& dog);
-    static void HandleCollision(const model::ItemsReturnPointPtr& office, const model::DogPtr& dog) const;
+    void HandleCollision(const model::LootItemPtr& loot, const model::DogPtr& dog) const;
+    void HandleCollision(const model::ItemsReturnPointPtr& office, const model::DogPtr& dog) const;
 };
 
 template<typename ObjContainer>

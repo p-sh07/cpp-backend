@@ -45,7 +45,7 @@ Session::Session(size_t id, model::MapPtr map, model::GameSettings settings)
     settings_.map_bag_capacity = map_->GetBagCapacity();
 
     for(const auto& office : map_->GetOffices()) {
-        offices_.push_back(std::make_shared<model::ItemsReturnPoint>(
+        offices_.emplace_back(std::make_shared<model::ItemsReturnPoint>(
             next_object_id_++, office, settings_.office_width
         ));
     }
@@ -204,7 +204,7 @@ void Session::ProcessCollisions() const {
     }
 }
 
-void Session::HandleCollision(const model::LootItemPtr& loot, const model::DogPtr& dog) {
+void Session::HandleCollision(const model::LootItemPtr& loot, const model::DogPtr& dog) const {
     if (!loot->IsCollected()) {
         dog->TryCollectItem(loot);
     }
