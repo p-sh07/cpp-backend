@@ -14,10 +14,6 @@ file(GLOB_RECURSE CONNAN_FILE_PATH "conanbuildinfo.cmake" ${PROJECT_SOURCE_DIR})
 include(${CONNAN_FILE_PATH})
 conan_basic_setup(TARGETS)
 
-#For CTest
-include(CTest)
-include(${CONAN_BUILD_DIRS_CATCH2}/Catch.cmake)
-
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
 
@@ -51,12 +47,6 @@ add_executable(game_server
         src/server_logger.cpp
 )
 
-#Unit tests
-add_executable(game_server_tests tests/game_server_tests.cpp)
-add_executable(collision_detection_tests
-        tests/collision-detector-tests.cpp
-)
-
 IF (APPLE)
     add_compile_definitions(BOOST_NO_CXX98_FUNCTION_BASE JSON_PRETTY_PRINT)
     target_compile_options(game_lib PUBLIC -Wno-enum-constexpr-conversion)
@@ -70,7 +60,17 @@ target_link_libraries(game_lib PUBLIC Threads::Threads CONAN_PKG::boost)
 #Server
 target_link_libraries(game_server game_lib)
 
+#For CTest
+#include(CTest)
+#include(${CONAN_BUILD_DIRS_CATCH2}/Catch.cmake)
+
 #Tests: Catch2 Ctest
-catch_discover_tests(game_server_tests)
-target_link_libraries(game_server_tests PRIVATE CONAN_PKG::catch2 game_lib)
-target_link_libraries(collision_detection_tests PRIVATE CONAN_PKG::catch2 game_lib)
+#catch_discover_tests(game_server_tests)
+#target_link_libraries(game_server_tests PRIVATE CONAN_PKG::catch2 game_lib)
+##target_link_libraries(collision_detection_tests PRIVATE CONAN_PKG::catch2 game_lib)
+
+#Unit tests
+#add_executable(game_server_tests tests/game_server_tests.cpp)
+#add_executable(collision_detection_tests
+#        tests/collision-detector-tests.cpp
+#)

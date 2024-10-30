@@ -44,7 +44,11 @@ Session::Session(size_t id, model::MapPtr map, model::GameSettings settings)
     settings_.map_dog_speed = map_->GetDogSpeed();
     settings_.map_bag_capacity = map_->GetBagCapacity();
 
-    //TODO: Add offices from map
+    for(const auto& office : map_->GetOffices()) {
+        offices_.push_back(std::make_shared<model::ItemsReturnPoint>(
+            next_object_id_++, office, settings_.office_width
+        ));
+    }
 }
 
 size_t Session::GetId() const {
@@ -190,11 +194,13 @@ void Session::GenerateLoot(model::TimeMs delta_t) {
 void Session::ProcessCollisions() const {
     auto collision_events = collision_provider_.FindCollisions();
     for (const auto& event : collision_events) {
+        //TODO: refactor this later...
         if (event.is_loot_collect) {
             HandleCollision(loot_items_.at(event.obj_id), dogs_.at(event.dog_id));
         } else if (event.is_items_return) {
             HandleCollision(offices_.at(event.obj_id), dogs_.at(event.dog_id));
         }
+
     }
 }
 
@@ -204,7 +210,7 @@ void Session::HandleCollision(const model::LootItemPtr& loot, const model::DogPt
     }
 }
 
-void Session::HandleCollision(model::ItemsReturnPointPtr office, const model::DogPtr& dog) const {
+void Session::HandleCollision(const model::ItemsReturnPointPtr& office, const model::DogPtr& dog) const {
     for (const auto& item : dog->GetBag()) {
         dog->AddScore(map_->GetLootItemValue(item.type));
     }
@@ -296,13 +302,16 @@ const PlayerManager::MapToSessions& PlayerManager::GetAllSessionsByMap() const {
 }
 
 SessionPtr PlayerManager::JoinOrCreateSession(const Map::Id& map_id) {
-    //if session exists and is not yet full
-    auto map_ptr = game_->FindMap(map_id);
-    if (!map_ptr) {
+    //TODO: No _free_ session for map
+    //Check if a session exixts on map. GetMapSessions checks that mapid is valid
+    const auto [map_ptr, sessions_on_map] = GetMapSessions(map_id);
+    if(!map_ptr || !sessions_on_map) {
+        //DEBUG
+        std::cerr << "Nullptr returned by GetMapSessions";
         return nullptr;
     }
-    //No session for map
-    if (auto sessions_on_map = GetMapSessions(map_id); !sessions_on_map) {
+    //No sessions on map, create new session
+    if(sessions_on_map->empty()) {
         SessionPtr session = nullptr;
         auto session_it = sessions_on_map->end();
 
@@ -322,7 +331,7 @@ SessionPtr PlayerManager::JoinOrCreateSession(const Map::Id& map_id) {
         }
     }
     //A session exists and can be joined
-    return JoinFreeSession(map_id);
+    return JoinFreeSession(sessions_on_map);
 }
 
 ConstSessionPtr PlayerManager::GetPlayerGameSession(const PlayerPtr& player) {
@@ -345,15 +354,20 @@ const Session::LootItems &PlayerManager::GetSessionLootList(const PlayerPtr& pla
     return player->GetSession()->GetLootItems();
 }
 
-PlayerManager::MapSessions* PlayerManager::GetMapSessions(const Map::Id& map_id) {
-    if (!map_to_sessions_.contains(map_id)) {
-        return nullptr;
+PlayerManager::MapAndSessions PlayerManager::GetMapSessions(const Map::Id& map_id) {
+    //Check that map id is valid
+    auto map_ptr = game_->FindMap(map_id);
+    if(!map_ptr) {
+        //DEBUG
+        std::cerr << "Attempt to get session, map not found";
+        return {nullptr, nullptr};
     }
-    return &map_to_sessions_.at(map_id);
+    //if no session on map, create & return empty set
+    return {map_ptr, &map_to_sessions_[map_id]};
 }
 
-SessionPtr PlayerManager::JoinFreeSession(const Map::Id& map_id) {
-    return *GetMapSessions(map_id)->begin();
+SessionPtr PlayerManager::JoinFreeSession(const MapSessions* map_sessions_ptr) {
+    return *map_sessions_ptr->begin();
 }
 
 

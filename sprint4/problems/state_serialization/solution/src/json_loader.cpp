@@ -215,7 +215,13 @@ Map ParseMap(const json::value& map_json) {
     }
 
     //Add LootItem info
-    map.AddLootInfo(std::move(map_json.at(JsonKeys::loot_types).as_array()));
+    const auto loot_info_json_ptr = map_json.as_object().if_contains(JsonKeys::loot_types);
+    if(loot_info_json_ptr) {
+        map.AddLootInfo(std::move(loot_info_json_ptr->as_array()));
+    } else {
+        //empty array
+        map.AddLootInfo(json::array{});
+    }
     return map;
 }
 

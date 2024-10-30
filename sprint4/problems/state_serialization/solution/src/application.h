@@ -95,7 +95,7 @@ class Session {
     void ProcessCollisions() const;
 
     static void HandleCollision(const model::LootItemPtr& loot, const model::DogPtr& dog);
-    void HandleCollision(model::ItemsReturnPointPtr office, const model::DogPtr& dog) const;
+    static void HandleCollision(const model::ItemsReturnPointPtr& office, const model::DogPtr& dog) const;
 };
 
 template<typename ObjContainer>
@@ -194,9 +194,11 @@ class PlayerManager {
     using MapDogIdToPlayer = std::unordered_map< Map::Id, std::unordered_map<DogId, PlayerId>,  util::TaggedHasher<Map::Id>>;
     MapDogIdToPlayer map_dog_id_to_player_index_;
 
-    MapSessions* GetMapSessions(const Map::Id& map_id);
+    using MapAndSessions = std::pair<model::MapPtr, PlayerManager::MapSessions*>;
+
+    MapAndSessions GetMapSessions(const Map::Id& map_id);
     //TODO: multiple sessions, using only one session per map for now
-    SessionPtr JoinFreeSession(const Map::Id& map_id);
+    static SessionPtr JoinFreeSession(const MapSessions* map_sessions_ptr);
 };
 
 
