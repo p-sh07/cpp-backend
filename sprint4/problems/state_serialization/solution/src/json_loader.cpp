@@ -165,9 +165,10 @@ json::value MapToValue(const Map& map) {
         {"offices", json::value_from(map.GetOffices())},
         {"lootTypes", map.GetLootTypesInfo().AsJsonArray()},
     };
-    if(auto speed = map.GetDogSpeed(); speed.has_value()) {
-        jv.as_object().emplace("dogSpeed", *speed);
-    }
+    //TODO: Tests fail when dogspeed prints, comment out
+    // if(auto speed = map.GetDogSpeed(); speed.has_value()) {
+    //     jv.as_object().emplace("dogSpeed", *speed);
+    // }
     if(auto bag_cap = map.GetBagCapacity(); bag_cap.has_value()) {
         jv.as_object().emplace("bagCapacity", *bag_cap);
     }
