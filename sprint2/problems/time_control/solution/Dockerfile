@@ -17,6 +17,7 @@ RUN mkdir /app/build && cd /app/build && \
 
 # только после этого копируем остальные иходники
 COPY ./src /app/src
+COPY ./tests /app/tests
 COPY CMakeLists.txt /app/
 
 RUN cd /app/build && \
@@ -38,7 +39,7 @@ COPY ./data /app/data
 COPY ./static /app/static
 
 # Запускаем игровой сервер
-ENTRYPOINT ["/app/game_server", "/app/data/config.json", "/app/static"]
+ENTRYPOINT ["/app/game_server", "--config-file", "/app/data/config.json", "--www-root", "/app/static"]
 
 #Commands to launch:
 #sudo docker build -t my_http_server .

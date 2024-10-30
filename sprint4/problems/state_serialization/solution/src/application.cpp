@@ -296,13 +296,16 @@ const PlayerManager::MapToSessions& PlayerManager::GetAllSessionsByMap() const {
 }
 
 SessionPtr PlayerManager::JoinOrCreateSession(const Map::Id& map_id) {
-    //if session exists and is not yet full
-    auto map_ptr = game_->FindMap(map_id);
-    if (!map_ptr) {
+    //TODO: No _free_ session for map
+    //Check if a session exixts on map. GetMapSessions checks that mapid is valid
+    const auto [map_ptr, sessions_on_map] = GetMapSessions(map_id);
+    if(!map_ptr || !sessions_on_map) {
+        //DEBUG
+        std::cerr << "Nullptr returned by GetMapSessions";
         return nullptr;
     }
-    //No session for map
-    if (auto sessions_on_map = GetMapSessions(map_id); !sessions_on_map) {
+    //No sessions on map, create new session
+    if(sessions_on_map->empty()) {
         SessionPtr session = nullptr;
         auto session_it = sessions_on_map->end();
 
@@ -322,7 +325,7 @@ SessionPtr PlayerManager::JoinOrCreateSession(const Map::Id& map_id) {
         }
     }
     //A session exists and can be joined
-    return JoinFreeSession(map_id);
+    return JoinFreeSession(sessions_on_map);
 }
 
 ConstSessionPtr PlayerManager::GetPlayerGameSession(const PlayerPtr& player) {
@@ -345,15 +348,20 @@ const Session::LootItems &PlayerManager::GetSessionLootList(const PlayerPtr& pla
     return player->GetSession()->GetLootItems();
 }
 
-PlayerManager::MapSessions* PlayerManager::GetMapSessions(const Map::Id& map_id) {
-    if (!map_to_sessions_.contains(map_id)) {
-        return nullptr;
+PlayerManager::MapAndSessions PlayerManager::GetMapSessions(const Map::Id& map_id) {
+    //Check that map id is valid
+    auto map_ptr = game_->FindMap(map_id);
+    if(!map_ptr) {
+        //DEBUG
+        std::cerr << "Attempt to get session, map not found";
+        return {nullptr, nullptr};
     }
-    return &map_to_sessions_.at(map_id);
+    //if no session on map, create & return empty set
+    return {map_ptr, &map_to_sessions_[map_id]};
 }
 
-SessionPtr PlayerManager::JoinFreeSession(const Map::Id& map_id) {
-    return *GetMapSessions(map_id)->begin();
+SessionPtr PlayerManager::JoinFreeSession(const MapSessions* map_sessions_ptr) {
+    return *map_sessions_ptr->begin();
 }
 
 

@@ -4,43 +4,49 @@
 
 //DEBUG
 #include <iostream>
+//#define GATHER_DEBUG
 
 namespace model {
 using namespace std::literals;
 
-PointDbl::PointDbl(Point pt)
-    : x(1.0 * pt.x)
-    , y(1.0 * pt.y) {
+Distance operator*(const Speed & v, TimeMs t) {
+    double time_sec = std::chrono::duration<double>(t).count();
+    return {v.x * time_sec, v.y * time_sec};
 }
 
-PointDbl::PointDbl(double x, double y)
-    : x(x)
-    , y(y) {
+Point2D operator+(Point2D pt_dbl, Distance dist_int) {
+    return {pt_dbl.x + 1.0 * dist_int.x, pt_dbl.y + 1.0 * dist_int.y};
 }
 
-std::ostream& operator<<(std::ostream& os, const Point& pt) {
-    os << '(' << pt.x << ", " << pt.y << ')';
-    return os;
+Point to_int_pt(Point2D pt_double) {
+    return Point(std::round(pt_double.x), std::round(pt_double.y));
 }
 
-std::ostream& operator<<(std::ostream& os, const PointDbl& pt) {
-    os << '{' << pt.x << ", " << pt.y << '}';
-    return os;
+//==== Random int generator for use in game model
+int GenRandomNum(int limit1, int limit2) {
+    ///'static' allows to reuse generator in the same thread, since expensive to init
+    static thread_local std::mt19937 gen_local{std::random_device()()};
+
+    //when min max are swapped:
+    size_t min = std::min(limit1, limit2);
+    size_t max = std::max(limit1, limit2);
+
+    //Since using with size(), Generate numbers in non-inclusive range [min, max)
+    if(max > 0) {
+        --max;
+    }
+    ///distribution is cheap to construct, so no need to reuse
+    std::uniform_int_distribution<int> distr(min,max);
+    return distr(gen_local);
 }
 
-std::ostream& operator<<(std::ostream& os, const Speed& pt) {
-    os << '[' << pt.vx << ", " << pt.vy << ']';
-    return os;
+size_t GenRandomNum(size_t limit1, size_t limit2) {
+    int a = static_cast<int>(limit1), b = static_cast<int>(limit2);
+    return static_cast<size_t>(GenRandomNum(a,b));
 }
 
 //=================================================
 //=================== Road ========================
-Point Road::GetRandomPt() const {
-    if(IsHorizontal()) {
-        return {static_cast<Coord>(util::random_num(start_.x, end_.x)), start_.y};
-    }
-    return {static_cast<Coord>(start_.x, util::random_num(start_.y, end_.y))};
-}
 Road::Road(Road::VerticalTag, Point start, Coord end_y)
     : start_{start}
     , end_{start.x, end_y} {
@@ -67,34 +73,240 @@ Point Road::GetEnd() const {
     return end_;
 }
 
+Point Road::GetRandomPt() const {
+    if(IsHorizontal()) {
+        auto rand_x = GenRandomNum(start_.x, end_.x);
+        return {static_cast<Coord>(rand_x), start_.y};
+    }
+    auto rand_y = GenRandomNum(start_.y, end_.y);
+    return {start_.x, static_cast<Coord>(rand_y)};
+    //return {static_cast<Coord>(start_.x, util::random_num(start_.y, end_.y))};
+}
+
+Coord Road::GetMaxCoordX() const {
+    return IsHorizontal() ? std::max(start_.x, end_.x) : start_.x;
+}
+
+Coord Road::GetMinCoordX() const {
+    return IsHorizontal() ? std::min(start_.x, end_.x) : start_.x;
+}
+
+Coord Road::GetMaxCoordY() const {
+    return IsVertical() ? std::max(start_.y, end_.y) : start_.y;
+}
+
+Coord Road::GetMinCoordY() const {
+    return IsVertical() ? std::min(start_.y, end_.y) : start_.y;
+}
+
 //=================================================
 //=================== Building ====================
 Building::Building(Rectangle bounds)
     : bounds_{bounds} {
 }
+
 const Rectangle& Building::GetBounds() const {
     return bounds_;
 }
 
 //=================================================
-//=================== Office ====================
+//=================== Office ======================
 Office::Office(Office::Id id, Point position, Offset offset)
     : id_{std::move(id)}
     , position_{position}
     , offset_{offset} {
 }
+
 const Office::Id& Office::GetId() const {
     return id_;
 }
+
 Point Office::GetPosition() const {
     return position_;
 }
+
 Offset Office::GetOffset() const {
     return offset_;
 }
 
 //=================================================
+//=================== Objects ======================
+CollisionObject::CollisionObject(GameObject::Id id, Point2D pos, double width)
+    : GameObject(id)
+    , pos_(pos)
+    , width_(width) {}
+
+Point2D CollisionObject::GetPos() const {
+    return pos_;
+}
+
+Point2D CollisionObject::GetPrevPos() const {
+    return prev_pos_;
+}
+
+CollisionObject& CollisionObject::SetPos(Point2D pos) {
+    prev_pos_ = pos_;
+    pos_ = pos;
+    return *this;
+}
+
+double CollisionObject::GetWidth() const {
+    return width_;
+}
+collision_detector::Item CollisionObject::AsCollisionItem() const {
+    return {GetPos(), GetWidth()};
+}
+
+Speed DynamicObject::GetSpeed() const {
+    return speed_;
+}
+
+DynamicObject& DynamicObject::SetSpeed(Speed speed) {
+    speed_ = speed;
+    return *this;
+}
+
+Direction DynamicObject::GetDirection() const {
+    return direction_;
+}
+
+DynamicObject& DynamicObject::SetDirection(Direction dir) {
+    direction_ = dir;
+    return *this;
+}
+
+DynamicObject& DynamicObject::SetMovement(Direction dir, double speed_value) {
+    SetDirection(dir);
+
+    switch(dir) {
+        case Direction::NORTH:
+            SetSpeed({0.0, -speed_value});
+            break;
+        case Direction::WEST:
+            SetSpeed({-speed_value, 0.0});
+            break;
+        case Direction::SOUTH:
+            SetSpeed({0, speed_value});
+            break;
+        case Direction::EAST:
+            SetSpeed({speed_value, 0.0});
+            break;
+
+        default:SetSpeed({0.0, 0.0});
+            break;
+    }
+    return *this;
+}
+
+void DynamicObject::Stop() {
+    SetSpeed({0.0, 0.0});
+}
+
+Point2D DynamicObject::ComputeMoveEndPoint(TimeMs delta_t) const {
+    //converts to seconds
+    double delta_t_sec = std::chrono::duration<double>(delta_t).count();
+    return {GetPos().x + delta_t_sec * speed_.x, GetPos().y + delta_t_sec * speed_.y};
+}
+
+collision_detector::Gatherer DynamicObject::AsGatherer() const {
+    return {GetPrevPos(), GetPos(), GetWidth()};
+}
+
+LootItem::LootItem(GameObject::Id id, Point2D pos, double width, LootItem::Type type)
+    : CollisionObject(id, pos, width)
+    , type_(type) {}
+
+LootItem::Type LootItem::GetType() const {
+    return type_;
+}
+
+bool LootItem::IsCollected() const {
+    return is_collected_;
+}
+
+LootItem::Info LootItem::Collect() {
+    is_collected_ = true;
+    return {GetId(), GetType()};
+}
+
+ItemsReturnPoint::ItemsReturnPoint(GameObject::Id id, const Office& office, double width)
+: CollisionObject(id, ToGeomPt(office.GetPosition()), width)
+, tag_(office.GetId()) {
+}
+
+
+//=================================================
+//=================== Dog =========================
+Dog::Dog(Id id, Point pos, double width, Tag tag, size_t bag_cap)
+    : DynamicObject(id, ToGeomPt(pos), width)
+    , tag_(std::move(tag))
+    , bag_capacity_(bag_cap) {
+}
+
+Dog::Dog(Id id, Point2D pos, double width, Tag tag, size_t bag_cap)
+    : DynamicObject(id, pos, width)
+    , tag_(std::move(tag))
+    , bag_capacity_(bag_cap) {
+}
+
+Dog::Tag Dog::GetTag() const {
+    return tag_;
+}
+
+Dog& Dog::SetBagCap(size_t capacity) {
+    bag_capacity_ = capacity;
+    return *this;
+}
+
+bool Dog::TryCollectItem(const LootItemPtr& loot) {
+    if(BagIsFull() || loot->IsCollected()) {
+        return false;
+    }
+    bag_.push_back(loot->Collect());
+    return true;
+}
+
+//For restoring game state
+bool Dog::TryCollectItem(const LootItem::Info& loot_info) {
+    if(BagIsFull()) {
+        return false;
+    }
+    bag_.push_back(loot_info);
+    return true;
+}
+
+void Dog::ClearBag() {
+    bag_.clear();
+}
+
+bool Dog::BagIsFull() const {
+    return bag_.size() >= bag_capacity_;
+}
+
+const Dog::BagContent& Dog::GetBag() const {
+    return bag_;
+}
+
+size_t Dog::GetBagCap() const {
+    return bag_capacity_;
+}
+
+Score Dog::GetScore() const {
+    return score_;
+}
+
+void Dog::AddScore(Score points) {
+    score_ += points;
+}
+
+
+//=================================================
 //================ Map ============================
+Map::Map(Map::Id id, std::string name)
+    : id_(std::move(id))
+    , name_(std::move(name)) {
+}
+
 void Map::AddOffice(Office office) {
     if(warehouse_id_to_index_.contains(office.GetId())) {
         throw std::invalid_argument("Duplicate warehouse");
@@ -107,18 +319,13 @@ void Map::AddOffice(Office office) {
     } catch(...) {
         // Удаляем офис из вектора, если не удалось вставить в unordered_map
         offices_.pop_back();
-        throw;
+        throw std::runtime_error("Failed to add office to map");;
     }
 }
 
 Point Map::GetRandomRoadPt() const {
-    auto& random_road = roads_[util::random_num(0, roads_.size())];
+    auto& random_road = roads_.at(GenRandomNum(roads_.size()));
     return random_road.GetRandomPt();
-}
-
-Map::Map(Map::Id id, std::string name)
-    : id_(std::move(id))
-    , name_(std::move(name)) {
 }
 
 const Map::Id& Map::GetId() const {
@@ -153,20 +360,21 @@ void Map::AddRoad(const Road& road) {
     RoadYtoIndex_[rd.GetStart().y].insert(roads_.size() - 1);
 }
 
-double Map::GetDogSpeed() const {
+std::optional<double> Map::GetDogSpeed() const {
     return dog_speed_;
 }
 
 void Map::SetDogSpeed(double speed) {
     dog_speed_ = speed;
 }
-const Road* Map::FindVertRoad(PointDbl pt) const {
-    auto it = RoadXtoIndex_.find(static_cast<Coord>(std::round(pt.x)));
+
+const Road* Map::FindVertRoad(Point2D point) const {
+    auto it = RoadXtoIndex_.find(static_cast<Coord>(std::round(point.x)));
     if(it == RoadXtoIndex_.end()) {
         return nullptr;
     }
 
-    auto pt_is_on_road = [&](const Road* rd, const PointDbl& pt) {
+    auto pt_is_on_road = [&](const Road* rd, const Point2D& pt) {
         Point check{static_cast<Coord>(std::round(pt.x)), static_cast<Coord>(std::round(pt.y))};
 
         // for equal x's, check if y is within the vertical road
@@ -175,22 +383,23 @@ const Road* Map::FindVertRoad(PointDbl pt) const {
     };
 
     for(const auto road_idx : it->second) {
-        const auto road = &roads_[road_idx];
+        const auto road = &roads_.at(road_idx);
         //skip Horizontal roads
-        if(road->IsVertical() && pt_is_on_road(road, pt)) {
-            return &roads_[road_idx];
+        if(road->IsVertical() && pt_is_on_road(road, point)) {
+            return &roads_.at(road_idx);
         }
     }
     return nullptr;
 }
-const Road* Map::FindHorRoad(PointDbl pt) const {
-    auto pt_is_on_road = [&](const Road* rd, const PointDbl& pt) {
+
+const Road* Map::FindHorRoad(Point2D point) const {
+    auto pt_is_on_road = [&](const Road* rd, const Point2D& pt) {
         Point check{static_cast<Coord>(std::round(pt.x)), static_cast<Coord>(std::round(pt.y))};
         return (check.x >= std::min(rd->GetStart().x, rd->GetEnd().x))
-        && (std::max(rd->GetStart().x, rd->GetEnd().x) >= check.x);
+            && (std::max(rd->GetStart().x, rd->GetEnd().x) >= check.x);
     };
 
-    auto it = RoadYtoIndex_.find(static_cast<Coord>(std::round(pt.y)));
+    auto it = RoadYtoIndex_.find(static_cast<Coord>(std::round(point.y)));
     if(it == RoadYtoIndex_.end()) {
         return nullptr;
     }
@@ -199,224 +408,104 @@ const Road* Map::FindHorRoad(PointDbl pt) const {
         const auto road = &roads_[road_idx];
 
         //skip vertical roads
-        if(road->IsHorizontal() && pt_is_on_road(road, pt)) {
+        if(road->IsHorizontal() && pt_is_on_road(road, point)) {
             return &roads_[road_idx];
         }
     }
     return nullptr;
 }
 
-void Map::MoveDog(Dog* dog, Time delta_t) const {
-    std::cerr << "=> Start Moving dog: [" << dog->GetId() << "] delta_t = " << delta_t << ", curr.pos = " << dog->GetPos() << ", dir: " << static_cast<char>(dog->GetDir())  << '\n';
-    auto start = dog->GetPos();
-    auto dir = dog->GetDir();
+Map::MoveResult Map::ComputeRoadMove(Point2D start, Point2D end) const {
+    //Case 0: no move
+    if(start == end) {
+        return {false, end};
+    }
 
     const auto roadV = FindVertRoad(start);
     const auto roadH = FindHorRoad(start);
 
+    //Case 1: start point is not on road
     if(!roadH && !roadV) {
-        //throw std::runtime_error("Dog is not on a road!");
-        std::cerr << " !! Stopping dog !\n";
-        return dog->Stop();
+        return {true, start};
     }
 
-    //move dog for max move or until road limit is hit
+    //move for max dist or until road limit is hit
     const Road* preferred_road;
-    PointDbl new_pos;
-    if(dir == Dir::NORTH || dir == Dir::SOUTH) {
-        //choose vertical road if moving vertically and is available
+    Point2D move_pos = end;
+    double road_limit, move_coord;
+
+    //Cases 2 & 3: Move vertically (Y coord changes)
+    if(start.x == end.x) {
+        //choose vertical road if available
         preferred_road = roadV ? roadV : roadH;
-        new_pos = ComputeMaxMove(dog, preferred_road, delta_t);
+
+        if(start.y < end.y) {
+            //Case 2: move in Increasing Y
+            road_limit = 1.0 * preferred_road->GetMaxCoordY() + 0.4;
+            move_coord = std::min(road_limit, end.y);
+        } else {
+            //Case 3: move in Decreasing Y
+            road_limit = 1.0 * preferred_road->GetMinCoordY() - 0.4;
+            move_coord = std::max(road_limit, end.y);
+        }
+        move_pos.y = move_coord;
     } else {
+        //Cases 4 & 5: Move in X coord -> prefer horizontal road
         preferred_road = roadH ? roadH : roadV;
-        new_pos = ComputeMaxMove(dog, preferred_road, delta_t);
+
+        if(start.x < end.x) {
+            //Case 4: move in Increasing X
+            road_limit = 1.0 * preferred_road->GetMaxCoordX() + 0.4;
+            move_coord = std::min(road_limit, end.x);
+        } else {
+            //Case 5: move in Decreasing X
+            road_limit = 1.0 * preferred_road->GetMinCoordX() - 0.4;
+            move_coord = std::max(road_limit, end.x);
+        }
+        move_pos.x = move_coord;
     }
 
-    //std::cerr << " ->computed new_pos: " << new_pos << std::endl;
-
-    //TODO:remove debug output
-    std::cerr << "Moved dog in Dir[" << (static_cast<char>(dog->GetDir())) << "] along road ["
-              << preferred_road->GetStart().x << ", " << preferred_road->GetStart().y << "]["
-              << preferred_road->GetEnd().x << ", " << preferred_road->GetEnd().y << "] from pt ("
-              << dog->GetPos().x << ", " << dog->GetPos().y << ") to pt ("
-              << new_pos.x << ", " << new_pos.y << std::endl;
-
-    const auto roadV_check = FindVertRoad(new_pos);
-    const auto roadH_check = FindHorRoad(new_pos);
-
-    if(!roadV_check && !roadH_check) {
-        //throw std::runtime_error("Dog is not on a road!");
-        std::cerr << "Dog is not on a road!\n";
-        //return dog->Stop();
-    }
-    dog->SetPos(new_pos);
+    return {move_coord == road_limit, move_pos};
 }
 
-PointDbl Map::ComputeMaxMove(Dog* dog, const Road* road, Time delta_t) const {
-    //Maximum point dog can reach in delta_t if no road limit is hit
-    auto max_move = dog->ComputeMove(delta_t);
-    std::cerr << "max move: " << max_move << " speed: " << dog->GetSpeed() << " time(msec): " << delta_t << '\n';
-    std::cerr << "calc: " << dog->GetSpeed().vx * delta_t / 1000 << ", " << dog->GetSpeed().vy * delta_t / 1000 << '\n';
-    switch (dog->GetDir()) {
-        case Dir::NORTH: {
-            auto road_limit_y = 1.0 * std::min(road->GetStart().y, road->GetEnd().y) - 0.4;
+std::optional<size_t> Map::GetBagCapacity() const {
+    return bag_capacity_;
+}
 
-            //Choose the least value (closest to starting point, it is the limit)
-            auto move_y_dist = std::max(road_limit_y, max_move.y);
+void Map::SetBagCapacity(size_t cap) {
+    bag_capacity_ = cap;
+}
 
-            if(move_y_dist == road_limit_y) {
-                dog->Stop();
-            }
-            return {dog->GetPos().x, move_y_dist};
-        }
-        case Dir::SOUTH: {
-            auto road_limit_y = 1.0 * std::max(road->GetStart().y, road->GetEnd().y) + 0.4;
-            auto move_y_dist = std::min(road_limit_y, max_move.y);
+Point Map::GetFirstRoadPt() const {
+    return roads_.at(0).GetStart();
+}
 
-            if(move_y_dist == road_limit_y) {
-                dog->Stop();
-            }
-            return {dog->GetPos().x, move_y_dist};
-        }
-        case Dir::WEST: {
-            auto road_limit_x = 1.0 * std::min(road->GetStart().x, road->GetEnd().x) - 0.4;
-            auto move_x_dist = std::max(road_limit_x, max_move.x);
+Score Map::GetLootItemValue(LootType type) const {
+    return loot_types_->GetItemValue(type);
+}
 
-            if(move_x_dist == road_limit_x) {
-                dog->Stop();
-            }
-            return {move_x_dist, dog->GetPos().y};
-        }
-        case Dir::EAST: {
-            auto road_limit_x = 1.0 * std::max(road->GetStart().x, road->GetEnd().x) + 0.4;
-            auto move_x_dist = std::min(road_limit_x, max_move.x);
+size_t Map::GetLootTypesSize() const {
+    return loot_types_->Size();
+}
 
-            if(move_x_dist == road_limit_x) {
-                dog->Stop();
-            }
-            return {move_x_dist, dog->GetPos().y};
-        }
-    }
-    return {dog->GetPos().x, dog->GetPos().y};
+const gamedata::LootTypesInfo& Map::GetLootTypesInfo() const {
+    return *loot_types_;
 }
 
 //=================================================
-//=================== Dog =========================
-Dog::Dog(size_t id, std::string name, PointDbl pos = {0.0, 0.0})
-    : lbl_{id, std::move(name)}
-    , pos_(pos) {
+//================= Settings ======================
+double GameSettings::GetDogSpeed() const {
+    return map_dog_speed ? *map_dog_speed : default_dog_speed;
 }
 
-std::string_view Dog::GetName() const {
-    return lbl_.name_tag;
+double GameSettings::GetBagCap() const {
+    return map_bag_capacity ? *map_bag_capacity : default_bag_capacity;
 }
 
-size_t Dog::GetId() const {
-    return lbl_.id;
-}
-
-PointDbl Dog::GetPos() const {
-    return pos_;
-}
-
-Speed Dog::GetSpeed() const {
-    return speed_;
-}
-
-Dir Dog::GetDir() const {
-    return direction_;
-}
-
-void Dog::Stop() {
-    speed_ = {0, 0};
-}
-void Dog::SetSpeed(Speed sp) {
-    speed_ = sp;
-}
-void Dog::SetDir(Dir dir) {
-    direction_ = dir;
-}
-void Dog::SetMove(Dir dir, double s_val) {
-    direction_ = dir;
-    if(isblank(static_cast<char>(dir))) {
-        std::cerr << "Got empty move char\n";
-    } else {
-        std::cerr << "Setting dir = " << static_cast<char>(dir) << '\n';
-    }
-
-    switch(dir) {
-        case Dir::NORTH:
-            SetSpeed({0.0, -s_val});
-            break;
-        case Dir::WEST:
-            SetSpeed({-s_val, 0.0});
-            break;
-        case Dir::SOUTH:
-            SetSpeed({0, s_val});
-            break;
-        case Dir::EAST:
-            SetSpeed({s_val, 0.0});
-            break;
-
-        default:
-            std::cerr << "setting speed to 0,0 in Dog->SetMove()\n";
-            SetSpeed({0.0, 0.0});
-            break;
-    }
-}
-
-Dog::Label Dog::GetLabel() const {
-    return lbl_;
-}
-void Dog::SetPos(PointDbl pos) {
-    pos_ = pos;
-}
-PointDbl Dog::ComputeMove(Time delta_t) const {
-    //get time in ms, convert to s
-    std::cerr << "- computing dog [" << GetId() << "] max move: {" << (1.0 * delta_t / 1000.0) * speed_.vx << ", " << (1.0 * delta_t / 1000.0) * speed_.vy << "}\n";
-    return {pos_.x + (1.0 * delta_t / 1000.0) * speed_.vx, pos_.y + (1.0 * delta_t / 1000.0) * speed_.vy};
-}
-
-//=================================================
-//=================== Session =====================
-Session::Session(size_t id, Map* map_ptr)
-    : id_(id)
-    , map_(map_ptr) {
-}
-
-Dog* Session::AddDog(std::string name) {
-    //TODO: Change from First Point !!!
-    return &dogs_.emplace_back(next_dog_id_++, std::move(name), map_->GetFirstRoadPt());
-}
-
-size_t Session::GetId() const {
-    return id_;
-}
-
-const Map::Id& Session::GetMapId() const {
-    return map_->GetId();
-}
-
-const std::deque<Dog>& Session::GetAllDogs() const {
-    return dogs_;
-}
-void Session::AdvanceTime(Time delta_t) {
-    MoveAllDogs(delta_t);
-}
-void Session::MoveAllDogs(Time delta_t) {
-    for(auto& dog : dogs_) {
-        map_->MoveDog(&dog, delta_t);
-    }
-}
 
 //=================================================
 //=================== Game ========================
 void Game::AddMap(Map map) {
-    //If map speed has not been set in json, set to game default
-    if(map.GetDogSpeed() == 0.0) {
-        map.SetDogSpeed(default_dog_speed_);
-    }
-
     const size_t index = maps_.size();
     if(auto [it, inserted] = map_id_to_index_.emplace(map.GetId(), index); !inserted) {
         throw std::invalid_argument("Map with id "s + *map.GetId() + " already exists"s);
@@ -430,198 +519,44 @@ void Game::AddMap(Map map) {
     }
 }
 
-Map* Game::FindMap(const Map::Id& id) {
-    auto it = map_id_to_index_.find(id);
-
-    if(auto it = map_id_to_index_.find(id); it != map_id_to_index_.end()) {
+MapPtr Game::FindMap(const Map::Id& id) {
+    if(const auto it = map_id_to_index_.find(id); it != map_id_to_index_.end()) {
         return &maps_.at(it->second);
     }
     return nullptr;
 }
 
-const Map* Game::FindMap(const Map::Id& id) const {
-    auto it = map_id_to_index_.find(id);
-
-    if(auto it = map_id_to_index_.find(id); it != map_id_to_index_.end()) {
+ConstMapPtr Game::FindMap(const Map::Id& id) const {
+    if(const auto it = map_id_to_index_.find(id); it != map_id_to_index_.end()) {
         return &maps_.at(it->second);
     }
     return nullptr;
-}
-
-Session* Game::JoinSession(const Map::Id& id) {
-    //if session exists and is not yet full
-    //TODO: sessions by map, check session full
-    auto map_ptr = FindMap(id);
-    if(!map_ptr) {
-        return nullptr;
-    }
-
-    //No session for map
-    auto session_it = map_to_sessions_.find(id);
-    if(session_it == map_to_sessions_.end()) {
-        try {
-            return &sessions_.emplace_back(std::move(MakeNewSessionOnMap(map_ptr)));
-        } catch(...) {
-            map_to_sessions_.erase(id);
-            throw;
-        }
-    }
-    //Session exists
-    return &sessions_.at(session_it->second);
-}
-
-std::optional<size_t> Game::GetMapIndex(const Map::Id& id) const {
-    if(auto it = map_id_to_index_.find(id); it != map_id_to_index_.end()) {
-        return it->second;
-    }
-    return std::nullopt;
-}
-
-Session Game::MakeNewSessionOnMap(Map* map) {
-    map_to_sessions_[map->GetId()] = next_session_id_;
-    return {next_session_id_++, map};
 }
 
 const Game::Maps& Game::GetMaps() const {
     return maps_;
 }
 
-void Game::SetDefaultDogSpeed(double speed) {
-    default_dog_speed_ = speed;
-}
-Game::Sessions& Game::GetSessions() {
-    return sessions_;
+GameSettings Game::GetSettings() const {
+    return settings_;
 }
 
-
-//===========================================================
-//================= Tag Invoke overloads ====================
-namespace json = boost::json;
-
-void tag_invoke(const json::value_from_tag&, json::value& jv, Point const& pt) {
-    json::array ja;
-
-    ja.emplace_back(static_cast<int>(pt.x));
-    ja.emplace_back(static_cast<int>(pt.y));
-
-    jv = std::move(ja);
-}
-Point tag_invoke(const json::value_to_tag<Point>&, json::value const& jv) {
-    const auto& arr = jv.as_array();
-    return {value_to<int>(arr.at(0)), value_to<int>(arr.at(1))};
+void Game::ModifyDefaultDogSpeed(double speed) {
+    settings_.default_dog_speed = speed;
 }
 
-void tag_invoke(const json::value_from_tag&, json::value& jv, PointDbl const& pt) {
-    json::array ja;
-    ja.emplace_back(pt.x);
-    ja.emplace_back(pt.y);
-
-    jv = std::move(ja);
-}
-PointDbl tag_invoke(const json::value_to_tag<PointDbl>&, json::value const& jv) {
-    const auto& arr = jv.as_array();
-    PointDbl pt(value_to<double>(arr.at(0)), value_to<double>(arr.at(1)));
-    return pt;
+void Game::ModifyDefaultBagCapacity(size_t capacity) {
+    settings_.default_bag_capacity = capacity;
 }
 
-void tag_invoke(const json::value_from_tag&, json::value& jv, Dir const& dir) {
-    jv = std::string{static_cast<char>(dir)};
-}
-Dir tag_invoke(const json::value_to_tag<Dir>&, json::value const& jv) {
-    Dir dir(value_to<Dir>(jv.at("dir")));
-    return dir;
+void Game::EnableRandomDogSpawn(bool enable) {
+    //is disabled by default
+    settings_.randomise_dog_spawn = enable;
 }
 
-void tag_invoke(const json::value_from_tag&, json::value& jv, Speed const& speed) {
-    json::array ja;
-    ja.emplace_back(static_cast<double>(speed.vx));
-    ja.emplace_back(static_cast<double>(speed.vy));
-
-    jv = std::move(ja);
-}
-Speed tag_invoke(const json::value_to_tag<Speed>&, json::value const& jv) {
-    auto ja = jv.as_array();
-    Speed sp{value_to<DimensionDbl>(jv.at(0)), value_to<DimensionDbl>(jv.at(1))};
-    return sp;
+void Game::ConfigLootGen(TimeMs base_period, double probability) {
+    settings_.loot_gen_interval = base_period;
+    settings_.loot_gen_prob = probability;
 }
 
-void tag_invoke(const json::value_from_tag&, json::value& jv, Map const& map) {
-    jv = {
-        {"id", *map.GetId()},
-        {"name", map.GetName()},
-    };
-}
-Map tag_invoke(const json::value_to_tag<Map>&, json::value const& jv) {
-    Map::Id id(value_to<std::string>(jv.at("id")));
-    return {id, value_to<std::string>(jv.at("name"))};
-}
-
-void tag_invoke(const json::value_from_tag&, json::value& jv, Road const& rd) {
-    if(rd.IsHorizontal()) {
-        jv = {
-            {"x0", rd.GetStart().x},
-            {"y0", rd.GetStart().y},
-            {"x1", rd.GetEnd().x}
-        };
-    } else {
-        jv = {
-            {"x0", rd.GetStart().x},
-            {"y0", rd.GetStart().y},
-            {"y1", rd.GetEnd().y}
-        };
-    }
-}
-Road tag_invoke(const json::value_to_tag<Road>&, json::value const& jv) {
-    auto const& obj = jv.as_object();
-
-    Point start{
-        value_to<int>(obj.at("x0")),
-        value_to<int>(obj.at("y0"))
-    };
-
-    if(obj.contains("x1")) {
-        //Horisontal road
-        return {Road::HORIZONTAL, start, value_to<int>(obj.at("x1"))};
-    } else {
-        //Vertical road
-        return {Road::VERTICAL, start, value_to<int>(obj.at("y1"))};
-    }
-}
-
-void tag_invoke(const json::value_from_tag&, json::value& jv, Building const& bd) {
-    const auto& rect = bd.GetBounds();
-    jv = {
-        {"x", rect.position.x},
-        {"y", rect.position.y},
-        {"w", rect.size.width},
-        {"h", rect.size.height},
-    };
-}
-Building tag_invoke(const json::value_to_tag<Building>&, json::value const& jv) {
-    const auto& obj = jv.as_object();
-    return Building({
-                        //Rectangle:
-                        Point{value_to<int>(obj.at("x")), value_to<int>(obj.at("y"))},
-                        Size{value_to<int>(obj.at("w")), value_to<int>(obj.at("h"))}
-                    });
-}
-
-void tag_invoke(const json::value_from_tag&, json::value& jv, model::Office const& offc) {
-    jv = {
-        {"id", *offc.GetId()},
-        {"x", offc.GetPosition().x},
-        {"y", offc.GetPosition().y},
-        {"offsetX", offc.GetOffset().dx},
-        {"offsetY", offc.GetOffset().dy},
-    };
-}
-Office tag_invoke(const json::value_to_tag<Office>&, json::value const& jv) {
-    const auto& obj = jv.as_object();
-    return {
-        Office::Id(value_to<std::string>(obj.at("id"))),
-        Point{value_to<int>(obj.at("x")), value_to<int>(obj.at("y"))},
-        Offset{value_to<int>(obj.at("offsetX")), value_to<int>(obj.at("offsetY"))}
-    };
-}
-
-}  // namespace model
+} //namespace model

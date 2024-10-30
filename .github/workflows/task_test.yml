@@ -12,6 +12,34 @@ permissions:
 
 jobs:
 
+  sprint_2:
+    runs-on: ubuntu-22.04
+    container:
+      image: praktikumcpp/practicum_cpp_backend:latest
+      volumes:
+        - /var/run/docker.sock:/var/run/docker.sock
+      options: --name main-container
+    steps:
+
+      - name: get docker network
+        run: echo "DOCKER_NETWORK=$(docker inspect main-container -f '{{range $k, $v := .NetworkSettings.Networks}}{{printf "%s" $k}}{{end}}')" >> $GITHUB_ENV
+
+      - name: Checkout code & tests
+        uses: actions/checkout@v3
+        with:
+          submodules: true
+
+      - name: Install dependencies
+        run: |
+          pip uninstall conan -y
+          pip install -U conan==1.59.0
+          cp -R /home/forconan/.conan /github/home/.conan
+
+      - name: run tests sprint2 time_control
+        run: |
+          cd cpp-backend-tests-practicum/scripts/sprint2
+          ./time_control/run.sh
+
   sprint_3:
     runs-on: ubuntu-22.04
     steps:

@@ -96,18 +96,18 @@ int main(int argc, const char* argv[]) {
         server_logger::InitLogging();
 
         // 0.1. Парсим аргументы переданные в функцию
-        //auto args = ParseCommandLine(argc, argv);
-        // if(!args) {
-        //     //failed to parse arguments
-        //     throw std::runtime_error("Failed to parse command line arguments");
-        // }
+        auto args = ParseCommandLine(argc, argv);
+        if(!args) {
+            //failed to parse arguments
+            throw std::runtime_error("Failed to parse command line arguments");
+        }
 
         // 1. Загружаем карту из файла, создаем модель и интерфейс (application) игры
-        auto game = std::make_shared<model::Game>(json_loader::LoadGame(argv[1]));
+        auto game = std::make_shared<model::Game>(json_loader::LoadGame(args->config_path));
         auto game_app = std::make_shared<app::GameInterface>(game);
 
         // 2. Инициализируем io_context и другие переменные
-        game->EnableRandomDogSpawn(false);
+        game->EnableRandomDogSpawn(args->randomize_spawn_points);
         const auto num_threads = std::thread::hardware_concurrency();
         net::io_context ioc(static_cast<int>(num_threads));
         auto api_strand = net::make_strand(ioc);
@@ -121,9 +121,7 @@ int main(int argc, const char* argv[]) {
         });
 
         //4. Создаем handler и оборачиваем его в логирующий декоратор
-        model::TimeMs tick{0};
-        std::filesystem::path path_to_static{argv[2]};
-        auto handler = std::make_shared<http_handler::RequestHandler>(path_to_static, api_strand, game_app, tick);
+        auto handler = std::make_shared<http_handler::RequestHandler>(args->static_root, api_strand, game_app, model::TimeMs{args->tick_period});
 
         server_logger::LoggingRequestHandler logging_handler{
             [handler](auto&& endpoint, auto&& req, auto&& send) {

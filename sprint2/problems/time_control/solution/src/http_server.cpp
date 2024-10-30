@@ -1,7 +1,6 @@
 #include "http_server.h"
 
 #include <boost/asio/dispatch.hpp>
-#include <iostream>
 
 namespace http_server {
 
@@ -27,7 +26,7 @@ void SessionBase::Read() {
                      beast::bind_front_handler(&SessionBase::OnRead, GetSharedThis()));
 }
 
-void SessionBase::OnRead(beast::error_code ec, [[maybe_unused]] std::size_t bytes_read) {
+void SessionBase::OnRead(const beast::error_code& ec, [[maybe_unused]] std::size_t bytes_read) {
     using namespace std::literals;
     if(ec == http::error::end_of_stream) {
         // Нормальная ситуация - клиент закрыл соединение
@@ -39,7 +38,7 @@ void SessionBase::OnRead(beast::error_code ec, [[maybe_unused]] std::size_t byte
     HandleRequest(std::move(request_));
 }
 
-void SessionBase::OnWrite(bool close, beast::error_code ec, [[maybe_unused]] std::size_t bytes_written) {
+void SessionBase::OnWrite(bool close, const beast::error_code& ec, [[maybe_unused]] std::size_t bytes_written) {
     if(ec) {
         return ReportError(ec, "write"sv);
     }
@@ -53,7 +52,6 @@ void SessionBase::OnWrite(bool close, beast::error_code ec, [[maybe_unused]] std
     Read();
 }
 
-//TODO: Handle error, e.g. ReportError or check return code
 void SessionBase::Close() {
     beast::error_code ec;
     stream_.socket().shutdown(tcp::socket::shutdown_send, ec);
