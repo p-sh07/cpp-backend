@@ -69,10 +69,9 @@ struct ContentType {
 //======================= Error types =======================
 
 enum class ErrCode {
+    std_exception, //TODO: Add std exception with message from ex.what()
     bad_method,
     bad_request,
-    bad_method_post_only,
-    bad_method_get_head_only,
 
     //join_game:
     map_not_found,
@@ -97,10 +96,10 @@ struct ErrInfo {
 
 class ServerError : public std::runtime_error {
  public:
-    ServerError(ErrCode ec)
-        : ec_(ec)
-        , runtime_error("Server Error") {
-    }
+    ServerError(ErrCode ec);
+//    ServerError(std::exception& ex, ErrCode ec = ErrCode::std_exception)
+//    {
+//    }
 
     virtual ErrCode ec() const { return ec_; }
     virtual http::status status() const { return GetInfo(ec_).status; }
@@ -109,92 +108,38 @@ class ServerError : public std::runtime_error {
  protected:
     ErrCode ec_;
 
-    virtual ErrInfo GetInfo(ErrCode ec) const {
-        switch(ec) {
-            case ErrCode::bad_method:
-                return {http::status::method_not_allowed, ""sv, "Invalid method"sv};
-        }
-    }
-
+    virtual ErrInfo GetInfo(ErrCode ec) const;
 };
 
 class ApiError : public ServerError {
+ private:
+    using FieldValueMap = std::unordered_map<http::field, std::string>;
+
  public:
     using ServerError::ServerError;
     //TODO: add optional message to override one in error
 
-    std::string print_json() const {
-        auto err_info = GetInfo(ec_);
-        json::value jv{
-            {"code", err_info.code},
-            {"message", err_info.msg}
-        };
-        return json::serialize(jv);
-    }
+    std::string print_json() const;
+    const FieldValueMap& http_fields() const { return additional_error_http_fields_; }
+
+    template<typename Val, typename... Vals>
+    ApiError& AddHttpField(http::field&& field, Val&& val, Vals&&... other_vals);
 
  private:
-
-    ErrInfo GetInfo(ErrCode ec) const override {
-        switch(ec) {
-            case ErrCode::bad_request:
-                return {http::status::bad_request,
-                        "badRequest"sv,
-                        "Bad request"sv};
-                break;
-            case ErrCode::bad_method_get_head_only:
-                return {http::status::method_not_allowed,
-                        "invalidMethod"sv,
-                        "Invalid method in Player list request"sv};
-                break;
-            case ErrCode::map_not_found:
-                return {http::status::not_found,
-                        "mapNotFound"sv,
-                        "Map not found"sv};
-                break;
-            case ErrCode::invalid_player_name:
-                return {http::status::bad_request,
-                        "invalidArgument"sv,
-                        "Invalid name"sv};
-                break;
-            case ErrCode::join_game_parse_err:
-                return {http::status::bad_request,
-                        "invalidArgument"sv,
-                        "Join game request parse error"sv};
-                break;
-            case ErrCode::bad_method_post_only:
-                return {http::status::method_not_allowed,
-                        "invalidMethod"sv,
-                        "Only POST method is expected"sv};
-                break;
-            case ErrCode::invalid_token:
-                return {http::status::unauthorized,
-                        "invalidToken"sv,
-                        "Auth header not found or incorrect token format"sv};
-                break;
-            case ErrCode::unknown_token:
-                return {http::status::unauthorized,
-                        "unknownToken"sv,
-                        "Player token has not been found"sv};
-                break;
-            case ErrCode::token_invalid_argument:
-                return {http::status::unauthorized,
-                        "invalidArgument"sv,
-                        "Failed to parse json"sv};
-                break;
-            case ErrCode::invalid_content_type:
-                return {http::status::unauthorized,
-                        "invalidArgument"sv,
-                        "Invalid content type"sv};
-                break;
-            case ErrCode::time_tick_invalid_argument:
-                return {http::status::bad_request,
-                        "invalidArgument"sv,
-                        "Failed to parse tick request"sv};
-                break;
-
-        }
-    }
+    FieldValueMap additional_error_http_fields_;
+    ErrInfo GetInfo(ErrCode ec) const override;
 };
+
+template<typename Val, typename... Vals>
+ApiError& ApiError::AddHttpField(http::field&& field, Val&& val, Vals&&... other_vals) {
+    std::stringstream ss;
+    //concat args into a single string
+    ss << std::forward<Val>(val);
+    ((ss << ", " << http::to_string(std::forward<Vals>(other_vals))), ...);
+
+    additional_error_http_fields_[std::move(field)] = ss.str();
+    return *this;
+}
 
 class FileError : public ServerError {
  public:
@@ -204,7 +149,6 @@ class FileError : public ServerError {
 
 //===================================================================
 //======================= Common =======================
-namespace {
 // Определить MIME-тип из расширения запрашиваемого файла
 std::string_view ParseMimeType(const std::string_view& path);
 
@@ -215,20 +159,36 @@ StringResponse MakeStringResponse(http::status status, std::string_view body,
 
 http::response<http::file_body> MakeResponseFromFile(const char* file_path, unsigned http_version, bool keep_alive);
 
-//TODO: move to utils?
-//Возвращает true, если каталог p содержится внутри base.
-bool IsSubPath(fs::path path, fs::path base);
+//===================================================================
+//======================= Async Ticker ==============================
+class Ticker : public std::enable_shared_from_this<Ticker> {
+ public:
+    using Strand = net::strand<net::io_context::executor_type>;
+    using Handler = std::function<void(model::TimeMs delta)>;
 
-//Конвертирует URL-кодированную строку в путь
-fs::path ConvertFromUrl(std::string_view url);
-} //local namespace
+    // Функция handler будет вызываться внутри strand с интервалом period
+    Ticker(Strand strand, std::chrono::milliseconds period, Handler handler);
+    void Start();
+
+ private:
+    void ScheduleTick();
+    void OnTick(sys::error_code ec);
+
+    using Clock = std::chrono::steady_clock;
+    Strand strand_;
+    std::chrono::milliseconds period_;
+    net::steady_timer timer_{strand_};
+    Handler handler_;
+    std::chrono::steady_clock::time_point last_tick_;
+};
+
 //===================================================================
 //======================= Api Request Handler =======================
 
 class ApiHandler : public std::enable_shared_from_this<ApiHandler> {
  public:
     using Strand = net::strand<net::io_context::executor_type>;
-    ApiHandler(Strand api_strand, std::shared_ptr<app::GameInterface> game_app);
+    ApiHandler(Strand api_strand, std::shared_ptr<app::GameInterface> game_app, model::TimeMs tick_period);
 
     ApiHandler(const ApiHandler&) = delete;
     ApiHandler& operator=(const ApiHandler&) = delete;
@@ -257,8 +217,10 @@ class ApiHandler : public std::enable_shared_from_this<ApiHandler> {
         static constexpr std::string_view time_tick{"tick"sv};
     };
 
+    bool use_http_tick_debug_ = false;
     Strand strand_;
     std::shared_ptr<app::GameInterface> game_app_;
+    std::shared_ptr<Ticker> ticker_;
 
     std::string_view ExtractMapId(std::string_view uri) const;
     static std::pair<std::string, std::string> ExtractMapIdPlayerName (const std::string& request_body);
@@ -271,7 +233,10 @@ class ApiHandler : public std::enable_shared_from_this<ApiHandler> {
     StringResponse HandleApiRequest(const StringRequest& req);
 
     StringResponse ReportApiError(const ApiError& err, unsigned version, bool keep_alive) const;
-    StringResponse ReportApiError(unsigned version, bool keep_alive) const;
+    StringResponse ReportApiError(unsigned version, bool keep_alive, std::string_view msg = ""sv) const;
+
+    template<typename... Args>
+    void CheckHttpMethod(const http::verb& received, Args&&... allowed) const;
 };
 
 template<typename Body, typename Allocator, typename Send>
@@ -296,12 +261,20 @@ void ApiHandler::Execute(http::request<Body, http::basic_fields<Allocator>>&& re
 
         return net::dispatch(strand_, handle);
     }
-    catch(...) {
-        //TODO: What error can be caught here?
+    catch(std::exception& ex) {
+        //TODO: Print exception msg
         send(ReportApiError(version, keep_alive));
     }
 }
 
+template<typename... Args>
+void ApiHandler::CheckHttpMethod(const http::verb& received, Args&&... allowed) const {
+    if(((received == allowed) || ...)) {
+        //no throw if at least one match
+        return;
+    }
+    throw ApiError(ErrCode::bad_method).AddHttpField(http::field::allow, std::forward<Args>(allowed)...);
+}
 
 //===================================================================
 //======================= File Request Handler ======================
@@ -351,10 +324,7 @@ class RequestHandler {
  public:
     using Strand = net::strand<net::io_context::executor_type>;
 
-    RequestHandler(fs::path root, Strand api_strand, std::shared_ptr<app::GameInterface> game_app)
-        : file_handler_(std::make_shared<FileHandler>(std::move(root)))
-        , api_handler_(std::make_shared<ApiHandler>(api_strand, std::move(game_app))) {
-    }
+    RequestHandler(fs::path root, Strand api_strand, std::shared_ptr<app::GameInterface> game_app, model::TimeMs tick_period);
 
     RequestHandler(const RequestHandler&) = delete;
     RequestHandler& operator=(const RequestHandler&) = delete;
@@ -363,7 +333,6 @@ class RequestHandler {
     void operator()(tcp::endpoint&&, http::request<Body, http::basic_fields<Allocator>>&& req, Send&& send);
 
  private:
-
     std::shared_ptr<ApiHandler> api_handler_;
     std::shared_ptr<FileHandler> file_handler_;
 
@@ -406,3 +375,30 @@ void RequestHandler::operator()(tcp::endpoint&&, http::request<Body, http::basic
 }
 
 } // namespace http_handler
+
+/**
+ * Изменение в протоколе взаимодействия с клиентом
+В ответе на запрос к /api/v1/game/state теперь нужно отдавать содержимое рюкзака игроков. Для этого в информацию об игроке добавьте поле bag. Его тип — массив, содержащий информацию о собранных предметах. Информация задаётся в виде объекта со следующими полями:
+id (целое число) — идентификатор предмета. Совпадает с тем идентификатором, который имел предмет до того, как его нашли.
+type (целое число) — тип предмета. Тип также не должен меняться при подборе.
+Следует передавать предметы в том порядке, в котором они были собраны. Вот пример ответа сервера:
+{
+   "players":{
+      "13":{
+         "pos":[10.5,3.8],
+         "speed":[0.5, 0],
+         "dir":"L",
+         "bag":[
+            {"id":9, "type":4},
+            {"id":8, "type":4}
+         ]
+      }
+   },
+   "lostObjects":{
+      "11":{
+         "type":3,
+         "pos":[13.2,17.2]
+      }
+   }
+}
+ */

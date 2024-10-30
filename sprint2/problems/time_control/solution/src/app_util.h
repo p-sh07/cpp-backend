@@ -1,9 +1,14 @@
 #pragma once
+#include <algorithm>
+#include <chrono>
 #include <compare>
+#include <filesystem>
 #include <random>
 
 //DEBUG
-#include "iostream"
+#ifdef DEBUG
+#include <iostream>
+#endif
 
 namespace util {
 
@@ -75,23 +80,55 @@ struct TaggedHasher {
     }
 };
 
-inline size_t random_num(size_t limit1, size_t limit2) {
-    thread_local static std::mt19937 rg{std::random_device{}()};
-
-    //in case when min max are swapped:
-    size_t min = std::min(limit1, limit2);
-    size_t max = std::max(limit1, limit2);
-
-    thread_local static std::uniform_int_distribution<size_t> dist(min, max);
-    return dist(rg);
-}
-
 inline bool is_len32hex_num(std::string_view str) {
     return str.size() == 32u
     && std::all_of(str.begin(), str.end(),
                    [](unsigned char c){
         return std::isxdigit(c);
     });
+}
+
+namespace fs = std::filesystem;
+
+//Возвращает true, если каталог p содержится внутри base.
+inline bool IsSubPath(fs::path path, fs::path base) {
+    // Приводим оба пути к каноничному виду (без . и ..)
+    path = fs::weakly_canonical(path);
+    base = fs::weakly_canonical(base);
+
+    // Проверяем, что все компоненты base содержатся внутри path
+    for(auto b = base.begin(), p = path.begin(); b != base.end(); ++b, ++p) {
+        if(p == path.end() || *p != *b) {
+            return false;
+        }
+    }
+    return true;
+}
+
+//Конвертирует URL-кодированную строку в путь
+inline fs::path ConvertFromUrl(std::string_view url) {
+    if(url.empty()) {
+        return {};
+    }
+
+    std::string path_string;
+
+    for(size_t pos = 0; pos < url.size();) {
+        if(url[pos] == '%') {
+            //decode
+            char decoded = std::stoul(std::string(url.substr(pos + 1, 2)), nullptr, 16);
+            path_string.push_back(decoded);
+            pos += 3;
+        } else {
+            path_string.push_back(url[pos++]);
+        }
+    }
+    return path_string;
+}
+
+//Конвертирует double Секунды в Миллисекунды chrono
+inline std::chrono::milliseconds ConvertSecToMsec(double seconds) {
+    return std::chrono::milliseconds(static_cast<uint64_t>(seconds * 1000));
 }
 
 }  // namespace util

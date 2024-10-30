@@ -416,6 +416,7 @@ const Road* Map::FindHorRoad(Point2D point) const {
 }
 
 Map::MoveResult Map::ComputeRoadMove(Point2D start, Point2D end) const {
+    //TODO: on map Town dog sometimes skips to a different road, debug this
     //Case 0: no move
     if(start == end) {
         return {false, end};
