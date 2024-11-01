@@ -69,9 +69,9 @@ inline Point ToIntPt(Point2D pt_double) {
     return Point(std::round(pt_double.x), std::round(pt_double.y));
 }
 
+
 //==== Op overloads ==========//
 Point2D operator+(Point2D pos, Distance dist);
-
 Distance operator*(const Speed& v, TimeMs t);
 
 
@@ -97,25 +97,18 @@ public:
     constexpr static VerticalTag VERTICAL{};
 
     Road(HorizontalTag, Point start, Coord end_x);
-
     Road(VerticalTag, Point start, Coord end_y);
 
     bool IsHorizontal() const;
-
     bool IsVertical() const;
 
     Point GetStart() const;
-
     Point GetEnd() const;
-
     Point GetRandomPt() const;
 
     Coord GetMaxCoordX() const;
-
     Coord GetMinCoordX() const;
-
     Coord GetMaxCoordY() const;
-
     Coord GetMinCoordY() const;
 
 private:
@@ -205,19 +198,15 @@ public:
     using CollisionObject::CollisionObject;
 
     Speed GetSpeed() const;
-
     DynamicObject &SetSpeed(Speed speed);
 
     Direction GetDirection() const;
-
     DynamicObject &SetDirection(Direction dir);
-
     DynamicObject &SetMovement(Direction dir, double speed_value);
 
     void Stop();
 
     Point2D ComputeMoveEndPoint(TimeMs delta_t) const;
-
     collision_detector::Gatherer AsGatherer() const;
 
     //TODO: How to do this?
@@ -239,14 +228,13 @@ public:
     struct Info {
         Id id;
         Type type;
+        auto operator<=>(const Info&) const = default;
     };
 
     LootItem(Id id, Point2D pos, double width, Type type);
 
     Type GetType() const;
-
     bool IsCollected() const;
-
     Info Collect();
 
 private:
@@ -260,7 +248,7 @@ using ConstLootItemPtr = std::shared_ptr<const LootItem>;
 //------------------------------------------------
 class ItemsReturnPoint : public CollisionObject {
 public:
-    ItemsReturnPoint(GameObject::Id id, const Office& office, double width);
+    ItemsReturnPoint(Id id, const Office& office, double width);
 
 private:
     const Office::Id tag_;
@@ -277,28 +265,21 @@ public:
     using Tag = util::Tagged<std::string, Dog>;
     using BagContent = std::deque<LootItem::Info>;
 
-    Dog(Id id, Point pos, double width, Tag tag, size_t bag_cap);
-
+    // Dog(Id id, Point pos, double width, Tag tag, size_t bag_cap);
     Dog(Id id, Point2D pos, double width, Tag tag, size_t bag_cap);
 
     Tag GetTag() const;
-
     size_t GetBagCap() const;
-
     Dog &SetBagCap(size_t capacity);
-
     const BagContent &GetBag() const;
 
     void AddScore(Score points);
-
     Score GetScore() const;
 
     bool BagIsFull() const;
-
     void ClearBag();
 
     bool TryCollectItem(const LootItemPtr& loot);
-
     bool TryCollectItem(const LootItem::Info& loot_info);
 
 private:
@@ -331,33 +312,22 @@ public:
     Map(Id tag, std::string name);
 
     const Id &GetId() const;
-
     const std::string &GetName() const;
-
     const Buildings &GetBuildings() const;
-
     const Roads &GetRoads() const;
-
     const Offices &GetOffices() const;
-
     const gamedata::LootTypesInfo &GetLootTypesInfo() const;
-
     size_t GetLootTypesSize() const;
-
     Score GetLootItemValue(LootType type) const;
 
     std::optional<double> GetDogSpeed() const;
-
     void SetDogSpeed(double speed);
 
     std::optional<size_t> GetBagCapacity() const;
-
     void SetBagCapacity(size_t cap);
 
     void AddRoad(const Road& road);
-
     void AddBuilding(const Building& building);
-
     void AddOffice(Office office);
 
     template<typename LootTypeData>
@@ -366,14 +336,12 @@ public:
     }
 
     const Road* FindVertRoad(Point2D point) const;
-
     const Road* FindHorRoad(Point2D point) const;
 
     MoveResult ComputeRoadMove(Point2D start, Point2D end) const;
 
-    Point GetRandomRoadPt() const;
-
-    Point GetFirstRoadPt() const;
+    Point2D GetRandomRoadPt() const;
+    Point2D GetFirstRoadPt() const;
 
 private:
     using OfficeIdToIndex = std::unordered_map<Office::Id, size_t, util::TaggedHasher<Office::Id>>;
@@ -401,7 +369,7 @@ using ConstMapPtr = const Map*;
 
 //NB: Default values set here!
 struct GameSettings {
-    bool randomise_dog_spawn = false;
+    bool randomised_dog_spawn = false;
 
     std::optional<double> map_dog_speed;
     std::optional<size_t> map_bag_capacity;
@@ -430,19 +398,14 @@ public:
     void AddMap(Map map);
 
     void EnableRandomDogSpawn(bool enable);
-
     void ModifyDefaultDogSpeed(double speed);
-
     void ModifyDefaultBagCapacity(size_t capacity);
-
     void ConfigLootGen(TimeMs base_period, double probability);
 
     const Maps &GetMaps() const;
-
     GameSettings GetSettings() const;
 
     MapPtr FindMap(const Map::Id& id);
-
     ConstMapPtr FindMap(const Map::Id& id) const;
 
 private:

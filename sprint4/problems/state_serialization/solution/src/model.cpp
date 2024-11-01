@@ -237,11 +237,11 @@ ItemsReturnPoint::ItemsReturnPoint(GameObject::Id id, const Office& office, doub
 
 //=================================================
 //=================== Dog =========================
-Dog::Dog(Id id, Point pos, double width, Tag tag, size_t bag_cap)
-    : DynamicObject(id, ToGeomPt(pos), width)
-    , tag_(std::move(tag))
-    , bag_capacity_(bag_cap) {
-}
+// Dog::Dog(Id id, Point pos, double width, Tag tag, size_t bag_cap)
+//     : DynamicObject(id, ToGeomPt(pos), width)
+//     , tag_(std::move(tag))
+//     , bag_capacity_(bag_cap) {
+// }
 
 Dog::Dog(Id id, Point2D pos, double width, Tag tag, size_t bag_cap)
     : DynamicObject(id, pos, width)
@@ -323,9 +323,9 @@ void Map::AddOffice(Office office) {
     }
 }
 
-Point Map::GetRandomRoadPt() const {
+Point2D Map::GetRandomRoadPt() const {
     auto& random_road = roads_.at(GenRandomNum(roads_.size()));
-    return random_road.GetRandomPt();
+    return ToGeomPt(random_road.GetRandomPt());
 }
 
 const Map::Id& Map::GetId() const {
@@ -477,8 +477,8 @@ void Map::SetBagCapacity(size_t cap) {
     bag_capacity_ = cap;
 }
 
-Point Map::GetFirstRoadPt() const {
-    return roads_.at(0).GetStart();
+Point2D Map::GetFirstRoadPt() const {
+    return ToGeomPt(roads_.at(0).GetStart());
 }
 
 Score Map::GetLootItemValue(LootType type) const {
@@ -552,7 +552,7 @@ void Game::ModifyDefaultBagCapacity(size_t capacity) {
 
 void Game::EnableRandomDogSpawn(bool enable) {
     //is disabled by default
-    settings_.randomise_dog_spawn = enable;
+    settings_.randomised_dog_spawn = enable;
 }
 
 void Game::ConfigLootGen(TimeMs base_period, double probability) {

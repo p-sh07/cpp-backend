@@ -34,8 +34,8 @@ std::string PrintMapList(const model::Game::Maps& map_list);
 const char ParseMove(const std::string& request_body);
 model::TimeMs ParseTick(const std::string& request_body);
 
-std::string PrintPlayerList(const std::vector<app::PlayerPtr>& players);
-std::string PrintGameState(const app::PlayerPtr player, const std::shared_ptr<app::GameInterface>& game_app);
+std::string PrintPlayerList(const std::vector<app::ConstPlayerPtr>& players);
+std::string PrintGameState(const app::ConstPlayerPtr player, const std::shared_ptr<app::GameInterface>& game_app);
 
 model::Game LoadGame(const std::filesystem::path& json_path);
 } // namespace json_loader

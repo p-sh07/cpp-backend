@@ -208,7 +208,7 @@ std::string ApiHandler::ExtractToken(const auto& request) const {
     return std::string{token_str};
 }
 
-app::PlayerPtr ApiHandler::AuthorizePlayer(const auto& request) const {
+app::ConstPlayerPtr ApiHandler::AuthorizePlayer(const auto& request) const {
     /// -->>  Authorise player
     app::Token token{std::move(ExtractToken(request))};
 

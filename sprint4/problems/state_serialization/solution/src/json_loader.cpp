@@ -113,7 +113,7 @@ std::string PrintMap(const Map& map) {
     return ss.str();
 }
 
-json::object MakePlayerListJson(const std::vector<app::PlayerPtr>& players) {
+json::object MakePlayerListJson(const std::vector<app::ConstPlayerPtr>& players) {
     json::object player_list;
     for(const auto& p_ptr : players) {
         player_list.emplace(std::to_string(p_ptr->GetId()),
@@ -125,7 +125,7 @@ json::object MakePlayerListJson(const std::vector<app::PlayerPtr>& players) {
     return player_list;
 }
 
-json::object MakePlayerStateJson(const std::vector<app::PlayerPtr>& players) {
+json::object MakePlayerStateJson(const std::vector<app::ConstPlayerPtr>& players) {
     json::object player_state;
     for(const auto& player : players) {
         const auto& dog = player->GetDog();
@@ -175,7 +175,7 @@ json::value MapToValue(const Map& map) {
     return jv;
 }
 
-std::string PrintPlayerList(const std::vector<app::PlayerPtr>& players) {
+std::string PrintPlayerList(const std::vector<app::ConstPlayerPtr>& players) {
     std::stringstream ss;
     print_json(ss, std::move(MakePlayerListJson(players)));
 

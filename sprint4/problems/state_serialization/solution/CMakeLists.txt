@@ -61,16 +61,25 @@ target_link_libraries(game_lib PUBLIC Threads::Threads CONAN_PKG::boost)
 target_link_libraries(game_server game_lib)
 
 #For CTest
-#include(CTest)
-#include(${CONAN_BUILD_DIRS_CATCH2}/Catch.cmake)
-
-#Tests: Catch2 Ctest
-#catch_discover_tests(game_server_tests)
-#target_link_libraries(game_server_tests PRIVATE CONAN_PKG::catch2 game_lib)
-##target_link_libraries(collision_detection_tests PRIVATE CONAN_PKG::catch2 game_lib)
+include(CTest)
+include(${CONAN_BUILD_DIRS_CATCH2}/Catch.cmake)
 
 #Unit tests
-#add_executable(game_server_tests tests/game_server_tests.cpp)
-#add_executable(collision_detection_tests
-#        tests/collision-detector-tests.cpp
-#)
+add_executable(game_server_tests
+        tests/game_server_tests.cpp
+)
+add_executable(collision_detection_tests
+        tests/collision-detector-tests.cpp
+)
+add_executable(serialization_tests
+        tests/state-serialization-tests.cpp
+)
+
+#Tests: Catch2 Ctest
+catch_discover_tests(game_server_tests)
+catch_discover_tests(collision_detection_tests)
+catch_discover_tests(serialization_tests)
+
+target_link_libraries(game_server_tests PRIVATE CONAN_PKG::catch2 game_lib)
+target_link_libraries(collision_detection_tests PRIVATE CONAN_PKG::catch2 game_lib)
+target_link_libraries(serialization_tests PRIVATE CONAN_PKG::catch2 game_lib)

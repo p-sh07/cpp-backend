@@ -4,7 +4,7 @@
 #include <sstream>
 
 #include "../src/model.h"
-#include "../src/model_serialization.h"
+#include "../src/state_serialization.h"
 
 using namespace model;
 using namespace std::literals;
@@ -39,9 +39,9 @@ SCENARIO_METHOD(Fixture, "Point serialization") {
 SCENARIO_METHOD(Fixture, "Dog Serialization") {
     GIVEN("a dog") {
         const auto dog = [] {
-            Dog dog{Dog::Id{42}, "Pluto"s, {42.2, 12.5}, 3};
+            Dog dog{Dog::Id{42u}, {42.2, 12.5}, 0.6, Dog::Tag{"Pluto"s}, 3};
             dog.AddScore(42);
-            CHECK(dog.PutToBag({FoundObject::Id{10}, 2u}));
+            CHECK(dog.TryCollectItem({LootItem::Id{10u}, 2u}));
             dog.SetDirection(Direction::EAST);
             dog.SetSpeed({2.3, -1.2});
             return dog;
@@ -60,11 +60,11 @@ SCENARIO_METHOD(Fixture, "Dog Serialization") {
                 const auto restored = repr.Restore();
 
                 CHECK(dog.GetId() == restored.GetId());
-                CHECK(dog.GetName() == restored.GetName());
-                CHECK(dog.GetPosition() == restored.GetPosition());
+                CHECK(dog.GetTag() == restored.GetTag());
+                CHECK(dog.GetPos() == restored.GetPos());
                 CHECK(dog.GetSpeed() == restored.GetSpeed());
-                CHECK(dog.GetBagCapacity() == restored.GetBagCapacity());
-                CHECK(dog.GetBagContent() == restored.GetBagContent());
+                CHECK(dog.GetBagCap() == restored.GetBagCap());
+                CHECK(dog.GetBag() == restored.GetBag());
             }
         }
     }

@@ -226,7 +226,7 @@ class ApiHandler : public std::enable_shared_from_this<ApiHandler> {
     static std::pair<std::string, std::string> ExtractMapIdPlayerName (const std::string& request_body);
 
     std::string ExtractToken(const auto& request) const;
-    app::PlayerPtr AuthorizePlayer(const auto& request) const;
+    app::ConstPlayerPtr AuthorizePlayer(const auto& request) const;
 
     static bool RemoveIfHasPrefix(std::string_view prefix, std::string_view& uri);
 
