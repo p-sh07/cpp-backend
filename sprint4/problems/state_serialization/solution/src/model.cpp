@@ -153,6 +153,7 @@ CollisionObject& CollisionObject::SetPos(Point2D pos) {
 double CollisionObject::GetWidth() const {
     return width_;
 }
+
 collision_detector::Item CollisionObject::AsCollisionItem() const {
     return {GetPos(), GetWidth()};
 }
@@ -493,16 +494,6 @@ const gamedata::LootTypesInfo& Map::GetLootTypesInfo() const {
     return *loot_types_;
 }
 
-//=================================================
-//================= Settings ======================
-double GameSettings::GetDogSpeed() const {
-    return map_dog_speed ? *map_dog_speed : default_dog_speed;
-}
-
-double GameSettings::GetBagCap() const {
-    return map_bag_capacity ? *map_bag_capacity : default_bag_capacity;
-}
-
 
 //=================================================
 //=================== Game ========================
@@ -538,7 +529,7 @@ const Game::Maps& Game::GetMaps() const {
     return maps_;
 }
 
-GameSettings Game::GetSettings() const {
+gamedata::Settings Game::GetSettings() const {
     return settings_;
 }
 

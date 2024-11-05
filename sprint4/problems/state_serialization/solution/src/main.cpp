@@ -91,6 +91,7 @@ int main(int argc, const char* argv[]) {
         {"exception", ""}
     };
 
+
     try {
         // 0. Инициализируем
         server_logger::InitLogging();
@@ -102,15 +103,16 @@ int main(int argc, const char* argv[]) {
             throw std::runtime_error("Failed to parse command line arguments");
         }
 
-        // 1. Загружаем карту из файла, создаем модель и интерфейс (application) игры
-        auto game = std::make_shared<model::Game>(json_loader::LoadGame(args->config_path));
-        auto game_app = std::make_shared<app::GameInterface>(game);
 
-        // 2. Инициализируем io_context и другие переменные
-        game->EnableRandomDogSpawn(args->randomize_spawn_points);
+        // 1. Инициализируем io_context и другие переменные
         const auto num_threads = std::thread::hardware_concurrency();
         net::io_context ioc(static_cast<int>(num_threads));
         auto api_strand = net::make_strand(ioc);
+
+        // 2. Загружаем карту из файла, создаем модель и интерфейс (application) игры
+        auto game     = std::make_shared<model::Game>(json_loader::LoadGame(args->config_path));
+        auto game_app = std::make_shared<app::GameInterface>(ioc, game);
+        game->EnableRandomDogSpawn(args->randomize_spawn_points);
 
         // 3. Добавляем асинхронный обработчик сигналов SIGINT и SIGTERM
         net::signal_set signals(ioc, SIGINT, SIGTERM);
@@ -131,7 +133,7 @@ int main(int argc, const char* argv[]) {
                            std::forward<decltype(send)>(send));
             }};
 
-        const auto address = net::ip::make_address("0.0.0.0");
+        const auto address                = net::ip::make_address("0.0.0.0");
         constexpr net::ip::port_type port = 8080;
 
         // Сервер готов к обработке запросов
@@ -148,10 +150,9 @@ int main(int argc, const char* argv[]) {
             ioc.run();
         });
     } catch(const std::exception& ex) {
-        log_server_exit_report["code"] = EXIT_FAILURE;
+        log_server_exit_report["code"]      = EXIT_FAILURE;
         log_server_exit_report["exception"] = ex.what();
     }
-
     BOOST_LOG_TRIVIAL(info) << logging::add_value(log_message, "server exited")
                             << logging::add_value(log_msg_data, log_server_exit_report);
 }

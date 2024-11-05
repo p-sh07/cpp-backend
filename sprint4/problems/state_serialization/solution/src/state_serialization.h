@@ -147,7 +147,9 @@ public:
     SessionRepr() = default;
 
     explicit SessionRepr(const app::Session& session)
-    :
+    : id_(session.GetId())
+    , time_(session.GetTime())
+    , map_id_(session.GetMapId())
     {}
 
     app::Session Restore() const {
@@ -162,11 +164,10 @@ public:
 private:
     const size_t id_;
     model::TimeMs time_ {0u};
+    model::Map::Id map_id_;
 
     std::vector<DogRepr> dogs_;
     std::vector<LootItemRepr> loot_items_;
-
-    model::Map::Id map_id;
 };
 
 
