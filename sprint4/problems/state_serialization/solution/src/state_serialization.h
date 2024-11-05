@@ -175,8 +175,10 @@ public:
     PlayerRepr() = default;
 
     explicit PlayerRepr(const app::Player& player)
-        :
-    {}
+        : id_(player.GetId())
+          , session_id_(player.GetSession()->GetId())
+          , dog_id_(player.GetDog()->GetId()) {
+    }
 
     app::Player Restore() const {
 
@@ -199,13 +201,16 @@ public:
 
     explicit PlayerSessionManager(const app::PlayerSessionManager& psm)
         : tokens_(psm.GetAllTokens()) {
-        for(const auto& player_id : psm.GetAllPlayers()) {
-            players_.push_back
+        for(const auto& player : psm.GetAllPlayers()) {
+            players_.emplace_back(player);
         }
-        for(const auto& session : psm.GetAllSessions())
+        for(const auto& session : psm.GetAllSessions()) {
+            sessions_.emplace_back(session);
+        }
     }
 
     app::PlayerSessionManager Restore() const {
+
 
     }
 

@@ -45,9 +45,9 @@ Session::Session(size_t id, model::MapPtr map, model::GameSettings settings)
     settings_.map_bag_capacity = map_->GetBagCapacity();
 
     for(const auto& office : map_->GetOffices()) {
-        offices_.emplace_back(model::ItemsReturnPoint{
+        offices_.emplace_back(std::make_shared<model::ItemsReturnPoint>(
             next_object_id_++, office, settings_.office_width
-        });
+        ));
     }
 }
 
@@ -90,25 +90,25 @@ model::DogPtr Session::AddDog(Dog::Id id, Dog::Tag name) {
                             : map_->GetFirstRoadPt();
 
     const size_t index = dogs_.size();
-    auto& dog = dogs_.emplace_back(
+    auto& dog = dogs_.emplace_back(std::make_shared<Dog>(
         id, starting_pos, settings_.dog_width
         , Dog::Tag(std::move(name)), settings_.GetBagCap()
-    );
+    ));
 
     try {
-        dogs_index_.emplace(next_dog_id_, index);
+        dogs_index_.emplace(id, index);
     } catch (...) {
         dogs_.pop_back();
         throw std::runtime_error("Failed to add new dog to session");
     }
     //Creation successful
-    return std::make_shared<Dog>(dog);
+    return dog;
 }
 
 void Session::AddLootItem(LootItem::Id id, LootItem::Type type, model::Point2D pos) {
-    loot_items_.emplace(id,
-        LootItem{id, pos, settings_.loot_item_width, type}
-    );
+    loot_items_.emplace_back(std::make_shared<LootItem>(
+        id, pos, settings_.loot_item_width, type
+    ));
 }
 
 void Session::AddRandomLootItems(size_t num_items) {
@@ -125,13 +125,8 @@ void Session::RemoveDog(model::DogPtr dog) {
     //TODO:
 }
 
-void Session::RemoveLootItem(model::GameObject::Id loot_item_id) {
-    try {
-        loot_items_.erase(loot_item_id);
-    } catch (std::exception& ex) {
-        //DEBUG
-        std::cerr << "Failed to remove loot item: " << ex.what();
-    }
+void Session::RemoveLootItem(GameObject::Id loot_item_id) {
+    //TODO:
 }
 
 void Session::AdvanceTime(model::TimeMs delta_t) {
@@ -145,17 +140,17 @@ void Session::AdvanceTime(model::TimeMs delta_t) {
 }
 
 //---------------------------------------------------------
-void Session::MoveDog(Dog& dog, model::TimeMs delta_t) {
+void Session::MoveDog(const model::DogPtr& dog, model::TimeMs delta_t) {
     //Operators for time-distance calculations
     using model::operator+;
     using model::operator*;
 
-    model::Point2D max_move_pt = dog.GetPos() + dog.GetSpeed() * delta_t;
-    Map::MoveResult move_result = map_->ComputeRoadMove(dog.GetPos(), max_move_pt);
+    model::Point2D max_move_pt = dog->GetPos() + dog->GetSpeed() * delta_t;
+    Map::MoveResult move_result = map_->ComputeRoadMove(dog->GetPos(), max_move_pt);
     if (move_result.road_edge_reached_) {
-        dog.Stop();
+        dog->Stop();
     }
-    dog.SetPos(move_result.dst);
+    dog->SetPos(move_result.dst);
 }
 
 void Session::MoveAllDogs(model::TimeMs delta_t) {
@@ -228,6 +223,7 @@ PlayerSessionManager::PlayerSessionManager(GamePtr&& game)
 PlayerPtr PlayerSessionManager::CreatePlayer(Map::Id map, Dog::Tag dog_tag) {
     auto session = JoinOrCreateSession(next_session_id_++, map);
     auto dog = session->AddDog(next_dog_id_++, dog_tag);
+    return AddPlayer(next_player_id_++, dog, session, GenerateToken())
 }
 
 
@@ -321,7 +317,7 @@ std::vector<ConstPlayerPtr> PlayerSessionManager::GetAllPlayersInSession(ConstPl
     const auto& map_id = player_session->GetMapId();
 
     for (const auto& dog : player_session->GetDogs()) {
-        result.push_back(GetPlayerByMapDogId(map_id, dog.GetId()));
+        result.push_back(GetPlayerByMapDogId(map_id, dog->GetId())->);
     }
     return result;
 }

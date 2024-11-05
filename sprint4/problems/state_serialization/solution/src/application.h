@@ -35,13 +35,13 @@ struct TokenHasher {
 //=================================================
 //=================== Session =====================
 class Session {
-    using ObjectMap = std::unordered_map<GameObject::Id, size_t>;
-
  public:
     using Id = size_t;
-    using Dogs = std::deque<Dog>;
-    using LootItems = std::unordered_map<LootItem::Id, LootItem>;
+    using Dogs = std::unordered_map<Dog::Id, Dog>;
+    using LootItems = std::deque<LootItem>; //Assume <100 loot items, so linear search is fine
     using Offices = std::deque<model::ItemsReturnPoint>;
+
+    using Gatherers = std::deque<model::DogPtr>;
 
     Session(Id id, model::MapPtr map, model::GameSettings settings);
 
@@ -57,6 +57,11 @@ class Session {
 
     //At construction there are 0 dogs. Session is always on 1 map
     //When a player is added, he gets a new dog to control
+    model::DogPtr AddDog(Dog dog) {
+        auto dog_id = dog.GetId();
+        dogs_.emplace(dog_id, std::move(dog));
+        return gatherers_.emplace_back(std::make_shared<Dog>(dogs_.at(dog_id)));
+    }
     model::DogPtr AddDog(Dog::Id, Dog::Tag name);
     void AddLootItem(LootItem::Id id, LootItem::Type type, model::Point2D pos);
     void AddRandomLootItems(size_t num_items);
@@ -69,26 +74,22 @@ class Session {
 private:
     const Id id_;
     model::TimeMs time_ {0u};
-    size_t deleted_objects_counter_ {0u};
-    model::GameObject::Id next_dog_id_ {0u};
-    model::GameObject::Id next_object_id_ {0u};
+    // size_t deleted_objects_counter_ {0u};
+    // GameObject::Id next_dog_id_ {0u};
+    GameObject::Id next_object_id_ {0u};
 
     Dogs dogs_;
     LootItems loot_items_;
     Offices offices_;
 
-    ObjectMap dogs_index_;
-
-    //After delete, obj in deq is set to nullptr. This updates map and removes nulls
-    template<typename ObjContainer, typename ObjIndex>
-    void UpdObjIndex(ObjContainer& linear_container, ObjIndex& map);
+    Gatherers gatherers_;
 
     model::MapPtr map_;
     model::GameSettings settings_;
     loot_gen::LootGenerator loot_generator_;
     model::ItemEventHandler<LootItems, Offices, Dogs> collision_provider_;
 
-    void MoveDog(Dog& dog, model::TimeMs delta_t);
+    void MoveDog(const model::DogPtr& dog, model::TimeMs delta_t);
     void MoveAllDogs(model::TimeMs delta_t);
 
     void GenerateLoot(model::TimeMs delta_t);
@@ -97,24 +98,6 @@ private:
     void HandleCollision(const model::LootItemPtr& loot, const model::DogPtr& dog) const;
     void HandleCollision(const model::ItemsReturnPointPtr& office, const model::DogPtr& dog) const;
 };
-
-template<typename ObjContainer, typename ObjIndex>
-void Session::UpdObjIndex(ObjContainer& linear_container, ObjIndex& map) {
-    size_t idx = 0;
-    map.clear();
-    for(auto it = linear_container.begin(); it != linear_container.end(); ) {
-        auto obj_ptr = *it;
-        if(!obj_ptr) {
-            //nullptr -> erase
-            it = linear_container.erase(it);
-        } else {
-            //obj present -> add to index
-            map.emplace(obj_ptr->GetId(), idx);
-            ++idx;
-            ++it;
-        }
-    }
-}
 
 using SessionPtr = std::shared_ptr<Session>;
 using ConstSessionPtr = std::shared_ptr<const Session>;
@@ -180,6 +163,10 @@ class PlayerSessionManager {
     static const Session::LootItems& GetSessionLootList(ConstPlayerPtr& player);
 
     void AdvanceTime(model::TimeMs delta_t);
+
+    void RestoreSessions(std::deque<Session> sessions) {
+        sessions_ = std::move(sessions);
+    }
 
 private:
     GamePtr game_;
