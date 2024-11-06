@@ -40,18 +40,13 @@ Session::Session(size_t id, MapPtr map, gamedata::Settings settings)
       , map_(map)
       , settings_(std::move(settings))
       , loot_generator_(settings_.loot_gen_interval, settings_.loot_gen_prob)
-      , collision_provider_(loot_items_, offices_, gatherers_) {
+      , collision_detector_(objects_, gatherers_) {
 
     //Set map bag & speed settings if specified
     settings_.map_dog_speed = map_->GetDogSpeed();
     settings_.map_bag_capacity = map_->GetBagCapacity();
 
-    for(const auto& office : map_->GetOffices()) {
-        offices_.emplace_back(std::make_shared<ItemsReturnPoint>(
-            next_object_id_++, office, settings_.office_width
-        ));
-
-    }
+    AddOffices(map_->GetOffices());
 }
 
 size_t Session::GetId() const {
@@ -97,21 +92,15 @@ const Session::LootItems &Session::GetLootItems() const {
     return loot_items_;
 }
 
-DogPtr Session::AddOrCreateDog(Dog dog) {
-    //TODO:
-    auto dog_id = dog.GetId();
-    dogs_.emplace(dog_id, std::move(dog));
-    return gatherers_.emplace_back(std::make_shared<Dog>(dogs_.at(dog_id)));
-}
-
 DogPtr Session::AddDog(Dog dog) {
     auto dog_id = dog.GetId();
+    const auto [dog_map_it, success] = dogs_.emplace(dog_id, std::move(dog));
 
-    //Remove dog if it already exists
-    RemoveDog(dog.GetId());
-
-    dogs_.emplace(dog_id, std::move(dog));
-    return gatherers_.emplace_back(std::make_shared<Dog>(dogs_.at(dog_id)));
+    //Dog with this id didn't exist before, add to gatherers_ index
+    if(success) {
+        return gatherers_.emplace_back(std::make_shared<Dog>(dog_map_it->second));
+    }
+    return std::make_shared<Dog>(dog_map_it->second);
 }
 
 //---------------------------------------------------------
@@ -130,13 +119,12 @@ DogPtr Session::AddDog(Dog::Id id, Dog::Tag name) {
     }
 
     //update gatherers index
-    auto dog_ptr = gatherers_.emplace_back(std::make_shared<Dog>(emplace_result.first->second));
-    return dog_ptr;
+    return std::make_shared<Dog>(emplace_result.first->second);
 }
 
 void Session::AddLootItem(LootItem::Id id, LootItem::Type type, model::Point2D pos) {
     loot_items_.emplace_back(std::make_shared<LootItem>(
-        id, pos, settings_.loot_item_width, type
+        id, pos, settings_.loot_item_width, type, map_->GetLootItemValue(type)
     ));
 }
 
@@ -148,10 +136,6 @@ void Session::AddRandomLootItems(size_t num_items) {
             map_->GetRandomRoadPt()
         );
     }
-}
-
-void Session::RemoveDog(DogPtr dog) {
-    RemoveDog(dog->GetId());
 }
 
 void Session::RemoveDog(Dog::Id dog_id) {
@@ -182,6 +166,16 @@ void Session::AdvanceTime(model::TimeMs delta_t) {
 
     //Generate loot after, so that a loot item is not randomly picked up by dog
     GenerateLoot(delta_t);
+}
+
+void Session::AddOffices(const Map::Offices& offices) {
+    for(const auto& office : map_->GetOffices()) {
+        const auto& off_ptr = offices_.emplace_back(std::make_shared<ItemsReturnPoint>(
+            next_object_id_++, office, settings_.office_width
+        ));
+
+        objects_.emplace_back(off_ptr);
+    }
 }
 
 //---------------------------------------------------------
@@ -217,31 +211,12 @@ void Session::GenerateLoot(model::TimeMs delta_t) {
 
 //---------------------------------------------------------
 void Session::ProcessCollisions() const {
-    auto collision_events = collision_provider_.FindCollisions();
+    auto collision_events = collision_detector_.FindCollisions();
     for (const auto& event : collision_events) {
-        //TODO: refactor this later...
-        // if (event.is_loot_collect) {
-        //     HandleCollision(loot_items_.at(event.obj_id), dogs_.at(event.dog_id));
-        // } else if (event.is_items_return) {
-        //     HandleCollision(offices_.at(event.obj_id), dogs_.at(event.dog_id));
-        // }
-
+        const auto& dog = gatherers_.at(event.gatherer_id);
+        dog->ProcessCollision(objects_.at(event.item_id));
     }
 }
-
-// void Session::HandleCollision(const model::LootItemPtr& loot, const DogPtr& dog) const {
-//     if (!loot->IsCollected()) {
-//         dog->TryCollectItem(loot);
-//     }
-// }
-//
-// void Session::HandleCollision(const model::ItemsReturnPointPtr& office, const DogPtr& dog) const {
-//     for (const auto& item : dog->GetBag()) {
-//         dog->AddScore(map_->GetLootItemValue(item.type));
-//     }
-//     dog->ClearBag();
-// }
-
 
 //=================================================
 //=================== Player ======================
@@ -435,8 +410,9 @@ void GameInterface::AdvanceGameTime(model::TimeMs delta_t) {
     player_manager_.AdvanceTime(delta_t);
 }
 
-bool GameInterface::MoveCommandValid(const char move_command) {
+bool GameInterface::MoveCommandValid(const char move_command) const {
+    const auto& valid_move_chars = game_->GetSettings().valid_move_chars;
     return !isblank(move_command)
-           && valid_move_chars_.find(move_command) != valid_move_chars_.npos;
+           && valid_move_chars.find(move_command) != valid_move_chars_.npos;
 }
 } //namespace app

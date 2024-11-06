@@ -5,6 +5,8 @@
 #include <boost/json.hpp>
 
 namespace gamedata {
+using namespace std::literals;
+
 //NB: Default values set here!
 struct Settings {
     bool randomised_dog_spawn = false;
@@ -12,8 +14,8 @@ struct Settings {
     std::optional<double> map_dog_speed;
     std::optional<size_t> map_bag_capacity;
 
-    double loot_gen_prob;
-    std::chrono::milliseconds loot_gen_interval;
+    double loot_gen_prob = 0;
+    std::chrono::milliseconds loot_gen_interval{0u};
 
     double default_dog_speed    = 1.0;
     size_t default_bag_capacity = 3;
@@ -21,6 +23,8 @@ struct Settings {
     const double loot_item_width = 0.0;
     const double dog_width       = 0.6;
     const double office_width    = 0.5;
+
+    static constexpr auto valid_move_chars = "UDLR"sv;
 
     double GetDogSpeed() const {
         return map_dog_speed ? *map_dog_speed : default_dog_speed;

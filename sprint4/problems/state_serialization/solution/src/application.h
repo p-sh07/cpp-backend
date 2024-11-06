@@ -50,7 +50,7 @@ class Session {
     using Offices = std::deque<ItemsReturnPointPtr>;
 
     using Gatherers = std::deque<DogPtr>;
-    // using CollisionObjects = std::deque<CollisionObjectPtr>;
+    using CollisionObjects = std::deque<CollisionObjectPtr>;
 
     //TODO: make a sep. strand for session
     Session(Id id, MapPtr map, gamedata::Settings settings/*, net::io_context& io*/);
@@ -71,15 +71,12 @@ class Session {
 
     //At construction there are 0 dogs. Session is always on 1 map
     //When a player is added, he gets a new dog to control
-    DogPtr AddOrCreateDog(Dog dog);
-
     DogPtr AddDog(Dog dog);
     DogPtr AddDog(Dog::Id, Dog::Tag name);
 
     void AddLootItem(LootItem::Id id, LootItem::Type type, model::Point2D pos);
     void AddRandomLootItems(size_t num_items);
 
-    void RemoveDog(DogPtr dog);
     void RemoveDog(Dog::Id dog_id);
     void RemoveLootItem(GameObject::Id loot_item_id);
 
@@ -98,12 +95,14 @@ private:
     Offices offices_;
 
     Gatherers gatherers_;
-    // CollisionObjects object_index_;
+    CollisionObjects objects_;
 
     MapPtr map_;
     gamedata::Settings settings_;
     loot_gen::LootGenerator loot_generator_;
-    model::ItemEventHandler<LootItems, Offices, Gatherers> collision_provider_;
+    model::CollisionDetector<CollisionObjects, Gatherers> collision_detector_;
+
+    void AddOffices(const Map::Offices& offices);
 
     void MoveDog(Dog& dog, model::TimeMs delta_t);
     void MoveAllDogs(model::TimeMs delta_t);
@@ -221,8 +220,8 @@ class GameInterface {
     model::ConstMapPtr GetMap(std::string_view map_id) const;
     const Game::Maps& ListAllMaps() const;
 
-    static bool MoveCommandValid(char move_command);
-    static void SetPlayerMovement(ConstPlayerPtr& player, const char move_command);
+    bool MoveCommandValid(char move_command) const;
+    void SetPlayerMovement(ConstPlayerPtr& player, const char move_command);
     void AdvanceGameTime(model::TimeMs delta_t);
 
     JoinGameResult JoinGame(std::string_view map_id_str, std::string_view player_dog_name);
@@ -240,7 +239,7 @@ class GameInterface {
     GamePtr game_;
     PlayerSessionManager player_manager_;
 
-    //TODO: move to GameSettings
+    //TODO: use from GameSettings
     static constexpr auto valid_move_chars_ = "UDLR"sv;
 
 };

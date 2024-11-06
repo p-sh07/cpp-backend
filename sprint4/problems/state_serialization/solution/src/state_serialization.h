@@ -32,7 +32,7 @@ void serialize(Archive& ar, Dog::Tag& obj, [[maybe_unused]] const unsigned versi
 }
 
 template <typename Archive>
-void serialize(Archive& ar, LootItem::Info& obj, [[maybe_unused]] const unsigned version) {
+void serialize(Archive& ar, LootItemInfo& obj, [[maybe_unused]] const unsigned version) {
     ar&(obj.id);
     ar&(obj.type);
 }
@@ -46,12 +46,6 @@ void serialize(Archive& ar, Session& obj, [[maybe_unused]] const unsigned versio
     // ar&(*obj);
 }
 
-template <typename Archive>
-void serialize(Archive& ar, LootItem::Info& obj, [[maybe_unused]] const unsigned version) {
-    ar&(obj.id);
-    ar&(obj.type);
-}
-
 }  // namespace model
 
 namespace serialization {
@@ -63,14 +57,14 @@ public:
 
     explicit DogRepr(const model::Dog& dog)
         : id_(dog.GetId())
-          , pos_(dog.GetPos())
-          , width_(dog.GetWidth())
-          , speed_(dog.GetSpeed())
-          , direction_(dog.GetDirection())
-          , tag_(dog.GetTag())
-          , bag_capacity_(dog.GetBagCap())
-          , score_(dog.GetScore())
-          , bag_content_(dog.GetBag()) {
+        , pos_(dog.GetPos())
+        , width_(dog.GetWidth())
+        , speed_(dog.GetSpeed())
+        , direction_(dog.GetDirection())
+        , tag_(dog.GetTag())
+        , bag_capacity_(dog.GetBagCap())
+        , score_(dog.GetScore())
+        , bag_content_(dog.GetBag()) {
     }
 
     [[nodiscard]] model::Dog Restore() const {
@@ -111,20 +105,19 @@ private:
     model::Dog::BagContent bag_content_;
 };
 
-//TODO: Can use inheritance here also?
 class LootItemRepr {
 public:
     LootItemRepr() = default;
 
     explicit LootItemRepr(const model::LootItem& item)
         : id_(item.GetId())
-          , type_(item.GetType())
-          , pos_(item.GetPos())
-          , width_(item.GetWidth()) {
+        , type_(item.GetType())
+        , pos_(item.GetPos())
+        , width_(item.GetWidth()) {
     }
 
     app::LootItem Restore() const {
-        return model::LootItem{id_, pos_, width_, type_};
+        return model::LootItem{id_, pos_, width_, type_, value_};
     }
 
     template <typename Archive>
@@ -133,6 +126,7 @@ public:
         ar& type_;
         ar& pos_;
         ar& width_;
+        ar& value_;
     }
 
 private:
@@ -140,6 +134,7 @@ private:
     model::LootItem::Type type_ {0u};
     model::Point2D pos_;
     double width_ {0.0};
+    size_t value_;
 };
 
 class SessionRepr {
@@ -177,8 +172,8 @@ public:
 
     explicit PlayerRepr(const app::Player& player)
         : id_(player.GetId())
-          , session_id_(player.GetSession()->GetId())
-          , dog_id_(player.GetDog()->GetId()) {
+        , session_id_(player.GetSession()->GetId())
+        , dog_id_(player.GetDog()->GetId()) {
     }
 
     app::Player Restore() const {
@@ -203,10 +198,10 @@ public:
     explicit PlayerSessionManager(const app::PlayerSessionManager& psm)
         : tokens_(psm.GetAllTokens()) {
         for(const auto& player : psm.GetAllPlayers()) {
-            players_.emplace_back(player);
+            players_.emplace_back(PlayerRepr{player});
         }
         for(const auto& session : psm.GetAllSessions()) {
-            sessions_.emplace_back(session);
+            sessions_.emplace_back(SessionRepr{session});
         }
     }
 
@@ -217,7 +212,9 @@ public:
 
     template <typename Archive>
     void serialize(Archive& ar, [[maybe_unused]] const unsigned version) {
-
+        ar& tokens_;
+        ar& players_;
+        ar& sessions_;
     }
 
 private:

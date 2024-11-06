@@ -158,6 +158,18 @@ collision_detector::Item CollisionObject::AsCollisionItem() const {
     return {GetPos(), GetWidth()};
 }
 
+bool CollisionObject::IsCollectible() const {
+    return false;
+}
+
+bool CollisionObject::IsItemsReturn() const {
+    return false;
+}
+
+LootItemInfo CollisionObject::Collect() {
+    return {0u, 0u, 0u, false};
+}
+
 Speed DynamicObject::GetSpeed() const {
     return speed_;
 }
@@ -213,26 +225,39 @@ collision_detector::Gatherer DynamicObject::AsGatherer() const {
     return {GetPrevPos(), GetPos(), GetWidth()};
 }
 
-LootItem::LootItem(GameObject::Id id, Point2D pos, double width, LootItem::Type type)
+LootItem::LootItem(GameObject::Id id, Point2D pos, double width, LootItem::Type type, Score value)
     : CollisionObject(id, pos, width)
-    , type_(type) {}
+    , type_(type)
+    , value_(value) {
+}
 
 LootItem::Type LootItem::GetType() const {
     return type_;
 }
 
-bool LootItem::IsCollected() const {
-    return is_collected_;
+bool LootItem::IsCollectible() const {
+    return true;
 }
 
-LootItem::Info LootItem::Collect() {
-    is_collected_ = true;
-    return {GetId(), GetType()};
+LootItemInfo LootItem::Collect() {
+    const bool can_collect_item = !is_collected_;
+
+    //If item is not yet collected, update status
+    if(can_collect_item) {
+        is_collected_ = true;
+    }
+
+    return {GetId(), type_, value_, can_collect_item};
 }
+
 
 ItemsReturnPoint::ItemsReturnPoint(GameObject::Id id, const Office& office, double width)
 : CollisionObject(id, ToGeomPt(office.GetPosition()), width)
 , tag_(office.GetId()) {
+}
+
+bool ItemsReturnPoint::IsItemsReturn() const {
+    return true;
 }
 
 
@@ -259,20 +284,12 @@ Dog& Dog::SetBagCap(size_t capacity) {
     return *this;
 }
 
-bool Dog::TryCollectItem(const LootItemPtr& loot) {
-    if(BagIsFull() || loot->IsCollected()) {
-        return false;
-    }
-    bag_.push_back(loot->Collect());
-    return true;
-}
-
 //For restoring game state
-bool Dog::TryCollectItem(const LootItem::Info& loot_info) {
-    if(BagIsFull()) {
+bool Dog::TryCollectItem(LootItemInfo loot_info) {
+    if(BagIsFull() || !loot_info.can_collect) {
         return false;
     }
-    bag_.push_back(loot_info);
+    bag_.push_back(std::move(loot_info));
     return true;
 }
 
@@ -529,7 +546,7 @@ const Game::Maps& Game::GetMaps() const {
     return maps_;
 }
 
-gamedata::Settings Game::GetSettings() const {
+const gamedata::Settings& Game::GetSettings() const {
     return settings_;
 }
 
