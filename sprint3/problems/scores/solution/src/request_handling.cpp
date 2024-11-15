@@ -208,7 +208,7 @@ std::string ApiHandler::ExtractToken(const auto& request) const {
     return std::string{token_str};
 }
 
-app::PlayerPtr ApiHandler::AuthorizePlayer(const auto& request) const {
+app::ConstPlayerPtr ApiHandler::AuthorizePlayer(const auto& request) const {
     /// -->>  Authorise player
     app::Token token{std::move(ExtractToken(request))};
 
@@ -311,15 +311,13 @@ StringResponse ApiHandler::HandleApiRequest(const StringRequest& req) {
                 }
 
                 auto player = AuthorizePlayer(req);
-                const auto move_char_cmd = json_loader::ParseMove(req.body());
+                const auto move_command = json_loader::ParseMove(req.body());
 
-                const std::string allowed = "LURD"s;
-                if(!isblank(move_char_cmd) && allowed.find(move_char_cmd) == allowed.npos) {
+                if(!game_app_->MoveCommandValid(move_command)){
                     throw ApiError(ErrCode::token_invalid_argument);
                 }
 
-                game_app_->MovePlayer(player, move_char_cmd);
-
+                game_app_->SetPlayerMovement(player, move_command);
                 return to_html(http::status::ok, "{}");
             }
 

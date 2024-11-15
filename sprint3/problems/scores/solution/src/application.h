@@ -2,57 +2,37 @@
 // Created by Pavel on 22.08.24.
 //
 #pragma once
+#include <boost/asio/io_context.hpp>
 #include <deque>
 #include <filesystem>
-#include <memory>
-#include <random>
 #include <unordered_map>
 
 #include "app_util.h"
 #include "model.h"
+#include "loot_generator.h"
 
 namespace detail {
 struct TokenTag {};
 }  // namespace detail
 
 namespace app {
-//static constexpr char MOVE_CMD_STOP = '!';
-static constexpr char MOVE_CMD_ERR = '%';
+using namespace std::literals;
+namespace fs = std::filesystem;
+namespace net = boost::asio;
 
-using model::Game;
 using model::Map;
 using model::Dog;
-using model::Session;
+using model::Game;
+using model::GameObject;
+using model::LootItem;
 
-namespace fs = std::filesystem;
-
-using SessionPtr = Session*;
-using DogPtr = Dog*;
-
-class Player {
- public:
-    Player(size_t id, SessionPtr session, DogPtr dog);
-
-    size_t GetId() const { return id_; }
-    Dog* GetDog() { return dog_; }
-    Session* GetSession() { return session_; }
-
-    const Dog* GetDog() const { return dog_; }
-    const Session* GetSession() const { return session_; }
-    const Map* GetMap() const { return GetSession()->GetMap(); }
-
-    size_t GetDogId() const { return dog_->GetId(); }
-    model::Point2D GetPos() const { return dog_->GetPos(); }
-    model::Speed GetSpeed() const { return dog_->GetSpeed(); }
-    model::Dir GetDir() const { return dog_->GetDir(); }
-    model::BagItems GetBagItems() const { return dog_->GetBagItems(); }
-    size_t GetScore() const { return session_->GetPlayerScore(GetDogId()); }
-
- private:
-    const size_t id_ = 0;
-    SessionPtr session_;
-    DogPtr dog_;
-};
+using model::MapPtr;
+using model::DogPtr;
+using model::ConstDogPtr;
+using model::LootItemPtr;
+using model::ItemsReturnPointPtr;
+using model::CollisionObjectPtr;
+using model::ItemsReturnPoint;
 
 using Token = util::Tagged<std::string, detail::TokenTag>;
 
@@ -60,74 +40,205 @@ struct TokenHasher {
     size_t operator()(const Token& token) const;
 };
 
-using GamePtr = std::shared_ptr<Game>;
-using PlayerPtr = Player*;
-using TokenPtr = const Token*;
 
-using PlayerId = size_t;
-using DogId = size_t;
-
-class Players {
+//=================================================
+//=================== Session =====================
+class Session {
  public:
-    explicit Players(const GamePtr& game);
-    explicit Players(GamePtr&& game);
+    using Id = size_t;
+    using Dogs = std::unordered_map<Dog::Id, Dog>;
+    using LootItems = std::deque<LootItemPtr>;
+    using Offices = std::deque<ItemsReturnPointPtr>;
 
-    Player& Add(Dog* dog, Session* session);
+    using Gatherers = std::deque<DogPtr>;
+    using CollisionObjects = std::deque<CollisionObjectPtr>;
 
-    PlayerPtr GetByToken(const Token& token) const;
-    PlayerPtr GetByMapDogId(const  Map::Id& map_id, size_t dog_id) const;
-    TokenPtr GetToken(const Player& player) const;
+    //TODO: make a sep. strand for session
+    Session(Id id, MapPtr map, gamedata::Settings settings/*, net::io_context& io*/);
 
-    const Session* GetPlayerGameSession(PlayerPtr player) const;
+    size_t GetId() const;
+    model::ConstMapPtr GetMap() const;
+    model::TimeMs GetTime() const;
 
-    std::vector<app::PlayerPtr> GetAllPlayersInSession(PlayerPtr player) const;
-    const std::deque<model::LootItem>& GetSessionLootList(PlayerPtr player) const;
+    const Map::Id& GetMapId() const;
+    size_t GetDogCount() const;
+    size_t GetLootCount() const;
+    double GetDogSpeedVal() const;
 
- private:
-    GamePtr game_;
-    std::deque<Player> players_;
-    PlayerId next_player_id_ = 0;
+    const Dogs& GetDogs() const;
 
-    using TokenIt = std::unordered_map<Token, PlayerId>::iterator;
+    ConstDogPtr GetDog(Dog::Id id) const;
 
-    //Indices for search
-    std::unordered_map<Token, PlayerId, TokenHasher> token_to_player_;
-    std::unordered_map<PlayerId, TokenIt> player_to_token_;
+    const LootItems& GetLootItems() const;
 
-    using MapDogIdToPlayer = std::unordered_map< Map::Id, std::unordered_map<DogId, PlayerId>,  util::TaggedHasher<Map::Id>>;
-    MapDogIdToPlayer map_dog_id_to_player_;
+    //At construction there are 0 dogs. Session is always on 1 map
+    //When a player is added, he gets a new dog to control
+    DogPtr AddDog(Dog dog);
+    DogPtr AddDog(Dog::Id& id, Dog::Tag name);
+
+    void AddLootItem(LootItem::Id& id, LootItem::Type type, model::Point2D pos);
+    void AddRandomLootItems(size_t num_items);
+
+    void RemoveDog(Dog::Id dog_id);
+    void RemoveLootItem(GameObject::Id loot_item_id);
+
+    void AdvanceTime(model::TimeMs delta_t);
+
+private:
+    //net::strand<net::io_context::executor_type> strand_;
+    const Id id_;
+    model::TimeMs session_time_ {0u};
+    // size_t deleted_objects_counter_ {0u};
+    // GameObject::Id next_dog_id_ {0u};
+    GameObject::Id next_object_id_ {0u};
+
+    Dogs dogs_;
+    LootItems loot_items_;
+    Offices offices_;
+
+    Gatherers gatherers_;
+    CollisionObjects objects_;
+
+    MapPtr map_;
+    gamedata::Settings settings_;
+    loot_gen::LootGenerator loot_generator_;
+    model::CollisionDetector<CollisionObjects, Gatherers> collision_detector_;
+
+    void AddOffices(const Map::Offices& offices);
+
+    void MoveDog(Dog& dog, model::TimeMs delta_t);
+    void MoveAllDogs(model::TimeMs delta_t);
+
+    void GenerateLoot(model::TimeMs delta_t);
+    void ProcessCollisions() const;
+
+    // void HandleCollision(const model::LootItemPtr& loot, const DogPtr& dog) const;
+    // void HandleCollision(const model::ItemsReturnPointPtr& office, const DogPtr& dog) const;
 };
 
+using SessionPtr = Session*;
+using ConstSessionPtr = const Session*;
+
+
+//=================================================
+//=================== Player ======================
+class Player {
+ public:
+    using Id = size_t;
+    Player(Id id, SessionPtr session, DogPtr dog);
+
+    size_t GetId() const { return id_; }
+    DogPtr GetDog() { return dog_; }
+    SessionPtr GetSession() { return session_; }
+
+    model::ConstDogPtr GetDog() const { return dog_; }
+    model::ConstMapPtr GetMap() const { return GetSession()->GetMap(); }
+    SessionPtr GetSession() const { return session_; }
+
+    size_t GetScore() const { return dog_->GetScore(); }
+    void SetDirection(model::Direction dir) const;
+
+ private:
+    const Id id_;
+    SessionPtr session_;
+    DogPtr dog_;
+};
+
+using GamePtr = std::shared_ptr<Game>;
+using PlayerPtr = Player*;
+using ConstPlayerPtr = const Player*;
+using TokenPtr = const Token*;
+
+
+//=================================================
+//========= Player & Session Manager ==============
+class PlayerSessionManager {
+ public:
+    using Players = std::unordered_map<Player::Id, Player>;
+    using Sessions = std::unordered_map<Session::Id, Session>;
+    using TokenToPlayer = std::unordered_map<Token, Player::Id, TokenHasher>;
+    using MapToSession = std::unordered_map<Map::Id, Session::Id, util::TaggedHasher<Map::Id>>;
+
+    explicit PlayerSessionManager(const GamePtr& game);
+    explicit PlayerSessionManager(GamePtr&& game);
+
+    PlayerPtr CreatePlayer(Map::Id map, Dog::Tag dog_tag);
+    PlayerPtr AddPlayer(Player::Id& id, DogPtr dog, SessionPtr session, Token token);
+
+    SessionPtr JoinOrCreateSession(Session::Id& session_id, const Map::Id& map_id);
+    TokenPtr GetToken(const PlayerPtr& player) const;
+
+    const TokenToPlayer& GetAllTokens() const;
+    const Players& GetAllPlayers() const;
+    const Sessions& GetAllSessions() const;
+
+    ConstPlayerPtr GetPlayerByToken(const Token& token) const;
+    ConstPlayerPtr GetPlayerByMapDogId(const Map::Id& map_id, size_t dog_id) const;
+
+    static ConstSessionPtr GetPlayerGameSession(ConstPlayerPtr& player);
+    std::vector<ConstPlayerPtr> GetAllPlayersInSession(ConstPlayerPtr& player) const;
+    static const Session::LootItems& GetSessionLootList(ConstPlayerPtr& player);
+
+    void AdvanceTime(model::TimeMs delta_t);
+
+private:
+    GamePtr game_;
+    Players players_;
+    Sessions sessions_;
+
+    Dog::Id next_dog_id_ {0u};
+    Player::Id next_player_id_ {0u};
+    Session::Id next_session_id_ {0u};
+
+    //Indices for search
+    using TokenIt = std::unordered_map<Token, Player::Id>::iterator;
+    TokenToPlayer token_to_player_;
+    std::unordered_map<Player::Id, TokenIt> player_to_token_;
+
+    MapToSession map_to_session_index_;
+
+    using MapDogIdToPlayer = std::unordered_map<Map::Id, std::unordered_map<Dog::Id, Player::Id>,  util::TaggedHasher<Map::Id>>;
+    MapDogIdToPlayer map_dog_id_to_player_index_;
+};
+
+
+//=================================================
+//================= GameInterface =================
 struct JoinGameResult {
-    PlayerId player_id;
+    Player::Id player_id;
     const Token* token;
 };
 
 class GameInterface {
  public:
     //GameInterface(const fs::path& game_config);
-    GameInterface(GamePtr& game_ptr);
+    GameInterface(net::io_context& io, const GamePtr& game_ptr);
 
     //use cases
-    const Map* GetMap(std::string_view map_id) const;
+    model::ConstMapPtr GetMap(std::string_view map_id) const;
     const Game::Maps& ListAllMaps() const;
 
-    void MovePlayer(PlayerPtr player, const char move_command);
+    bool MoveCommandValid(char move_command) const;
+    void SetPlayerMovement(ConstPlayerPtr& player, const char move_command);
     void AdvanceGameTime(model::TimeMs delta_t);
 
     JoinGameResult JoinGame(std::string_view map_id_str, std::string_view player_dog_name);
-    PlayerPtr FindPlayerByToken(const Token& token) const;
+    ConstPlayerPtr FindPlayerByToken(const Token& token) const;
 
     //Returns the player's game session
-    const model::Session* GetSession(PlayerPtr player) const;
+    ConstSessionPtr GetSession(ConstPlayerPtr& player) const;
 
     //Returns vector of all players in same session as player
-    std::vector<app::PlayerPtr> GetPlayerList(PlayerPtr player) const;
-    const std::deque<model::LootItem>& GetLootList(PlayerPtr player) const;
+    std::vector<ConstPlayerPtr> GetPlayerList(ConstPlayerPtr& player) const;
+    const Session::LootItems& GetLootList(ConstPlayerPtr& player) const;
 
  private:
+    net::io_context& io_;
     GamePtr game_;
-    Players players_;
+    PlayerSessionManager player_manager_;
+
+    //TODO: use from GameSettings
+    static constexpr auto valid_move_chars_ = "UDLR"sv;
 
 };
 

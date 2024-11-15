@@ -2,10 +2,11 @@
 // Created by ps on 8/22/24.
 //
 
-#include "application.h"
+#include <algorithm>
 #include <iomanip>
 #include <sstream>
 
+#include "application.h"
 //DEBUG
 #include <iostream>
 
@@ -27,143 +28,401 @@ app::Token GenerateToken() {
 }
 
 namespace app {
-Player::Player(size_t id, SessionPtr session, DogPtr dog)
-    : id_(id)
-    , session_(std::move(session))
-    , dog_(std::move(dog)) {
-}
-
-Players::Players(const GamePtr& game)
-    : game_(game) {
-}
-
-Players::Players(GamePtr&& game)
-    : game_(std::move(game)) {
-}
-
-Player& Players::Add(model::Dog* dog, model::Session* session) {
-    Player& player = players_.emplace_back(next_player_id_, session, dog);
-
-    //update indices
-    auto token_result = token_to_player_.emplace(std::move(GenerateToken()), next_player_id_);
-    player_to_token_[next_player_id_] = token_result.first;
-
-    //post-increment next player id after final use here
-    map_dog_id_to_player_[session->GetMapId()][dog->GetId()] = next_player_id_++;
-
-    return player;
-}
-
-PlayerPtr Players::GetByToken(const Token& token) const {
-    auto it = token_to_player_.find(token);
-
-    //TODO: Avoid const_cast here?
-    return it == token_to_player_.end() ? nullptr
-    : const_cast<PlayerPtr>(&players_.at(it->second));
-}
-
-PlayerPtr Players::GetByMapDogId(const model::Map::Id& map_id, size_t dog_id) const {
-    if(map_dog_id_to_player_.count(map_id) == 0 ||
-        map_dog_id_to_player_.at(map_id).count(dog_id) == 0) {
-        return nullptr;
-    }
-    //TODO: Avoid const_cast here?
-    return const_cast<PlayerPtr>(&players_.at(map_dog_id_to_player_.at(map_id).at(dog_id)));
-}
-
-TokenPtr Players::GetToken(const Player& player) const {
-    auto it = player_to_token_.find(player.GetId());
-    if(it == player_to_token_.end()) {
-        return nullptr;
-    }
-    auto& token = (it->second)->first;
-    return &token;
-
-}
-
-const model::Session* Players::GetPlayerGameSession(PlayerPtr player) const {
-    return player->GetSession();
-}
-
-const std::deque<model::LootItem>& Players::GetSessionLootList(PlayerPtr player) const {
-    return player->GetSession()->GetLootItems();
-}
-
-std::vector<app::PlayerPtr> Players::GetAllPlayersInSession(PlayerPtr player) const {
-    std::vector<PlayerPtr> result;
-
-    auto player_session = player->GetSession();
-    const auto& map_id = player_session->GetMapId();
-
-    for(const auto& dog : player_session->GetAllDogs()) {
-        result.push_back(GetByMapDogId(map_id, dog.GetId()));
-    }
-    return result;
-}
-
 size_t TokenHasher::operator()(const Token& token) const {
     auto str_hasher = std::hash<std::string>();
     return str_hasher(*token);
 }
 
-//GameInterface::GameInterface(const fs::path& game_config)
-//    : game_(std::make_shared<Game>(/*load from json*/))
-//    , players_(game_){
-//}
+//=================================================
+//=================== Session =====================
+Session::Session(size_t id, MapPtr map, gamedata::Settings settings)
+    : id_(id)
+      , map_(map)
+      , settings_(std::move(settings))
+      , loot_generator_(settings_.loot_gen_interval, settings_.loot_gen_prob)
+      , collision_detector_(objects_, gatherers_) {
 
-GameInterface::GameInterface(GamePtr& game_ptr)
-    : game_(game_ptr)
-    , players_(game_){
+    //Set map bag & speed settings if specified
+    settings_.map_dog_speed = map_->GetDogSpeed();
+    settings_.map_bag_capacity = map_->GetBagCapacity();
+
+    AddOffices(map_->GetOffices());
 }
 
-const model::Session* GameInterface::GetSession(PlayerPtr player) const {
-    return players_.GetPlayerGameSession(player);
-}
-std::vector<app::PlayerPtr> GameInterface::GetPlayerList(PlayerPtr player) const {
-    return players_.GetAllPlayersInSession(player);
+size_t Session::GetId() const {
+    return id_;
 }
 
-const std::deque<model::LootItem>& GameInterface::GetLootList(PlayerPtr player) const {
-    return players_.GetSessionLootList(player);
+model::ConstMapPtr Session::GetMap() const {
+    return map_;
 }
 
-PlayerPtr GameInterface::FindPlayerByToken(const Token& token) const {
-    return players_.GetByToken(token);
+model::TimeMs Session::GetTime() const {
+    return session_time_;
 }
 
-JoinGameResult GameInterface::JoinGame(std::string_view map_id_str, std::string_view player_dog_name) {
-    auto session = game_->JoinSession(model::Map::Id(std::string(map_id_str)));
-    auto dog = session->AddDog(std::move(std::string(player_dog_name)));
-    auto player = players_.Add(dog, session);
-
-    // <-Make response, send player token
-    auto token = players_.GetToken(player);
-    return {player.GetId(), token};
+const Map::Id &Session::GetMapId() const {
+    return map_->GetId();
 }
 
-void GameInterface::MovePlayer(PlayerPtr p, const char move_command) {
-    //use default speed if map speed not set
-    double speed_value = p->GetMap()->GetDogSpeed().has_value()
-        ? p->GetMap()->GetDogSpeed().value() : game_->GetDefaultDogSpeed();
+size_t Session::GetDogCount() const {
+    return dogs_.size();
+}
 
-    p->GetDog()->SetMove(static_cast<model::Dir>(move_command), speed_value);
+size_t Session::GetLootCount() const {
+    return loot_items_.size();
+}
+
+double Session::GetDogSpeedVal() const {
+    return settings_.GetDogSpeed();
+}
+
+const Session::Dogs &Session::GetDogs() const {
+    return dogs_;
+}
+
+ConstDogPtr Session::GetDog(Dog::Id id) const {
+    const auto& dog_it = dogs_.find(id);
+    return dog_it == dogs_.end()
+               ? nullptr
+               : &(dog_it->second);
+}
+
+const Session::LootItems &Session::GetLootItems() const {
+    return loot_items_;
+}
+
+DogPtr Session::AddDog(Dog dog) {
+    auto dog_id = dog.GetId();
+    const auto [dog_map_it, success] = dogs_.emplace(dog_id, std::move(dog));
+
+    //Dog with this id already exists
+    if(!success) {
+        if(dog_map_it->second.GetTag() != dog.GetTag()) {
+            throw std::runtime_error("Different dog with this id already exists");
+        }
+        return &dog_map_it->second;
+    }
+    return gatherers_.emplace_back(&dog_map_it->second);
+}
+
+//---------------------------------------------------------
+DogPtr Session::AddDog(Dog::Id& id, Dog::Tag name) {
+    const auto starting_pos = settings_.randomised_dog_spawn
+                            ? map_->GetRandomRoadPt()
+                            : map_->GetFirstRoadPt();
+
+    const auto [dog_map_it, success] = dogs_.emplace(id,
+        Dog{id, starting_pos, settings_.dog_width
+        , Dog::Tag(std::move(name)), settings_.GetBagCap()
+    });
+
+    if(!success) {
+        if(dog_map_it->second.GetTag() != name) {
+            throw std::runtime_error("Different dog with this id already exists");
+        }
+        return &dog_map_it->second;
+    }
+    //update id & gatherers index
+    ++id;
+    return gatherers_.emplace_back(&dog_map_it->second);
+}
+
+void Session::AddLootItem(LootItem::Id& id, LootItem::Type type, model::Point2D pos) {
+    loot_items_.emplace_back(std::make_shared<LootItem>(
+        id, pos, settings_.loot_item_width, type, map_->GetLootItemValue(type)
+    ));
+    ++id;
+}
+
+void Session::AddRandomLootItems(size_t num_items) {
+    for (int i = 0; i < num_items; ++i) {
+        AddLootItem(
+            next_object_id_,
+            model::GenRandomNum(map_->GetLootTypesSize()),
+            map_->GetRandomRoadPt()
+        );
+    }
+}
+
+void Session::RemoveDog(Dog::Id dog_id) {
+    dogs_.erase(dog_id);
+    gatherers_.erase(
+        std::ranges::find_if(gatherers_, [dog_id](const DogPtr& dog_ptr) {
+            return dog_ptr->GetId() == dog_id;
+        })
+    );
+}
+
+void Session::RemoveLootItem(GameObject::Id loot_item_id) {
+
+    auto it = std::ranges::find_if(loot_items_, [loot_item_id](const LootItemPtr& item) {
+        return item->GetId() == loot_item_id;
+    });
+
+    //Delete item and remove from deque
+    it->reset();
+    loot_items_.erase(it);
+}
+
+void Session::AdvanceTime(model::TimeMs delta_t) {
+    session_time_ += delta_t;
+
+    MoveAllDogs(delta_t);
+    ProcessCollisions();
+
+    //Generate loot after, so that a loot item is not randomly picked up by dog
+    GenerateLoot(delta_t);
+}
+
+void Session::AddOffices(const Map::Offices& offices) {
+    for(const auto& office : map_->GetOffices()) {
+        const auto& off_ptr = offices_.emplace_back(std::make_shared<ItemsReturnPoint>(
+            next_object_id_++, office, settings_.office_width
+        ));
+
+        objects_.emplace_back(off_ptr);
+    }
+}
+
+//---------------------------------------------------------
+void Session::MoveDog(Dog& dog, model::TimeMs delta_t) {
+    //Operators for time-distance calculations
+    using model::operator+;
+    using model::operator*;
+
+    model::Point2D max_move_pt = dog.GetPos() + dog.GetSpeed() * delta_t;
+    Map::MoveResult move_result = map_->ComputeRoadMove(dog.GetPos(), max_move_pt);
+    if (move_result.road_edge_reached_) {
+        dog.Stop();
+    }
+    dog.SetPos(move_result.dst);
+}
+
+void Session::MoveAllDogs(model::TimeMs delta_t) {
+    for (auto& [id, dog]: dogs_) {
+        MoveDog(dog, delta_t);
+    }
+}
+
+void Session::GenerateLoot(model::TimeMs delta_t) {
+#ifdef GATHER_DEBUG
+    if(loot_items_.empty()) {
+        AddLootItem(0, {0.0, 50.0});
+    }
+#else
+    auto num_of_new_items = loot_generator_.Generate(delta_t, GetLootCount(), GetDogCount());
+    AddRandomLootItems(num_of_new_items);
+#endif
+}
+
+//---------------------------------------------------------
+void Session::ProcessCollisions() const {
+    auto collision_events = collision_detector_.FindCollisions();
+    for (const auto& event : collision_events) {
+        const auto& dog = gatherers_.at(event.gatherer_id);
+        dog->ProcessCollision(objects_.at(event.item_id));
+    }
+}
+
+//=================================================
+//=================== Player ======================
+Player::Player(size_t id, SessionPtr session, DogPtr dog)
+    : id_(id)
+      , session_(std::move(session))
+      , dog_(std::move(dog)) {
+}
+
+void Player::SetDirection(model::Direction dir) const {
+    dog_->SetMovement(dir, session_->GetDogSpeedVal());
+}
+
+//=================================================
+//=============PlayerManager ======================
+PlayerSessionManager::PlayerSessionManager(const GamePtr& game)
+    : game_(game) {
+}
+
+PlayerSessionManager::PlayerSessionManager(GamePtr&& game)
+    : game_(std::move(game)) {
+}
+
+PlayerPtr PlayerSessionManager::CreatePlayer(Map::Id map, Dog::Tag dog_tag) {
+    auto session = JoinOrCreateSession(next_session_id_, map);
+    auto dog = session->AddDog(next_dog_id_, dog_tag);
+    return AddPlayer(next_player_id_, dog, session, GenerateToken());
 }
 
 
-const Game::Maps& GameInterface::ListAllMaps() const {
-    return game_->GetMaps();
+PlayerPtr PlayerSessionManager::AddPlayer(Player::Id& id, DogPtr dog, SessionPtr session, Token token) {
+    //TODO: check for duplicate token? Catch error and pop back player?
+    const auto [player_it, success] = players_.emplace(id, Player{id, session, dog});
+
+    //update indices
+    auto token_result = token_to_player_.emplace(std::move(token), id);
+    player_to_token_[id] = token_result.first;
+    map_dog_id_to_player_index_[session->GetMapId()][dog->GetId()] = id;
+
+    //Success;
+    ++id;
+    return &player_it->second;
 }
 
-const Map* GameInterface::GetMap(std::string_view map_id) const {
-    Map::Id id(std::move(std::string(map_id)));
-    return game_->FindMap(id);
+ConstPlayerPtr PlayerSessionManager::GetPlayerByToken(const Token& token) const {
+    if (auto it = token_to_player_.find(token); it != token_to_player_.end()) {
+         return &players_.at(it->second);
+    }
+    return nullptr;
 }
 
-void GameInterface::AdvanceGameTime(model::TimeMs delta_t) {
-    auto& sessions = game_->GetSessions();
-    for(auto& session : sessions) {
+ConstPlayerPtr PlayerSessionManager::GetPlayerByMapDogId(const model::Map::Id& map_id, size_t dog_id) const {
+    if (!map_dog_id_to_player_index_.contains(map_id)
+        || !map_dog_id_to_player_index_.at(map_id).contains(dog_id)) {
+        return nullptr;
+    }
+    return &players_.at(map_dog_id_to_player_index_.at(map_id).at(dog_id));
+}
+
+TokenPtr PlayerSessionManager::GetToken(const PlayerPtr& player) const {
+    auto it = player_to_token_.find(player->GetId());
+    if (it == player_to_token_.end()) {
+        return nullptr;
+    }
+    auto& token = (it->second)->first;
+    return &token;
+}
+
+const PlayerSessionManager::TokenToPlayer& PlayerSessionManager::GetAllTokens() const {
+    return token_to_player_;
+}
+
+const PlayerSessionManager::Players& PlayerSessionManager::GetAllPlayers() const {
+    return players_;
+}
+
+const PlayerSessionManager::Sessions& PlayerSessionManager::GetAllSessions() const {
+    return sessions_;
+}
+
+SessionPtr PlayerSessionManager::JoinOrCreateSession(Session::Id& session_id, const Map::Id& map_id) {
+    //Check if a session exixts on map. GetMapSessions checks that mapid is valid
+    const auto map_ptr = game_->FindMap(map_id);
+    if(!map_ptr) {
+        //DEBUG
+        std::cerr << "Cannot join session, map not found";
+        return nullptr;
+    }
+    //No sessions on map, create new session
+    auto existing_session_it = map_to_session_index_.find(map_id);
+    if(existing_session_it == map_to_session_index_.end()) {
+        const auto& [session_it, success] = sessions_.emplace(session_id,
+            Session{session_id, map_ptr, game_->GetSettings()}
+        );
+
+        try {
+            map_to_session_index_.emplace(map_id, session_id);
+
+            //if successfully emplaced session, increment session id
+            ++session_id;
+            return &session_it->second;
+        } catch (std::exception& ex) {
+            //DEBUG
+            std::cerr << "Failed to create new session on map: " << ex.what();
+            throw std::runtime_error("Failed to make a new session on map");
+        }
+    }
+    //A session exists and can be joined
+    return &sessions_.at(existing_session_it->second);
+}
+
+ConstSessionPtr PlayerSessionManager::GetPlayerGameSession(ConstPlayerPtr& player) {
+    return player->GetSession();
+}
+
+std::vector<ConstPlayerPtr> PlayerSessionManager::GetAllPlayersInSession(ConstPlayerPtr& player) const {
+    std::vector<ConstPlayerPtr> result;
+
+    auto player_session = player->GetSession();
+    const auto& map_id = player_session->GetMapId();
+
+    for (const auto& [dog_id, _ ] : player_session->GetDogs()) {
+        std::cerr << dog_id << std::endl;
+        result.push_back(GetPlayerByMapDogId(map_id, dog_id));
+    }
+    return result;
+}
+
+const Session::LootItems &PlayerSessionManager::GetSessionLootList(ConstPlayerPtr& player) {
+    return player->GetSession()->GetLootItems();
+}
+
+void PlayerSessionManager::AdvanceTime(model::TimeMs delta_t) {
+    for(auto& [_, session] : sessions_) {
         session.AdvanceTime(delta_t);
     }
 }
 
+
+//=================================================
+//============= GameInterface =====================
+GameInterface::GameInterface(net::io_context& io, const GamePtr& game_ptr)
+    : io_(io)
+    , game_(game_ptr)
+    , player_manager_(game_) {
 }
+
+ConstSessionPtr GameInterface::GetSession(ConstPlayerPtr& player) const {
+    return player_manager_.GetPlayerGameSession(player);
+}
+
+std::vector<ConstPlayerPtr> GameInterface::GetPlayerList(ConstPlayerPtr& player) const {
+    return player_manager_.GetAllPlayersInSession(player);
+}
+
+const Session::LootItems &GameInterface::GetLootList(ConstPlayerPtr& player) const {
+    return player_manager_.GetSessionLootList(player);
+}
+
+ConstPlayerPtr GameInterface::FindPlayerByToken(const Token& token) const {
+    return player_manager_.GetPlayerByToken(token);
+}
+
+JoinGameResult GameInterface::JoinGame(std::string_view map_id_str, std::string_view player_dog_name) {
+    //TODO: make a new strand for a new session
+    //auto api_strand = net::make_strand(ioc);
+
+    const Map::Id map_id{std::move(std::string(map_id_str))};
+    const Dog::Tag dog_tag{std::move(std::string(player_dog_name))};
+
+    const auto player = player_manager_.CreatePlayer(map_id, dog_tag);
+
+    // <-Make response, send player token
+    auto token = player_manager_.GetToken(player);
+    return {player->GetId(), token};
+}
+
+void GameInterface::SetPlayerMovement(ConstPlayerPtr& player, const char move_command) {
+    //use game default speed if map speed not set
+    auto dir = static_cast<model::Direction>(move_command);
+    player->SetDirection(dir);
+}
+
+
+const Game::Maps &GameInterface::ListAllMaps() const {
+    return game_->GetMaps();
+}
+
+model::ConstMapPtr GameInterface::GetMap(std::string_view map_id) const {
+    return game_->FindMap(Map::Id(std::string(map_id)));
+}
+
+void GameInterface::AdvanceGameTime(model::TimeMs delta_t) {
+    player_manager_.AdvanceTime(delta_t);
+}
+
+bool GameInterface::MoveCommandValid(const char move_command) const {
+    const auto& valid_move_chars = game_->GetSettings().valid_move_chars;
+    return !isblank(move_command)
+           && valid_move_chars.find(move_command) != valid_move_chars_.npos;
+}
+} //namespace app

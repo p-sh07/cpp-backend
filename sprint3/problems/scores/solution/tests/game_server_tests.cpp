@@ -1,6 +1,7 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include "../src/model.h"
+#include "../src/loot_generator.h"
 
 SCENARIO("Game model testing") {
  //... ?

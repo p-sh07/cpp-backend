@@ -3,6 +3,8 @@
 //
 #pragma once
 #include <boost/json.hpp>
+#include <chrono>
+#include <optional>
 
 namespace gamedata {
 using namespace std::literals;

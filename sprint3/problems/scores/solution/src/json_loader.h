@@ -34,31 +34,35 @@ std::string PrintMapList(const model::Game::Maps& map_list);
 const char ParseMove(const std::string& request_body);
 model::TimeMs ParseTick(const std::string& request_body);
 
-std::string PrintPlayerList(const std::vector<app::PlayerPtr>& players);
-std::string PrintGameState(const app::PlayerPtr player, const std::shared_ptr<app::GameInterface>& game_app);
+std::string PrintPlayerList(const std::vector<app::ConstPlayerPtr>& players);
+std::string PrintGameState(app::ConstPlayerPtr& player, const std::shared_ptr<app::GameInterface>& game_app);
 
 model::Game LoadGame(const std::filesystem::path& json_path);
 } // namespace json_loader
 
 
 //======= Json tag_invoke overloads ===========
-//tag_invoke needs to be in namespace model for correct ADL behaviour
-namespace model {
-
+namespace geom {
 namespace json = boost::json;
-
-//Pos, dir, speed
-void tag_invoke(const json::value_from_tag&, json::value& jv, Point const& pt);
-Point tag_invoke(const json::value_to_tag<Point>&, json::value const& jv);
 
 void tag_invoke(const json::value_from_tag&, json::value& jv, Point2D const& pt);
 Point2D tag_invoke(const json::value_to_tag<Point2D>&, json::value const& jv);
 
-void tag_invoke(const json::value_from_tag&, json::value& jv, Dir const& dir);
-Dir tag_invoke(const json::value_to_tag<Dir>&, json::value const& jv);
+void tag_invoke(const json::value_from_tag&, json::value& jv, Vec2D const& speed);
+Vec2D tag_invoke(const json::value_to_tag<Vec2D>&, json::value const& jv);
+}
 
-void tag_invoke(const json::value_from_tag&, json::value& jv, Speed const& speed);
-Speed tag_invoke(const json::value_to_tag<Speed>&, json::value const& jv);
+//tag_invoke needs to be in namespace model for correct ADL behaviour
+namespace model {
+
+namespace json = boost::json;
+//Point
+void tag_invoke(const json::value_from_tag&, json::value& jv, Point const& pt);
+Point tag_invoke(const json::value_to_tag<Point>&, json::value const& jv);
+
+//Dir
+void tag_invoke(const json::value_from_tag&, json::value& jv, Direction const& dir);
+Direction tag_invoke(const json::value_to_tag<Direction>&, json::value const& jv);
 
 //Map overloads
 void tag_invoke(const json::value_from_tag&, json::value& jv, Map const& map);
@@ -76,7 +80,7 @@ Building tag_invoke(const json::value_to_tag<Building>&, json::value const& jv);
 void tag_invoke(const json::value_from_tag&, json::value& jv, Office const& offc);
 Office tag_invoke(const json::value_to_tag<Office>&, json::value const& jv);
 
-//Bag Items
-void tag_invoke(const json::value_from_tag&, json::value& jv, BagItems const& bag);
+//BagContent Items
+void tag_invoke(const json::value_from_tag&, json::value& jv, Dog::BagContent const& bag);
 
 } // namespace model

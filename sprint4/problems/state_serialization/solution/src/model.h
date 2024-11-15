@@ -321,8 +321,8 @@ private:
     BagContent bag_;
 };
 
-using DogPtr = std::shared_ptr<Dog>;
-using ConstDogPtr = std::shared_ptr<const Dog>;
+using DogPtr = Dog*;
+using ConstDogPtr = const Dog*;
 
 
 //=================================================

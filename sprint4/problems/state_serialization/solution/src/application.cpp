@@ -81,11 +81,11 @@ const Session::Dogs &Session::GetDogs() const {
     return dogs_;
 }
 
-DogPtr Session::GetDog(Dog::Id id) const {
+ConstDogPtr Session::GetDog(Dog::Id id) const {
     const auto& dog_it = dogs_.find(id);
     return dog_it == dogs_.end()
                ? nullptr
-               : std::make_shared<Dog>(dog_it->second);
+               : &(dog_it->second);
 }
 
 const Session::LootItems &Session::GetLootItems() const {
@@ -96,42 +96,49 @@ DogPtr Session::AddDog(Dog dog) {
     auto dog_id = dog.GetId();
     const auto [dog_map_it, success] = dogs_.emplace(dog_id, std::move(dog));
 
-    //Dog with this id didn't exist before, add to gatherers_ index
-    if(success) {
-        return gatherers_.emplace_back(std::make_shared<Dog>(dog_map_it->second));
+    //Dog with this id already exists
+    if(!success) {
+        if(dog_map_it->second.GetTag() != dog.GetTag()) {
+            throw std::runtime_error("Different dog with this id already exists");
+        }
+        return &dog_map_it->second;
     }
-    return std::make_shared<Dog>(dog_map_it->second);
+    return gatherers_.emplace_back(&dog_map_it->second);
 }
 
 //---------------------------------------------------------
-DogPtr Session::AddDog(Dog::Id id, Dog::Tag name) {
+DogPtr Session::AddDog(Dog::Id& id, Dog::Tag name) {
     const auto starting_pos = settings_.randomised_dog_spawn
                             ? map_->GetRandomRoadPt()
                             : map_->GetFirstRoadPt();
 
-    const auto emplace_result = dogs_.emplace(id,
+    const auto [dog_map_it, success] = dogs_.emplace(id,
         Dog{id, starting_pos, settings_.dog_width
         , Dog::Tag(std::move(name)), settings_.GetBagCap()
     });
 
-    if(!emplace_result.second) {
-        throw std::runtime_error("Failed to create & add dog to Session");
+    if(!success) {
+        if(dog_map_it->second.GetTag() != name) {
+            throw std::runtime_error("Different dog with this id already exists");
+        }
+        return &dog_map_it->second;
     }
-
-    //update gatherers index
-    return std::make_shared<Dog>(emplace_result.first->second);
+    //update id & gatherers index
+    ++id;
+    return gatherers_.emplace_back(&dog_map_it->second);
 }
 
-void Session::AddLootItem(LootItem::Id id, LootItem::Type type, model::Point2D pos) {
+void Session::AddLootItem(LootItem::Id& id, LootItem::Type type, model::Point2D pos) {
     loot_items_.emplace_back(std::make_shared<LootItem>(
         id, pos, settings_.loot_item_width, type, map_->GetLootItemValue(type)
     ));
+    ++id;
 }
 
 void Session::AddRandomLootItems(size_t num_items) {
     for (int i = 0; i < num_items; ++i) {
         AddLootItem(
-            next_object_id_++,
+            next_object_id_,
             model::GenRandomNum(map_->GetLootTypesSize()),
             map_->GetRandomRoadPt()
         );
@@ -241,24 +248,24 @@ PlayerSessionManager::PlayerSessionManager(GamePtr&& game)
 }
 
 PlayerPtr PlayerSessionManager::CreatePlayer(Map::Id map, Dog::Tag dog_tag) {
-    auto session = JoinOrCreateSession(next_session_id_++, map);
-    auto dog = session->AddDog(next_dog_id_++, dog_tag);
-    return AddPlayer(next_player_id_++, dog, session, GenerateToken());
+    auto session = JoinOrCreateSession(next_session_id_, map);
+    auto dog = session->AddDog(next_dog_id_, dog_tag);
+    return AddPlayer(next_player_id_, dog, session, GenerateToken());
 }
 
 
-PlayerPtr PlayerSessionManager::AddPlayer(Player::Id id, DogPtr dog, SessionPtr session, Token token) {
+PlayerPtr PlayerSessionManager::AddPlayer(Player::Id& id, DogPtr dog, SessionPtr session, Token token) {
     //TODO: check for duplicate token? Catch error and pop back player?
-    PlayerPtr player_ptr = &players_.emplace_back(id, session, dog);
-    size_t index = players_.size();
+    const auto [player_it, success] = players_.emplace(id, Player{id, session, dog});
 
     //update indices
-    auto token_result = token_to_player_.emplace(std::move(token), index);
+    auto token_result = token_to_player_.emplace(std::move(token), id);
     player_to_token_[id] = token_result.first;
-    map_dog_id_to_player_index_[session->GetMapId()][dog->GetId()] = index;
+    map_dog_id_to_player_index_[session->GetMapId()][dog->GetId()] = id;
 
     //Success;
-    return player_ptr;
+    ++id;
+    return &player_it->second;
 }
 
 ConstPlayerPtr PlayerSessionManager::GetPlayerByToken(const Token& token) const {
@@ -297,7 +304,7 @@ const PlayerSessionManager::Sessions& PlayerSessionManager::GetAllSessions() con
     return sessions_;
 }
 
-SessionPtr PlayerSessionManager::JoinOrCreateSession(Session::Id session_id, const Map::Id& map_id) {
+SessionPtr PlayerSessionManager::JoinOrCreateSession(Session::Id& session_id, const Map::Id& map_id) {
     //Check if a session exixts on map. GetMapSessions checks that mapid is valid
     const auto map_ptr = game_->FindMap(map_id);
     if(!map_ptr) {
@@ -306,16 +313,18 @@ SessionPtr PlayerSessionManager::JoinOrCreateSession(Session::Id session_id, con
         return nullptr;
     }
     //No sessions on map, create new session
-    auto session_it = map_to_session_index_.find(map_id);
-    if(session_it == map_to_session_index_.end()) {
-        auto session_idx = sessions_.size();
-        auto& session = sessions_.emplace_back(
-            session_id, map_ptr, std::move(game_->GetSettings())
+    auto existing_session_it = map_to_session_index_.find(map_id);
+    if(existing_session_it == map_to_session_index_.end()) {
+        const auto& [session_it, success] = sessions_.emplace(session_id,
+            Session{session_id, map_ptr, game_->GetSettings()}
         );
 
         try {
-            map_to_session_index_.emplace(map_id, session_idx);
-            return std::make_shared<Session>(session);
+            map_to_session_index_.emplace(map_id, session_id);
+
+            //if successfully emplaced session, increment session id
+            ++session_id;
+            return &session_it->second;
         } catch (std::exception& ex) {
             //DEBUG
             std::cerr << "Failed to create new session on map: " << ex.what();
@@ -323,7 +332,7 @@ SessionPtr PlayerSessionManager::JoinOrCreateSession(Session::Id session_id, con
         }
     }
     //A session exists and can be joined
-    return std::make_shared<Session>(sessions_.at(session_it->second));
+    return &sessions_.at(existing_session_it->second);
 }
 
 ConstSessionPtr PlayerSessionManager::GetPlayerGameSession(ConstPlayerPtr& player) {
@@ -337,6 +346,7 @@ std::vector<ConstPlayerPtr> PlayerSessionManager::GetAllPlayersInSession(ConstPl
     const auto& map_id = player_session->GetMapId();
 
     for (const auto& [dog_id, _ ] : player_session->GetDogs()) {
+        std::cerr << dog_id << std::endl;
         result.push_back(GetPlayerByMapDogId(map_id, dog_id));
     }
     return result;
@@ -347,7 +357,7 @@ const Session::LootItems &PlayerSessionManager::GetSessionLootList(ConstPlayerPt
 }
 
 void PlayerSessionManager::AdvanceTime(model::TimeMs delta_t) {
-    for(auto& session : sessions_) {
+    for(auto& [_, session] : sessions_) {
         session.AdvanceTime(delta_t);
     }
 }

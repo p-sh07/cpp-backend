@@ -28,6 +28,7 @@ using model::LootItem;
 
 using model::MapPtr;
 using model::DogPtr;
+using model::ConstDogPtr;
 using model::LootItemPtr;
 using model::ItemsReturnPointPtr;
 using model::CollisionObjectPtr;
@@ -65,16 +66,17 @@ class Session {
     double GetDogSpeedVal() const;
 
     const Dogs& GetDogs() const;
-    DogPtr GetDog(Dog::Id id) const;
+
+    ConstDogPtr GetDog(Dog::Id id) const;
 
     const LootItems& GetLootItems() const;
 
     //At construction there are 0 dogs. Session is always on 1 map
     //When a player is added, he gets a new dog to control
     DogPtr AddDog(Dog dog);
-    DogPtr AddDog(Dog::Id, Dog::Tag name);
+    DogPtr AddDog(Dog::Id& id, Dog::Tag name);
 
-    void AddLootItem(LootItem::Id id, LootItem::Type type, model::Point2D pos);
+    void AddLootItem(LootItem::Id& id, LootItem::Type type, model::Point2D pos);
     void AddRandomLootItems(size_t num_items);
 
     void RemoveDog(Dog::Id dog_id);
@@ -114,8 +116,8 @@ private:
     // void HandleCollision(const model::ItemsReturnPointPtr& office, const DogPtr& dog) const;
 };
 
-using SessionPtr = std::shared_ptr<Session>;
-using ConstSessionPtr = std::shared_ptr<const Session>;
+using SessionPtr = Session*;
+using ConstSessionPtr = const Session*;
 
 
 //=================================================
@@ -152,18 +154,18 @@ using TokenPtr = const Token*;
 //========= Player & Session Manager ==============
 class PlayerSessionManager {
  public:
-    using Players = std::deque<Player>;
-    using Sessions = std::deque<Session>;
+    using Players = std::unordered_map<Player::Id, Player>;
+    using Sessions = std::unordered_map<Session::Id, Session>;
     using TokenToPlayer = std::unordered_map<Token, Player::Id, TokenHasher>;
-    using MapToSession = std::unordered_map<Map::Id, size_t, util::TaggedHasher<Map::Id>>;
+    using MapToSession = std::unordered_map<Map::Id, Session::Id, util::TaggedHasher<Map::Id>>;
 
     explicit PlayerSessionManager(const GamePtr& game);
     explicit PlayerSessionManager(GamePtr&& game);
 
     PlayerPtr CreatePlayer(Map::Id map, Dog::Tag dog_tag);
-    PlayerPtr AddPlayer(Player::Id id, DogPtr dog, SessionPtr session, Token token);
+    PlayerPtr AddPlayer(Player::Id& id, DogPtr dog, SessionPtr session, Token token);
 
-    SessionPtr JoinOrCreateSession(Session::Id session_id, const Map::Id& map_id);
+    SessionPtr JoinOrCreateSession(Session::Id& session_id, const Map::Id& map_id);
     TokenPtr GetToken(const PlayerPtr& player) const;
 
     const TokenToPlayer& GetAllTokens() const;
@@ -178,10 +180,6 @@ class PlayerSessionManager {
     static const Session::LootItems& GetSessionLootList(ConstPlayerPtr& player);
 
     void AdvanceTime(model::TimeMs delta_t);
-
-    void RestoreSessions(std::deque<Session> sessions) {
-        sessions_ = std::move(sessions);
-    }
 
 private:
     GamePtr game_;
@@ -199,7 +197,7 @@ private:
 
     MapToSession map_to_session_index_;
 
-    using MapDogIdToPlayer = std::unordered_map< Map::Id, std::unordered_map<Dog::Id, Player::Id>,  util::TaggedHasher<Map::Id>>;
+    using MapDogIdToPlayer = std::unordered_map<Map::Id, std::unordered_map<Dog::Id, Player::Id>,  util::TaggedHasher<Map::Id>>;
     MapDogIdToPlayer map_dog_id_to_player_index_;
 };
 

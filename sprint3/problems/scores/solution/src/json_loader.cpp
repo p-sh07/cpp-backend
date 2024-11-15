@@ -4,6 +4,7 @@
 #include <fstream>
 #include <iostream>
 #include <sstream>
+#include <stdexcept>
 
 namespace json_loader {
 
@@ -112,27 +113,27 @@ std::string PrintMap(const Map& map) {
     return ss.str();
 }
 
-json::object MakePlayerListJson(const std::vector<app::PlayerPtr>& players) {
+json::object MakePlayerListJson(const std::vector<app::ConstPlayerPtr>& players) {
     json::object player_list;
     for(const auto& p_ptr : players) {
         player_list.emplace(std::to_string(p_ptr->GetId()),
                             json::object{
-                                {"name", std::string(p_ptr->GetDog()->GetName())}
+                                {"name", *(p_ptr->GetDog()->GetTag())}
                             }
         );
     }
     return player_list;
 }
 
-//TODO: move session to app
-json::object MakePlayerStateJson(const std::vector<app::PlayerPtr>& players) {
+json::object MakePlayerStateJson(const std::vector<app::ConstPlayerPtr>& players) {
     json::object player_state;
     for(const auto& player : players) {
+        const auto& dog = player->GetDog();
         player_state.emplace(std::to_string(player->GetId()), json::object{
-                                 {"pos", json::value_from(player->GetPos()).as_array()},
-                                 {"speed", json::value_from(player->GetSpeed()).as_array()},
-                                 {"dir", json::value_from(player->GetDir())},
-                                 {"bag", json::value_from(player->GetBagItems()).as_array()},
+                                 {"pos", json::value_from(dog->GetPos()).as_array()},
+                                 {"speed", json::value_from(dog->GetSpeed()).as_array()},
+                                 {"dir", json::value_from(dog->GetDirection())},
+                                 {"bag", json::value_from(dog->GetBag()).as_array()},
                                  {"score", json::value_from(player->GetScore())},
                              }
         );
@@ -147,8 +148,8 @@ json::object MakeLostObjectsJson(const LootObjContainer& loot_objects) {
     for(const auto& item : loot_objects) {
 
         loot_jobj.emplace(std::to_string(num++), json::object{
-                              {"type", item.type},
-                              {"pos", json::value_from(item.pos).as_array()}
+                              {"type", item->GetType()},
+                              {"pos", json::value_from(item->GetPos()).as_array()}
                           }
         );
     }
@@ -157,28 +158,31 @@ json::object MakeLostObjectsJson(const LootObjContainer& loot_objects) {
 
 json::value MapToValue(const Map& map) {
     json::value jv{
-        //{"dogSpeed", map.GetDogSpeed()},
         {"id", *map.GetId()},
         {"name", map.GetName()},
         {"roads", json::value_from(map.GetRoads())},
         {"buildings", json::value_from(map.GetBuildings())},
         {"offices", json::value_from(map.GetOffices())},
-        {"lootTypes", map.GetLootInfo()->AsJsonArray()},
+        {"lootTypes", map.GetLootTypesInfo().AsJsonArray()},
     };
-    if(map.GetBagCapacity().has_value()) {
-        jv.as_object().emplace("bagCapacity", *map.GetBagCapacity());
+    //TODO: Tests fail when dogspeed prints, comment out
+    // if(auto speed = map.GetDogSpeed(); speed.has_value()) {
+    //     jv.as_object().emplace("dogSpeed", *speed);
+    // }
+    if(auto bag_cap = map.GetBagCapacity(); bag_cap.has_value()) {
+        jv.as_object().emplace("bagCapacity", *bag_cap);
     }
     return jv;
 }
 
-std::string PrintPlayerList(const std::vector<app::PlayerPtr>& players) {
+std::string PrintPlayerList(const std::vector<app::ConstPlayerPtr>& players) {
     std::stringstream ss;
     print_json(ss, std::move(MakePlayerListJson(players)));
 
     return ss.str();
 }
 
-std::string PrintGameState(const app::PlayerPtr player, const std::shared_ptr<app::GameInterface>& game_app) {
+std::string PrintGameState(app::ConstPlayerPtr& player, const std::shared_ptr<app::GameInterface>& game_app) {
     std::stringstream ss;
     json::object game_state;
     game_state.emplace("players", std::move(MakePlayerStateJson(game_app->GetPlayerList(player)))
@@ -212,7 +216,13 @@ Map ParseMap(const json::value& map_json) {
     }
 
     //Add LootItem info
-    map.AddLootInfo(std::move(map_json.at(JsonKeys::loot_types).as_array()));
+    const auto loot_info_json_ptr = map_json.as_object().if_contains(JsonKeys::loot_types);
+    if(loot_info_json_ptr) {
+        map.AddLootInfo(std::move(loot_info_json_ptr->as_array()));
+    } else {
+        //empty array
+        map.AddLootInfo(json::array{});
+    }
     return map;
 }
 
@@ -243,7 +253,8 @@ void ProcessOptionalGameParams(const json::object game_obj, Game& game) {
     //LootItem gen config
     if(auto it = game_obj.find(JsonKeys::loot_gen); it != game_obj.end()) {
         //NB: Currently period is given as a double in seconds in json! Converting to chrono::duration in msec
-        game.ConfigLootGenerator(util::ConvertSecToMsec(it->value().at("period").as_double()), it->value().at("probability").as_double()
+        game.ConfigLootGen(util::ConvertSecToMsec(it->value().at("period").as_double())
+                                 , it->value().at("probability").as_double()
         );
     }
 }
@@ -252,10 +263,9 @@ const char ParseMove(const std::string& request_body) {
     auto j_obj = json::parse(request_body).as_object();
     if(auto it = j_obj.find("move"); it != j_obj.end()) {
         auto mv_cmd = it->value().as_string();
-
         return mv_cmd.empty() ? char{} : mv_cmd[0];
     }
-    return app::MOVE_CMD_ERR;
+    throw std::invalid_argument("cannot parse move command");
 }
 
 //Return time in seconds, assume timeDelta is always in ms
@@ -313,21 +323,7 @@ model::Game LoadGame(const std::filesystem::path& json_path) {
 
 //===========================================================
 //================= Tag Invoke overloads ====================
-namespace model {
-namespace json = boost::json;
-
-void tag_invoke(const json::value_from_tag&, json::value& jv, Point const& pt) {
-    jv = json::array{
-        static_cast<int>(pt.x),
-        static_cast<int>(pt.y)
-    };
-}
-
-Point tag_invoke(const json::value_to_tag<Point>&, json::value const& jv) {
-    const auto& arr = jv.as_array();
-    return {value_to<int>(arr.at(0)), value_to<int>(arr.at(1))};
-}
-
+namespace geom {
 //TODO: When throws errors from here, it doesn't get reported
 void tag_invoke(const json::value_from_tag&, json::value& jv, Point2D const& pt) {
     jv = json::array{
@@ -341,26 +337,39 @@ Point2D tag_invoke(const json::value_to_tag<Point2D>&, json::value const& jv) {
     return pt;
 }
 
-void tag_invoke(const json::value_from_tag&, json::value& jv, Dir const& dir) {
-    jv = std::string{static_cast<char>(dir)};
-}
-
-Dir tag_invoke(const json::value_to_tag<Dir>&, json::value const& jv) {
-    Dir dir(value_to<Dir>(jv.at("dir")));
-    return dir;
-}
-
-void tag_invoke(const json::value_from_tag&, json::value& jv, Speed const& speed) {
+void tag_invoke(const json::value_from_tag&, json::value& jv, Vec2D const& speed) {
     jv = json::array{
-        static_cast<double>(speed.Vx),
-        static_cast<double>(speed.Vy)
+        static_cast<double>(speed.x),
+        static_cast<double>(speed.y)
     };
 }
 
-Speed tag_invoke(const json::value_to_tag<Speed>&, json::value const& jv) {
+Vec2D tag_invoke(const json::value_to_tag<Vec2D>&, json::value const& jv) {
     auto ja = jv.as_array();
-    Speed sp{value_to<Dimension2D>(jv.at(0)), value_to<Dimension2D>(jv.at(1))};
-    return sp;
+    return Vec2D(value_to<double>(jv.at(0)), value_to<double>(jv.at(1)));
+}
+} //namespace geom
+
+namespace model {
+void tag_invoke(const json::value_from_tag&, json::value& jv, Point const& pt) {
+    jv = json::array{
+        static_cast<int>(pt.x),
+        static_cast<int>(pt.y)
+    };
+}
+
+Point tag_invoke(const json::value_to_tag<Point>&, json::value const& jv) {
+    const auto& arr = jv.as_array();
+    return {value_to<int>(arr.at(0)), value_to<int>(arr.at(1))};
+}
+
+void tag_invoke(const json::value_from_tag&, json::value& jv, Direction const& dir) {
+    jv = std::string{static_cast<char>(dir)};
+}
+
+Direction tag_invoke(const json::value_to_tag<Direction>&, json::value const& jv) {
+    Direction dir(value_to<Direction>(jv.at("dir")));
+    return dir;
 }
 
 void tag_invoke(const json::value_from_tag&, json::value& jv, Map const& map) {
@@ -446,18 +455,17 @@ Office tag_invoke(const json::value_to_tag<Office>&, json::value const& jv) {
     };
 }
 
-//Bag Items
+//BagContent Items
 //TODO: can split into LootItem tag invoke & BagItems. Can you use array(bag.begin, bag.end) constructor?
-void tag_invoke(const json::value_from_tag&, json::value& jv, BagItems const& bag) {
+void tag_invoke(const json::value_from_tag&, json::value& jv, Dog::BagContent const& bag) {
     json::array ja;
     for(const auto& item : bag) {
         ja.emplace_back(json::object{
-            {"id", item->id},
-            {"type", item->type}
+            {"id", item.type},
+            {"type", item.id}
         });
     }
     jv = std::move(ja);
 }
-
 }  // namespace model
 
