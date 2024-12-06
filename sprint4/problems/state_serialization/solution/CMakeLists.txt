@@ -45,6 +45,8 @@ add_executable(game_server
         src/sdk.h
         src/server_logger.h
         src/server_logger.cpp
+        src/state_serialization.h
+        src/state_serialization.cpp
 )
 
 IF (APPLE)
@@ -72,6 +74,10 @@ add_executable(collision_detection_tests
         tests/collision-detector-tests.cpp
 )
 add_executable(serialization_tests
+        src/json_loader.h
+        src/json_loader.cpp
+        src/state_serialization.h
+        src/state_serialization.cpp
         tests/state-serialization-tests.cpp
 )
 

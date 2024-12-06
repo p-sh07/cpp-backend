@@ -182,7 +182,7 @@ std::string PrintPlayerList(const std::vector<app::ConstPlayerPtr>& players) {
     return ss.str();
 }
 
-std::string PrintGameState(const app::PlayerPtr player, const std::shared_ptr<app::GameInterface>& game_app) {
+std::string PrintGameState(app::ConstPlayerPtr& player, const std::shared_ptr<app::GameInterface>& game_app) {
     std::stringstream ss;
     json::object game_state;
     game_state.emplace("players", std::move(MakePlayerStateJson(game_app->GetPlayerList(player)))

@@ -169,19 +169,47 @@ using GameObjectPtr = std::shared_ptr<GameObject>;
 using ConstGameObject = std::shared_ptr<const GameObject>;
 
 //------------------------------------------------
+struct LootItemInfo {
+    LootItemInfo() = default;
+    LootItemInfo(GameObject::Id id, LootType type)
+        : id(id)
+        , type(type) {
+    }
+
+    LootItemInfo(GameObject::Id id, LootType type, Score value, bool is_collectible)
+        : id(id)
+        , type(type)
+        , value(value)
+        , can_collect(is_collectible){
+    }
+
+    GameObject::Id id {0u};
+    LootType type {0u};
+    Score value {0u};
+    bool can_collect {true};
+
+    auto operator<=>(const LootItemInfo&) const = default;
+};
+
+//------------------------------------------------
 class CollisionObject : public GameObject {
 public:
+    using PtrToOther = const std::shared_ptr<CollisionObject>;
+
     CollisionObject(Id id, Point2D pos, double width);
+    virtual ~CollisionObject() = default;
 
     Point2D GetPos() const;
-
     Point2D GetPrevPos() const;
 
     CollisionObject &SetPos(Point2D pos);
 
     double GetWidth() const;
-
     collision_detector::Item AsCollisionItem() const;
+
+    virtual bool IsCollectible() const;
+    virtual bool IsItemsReturn() const;
+    virtual LootItemInfo Collect();
 
 private:
     Point2D pos_;
@@ -209,9 +237,6 @@ public:
     Point2D ComputeMoveEndPoint(TimeMs delta_t) const;
     collision_detector::Gatherer AsGatherer() const;
 
-    //TODO: How to do this?
-    //virtual void ProcessCollision(CollisionObjectPtr obj) = 0;
-
 private:
     Speed speed_;
     Direction direction_ = Direction::NORTH;
@@ -224,21 +249,18 @@ using ConstDynamicObjectPtr = std::shared_ptr<const DynamicObject>;
 class LootItem : public CollisionObject {
 public:
     using Type = gamedata::LootItemType;
-
-    struct Info {
-        Id id;
-        Type type;
-        auto operator<=>(const Info&) const = default;
-    };
-
-    LootItem(Id id, Point2D pos, double width, Type type);
+    LootItem(Id id, Point2D pos, double width, Type type, Score value);
 
     Type GetType() const;
-    bool IsCollected() const;
-    Info Collect();
+    Score GetValue() const;
+
+    bool IsCollectible() const override;
+
+    LootItemInfo Collect() override;
 
 private:
     const Type type_;
+    const Score value_;
     bool is_collected_ = false;
 };
 
@@ -249,6 +271,8 @@ using ConstLootItemPtr = std::shared_ptr<const LootItem>;
 class ItemsReturnPoint : public CollisionObject {
 public:
     ItemsReturnPoint(Id id, const Office& office, double width);
+
+    bool IsItemsReturn() const override;
 
 private:
     const Office::Id tag_;
@@ -263,7 +287,7 @@ using ConstItemsReturnPointPtr = std::shared_ptr<const ItemsReturnPoint>;
 class Dog : public DynamicObject {
 public:
     using Tag = util::Tagged<std::string, Dog>;
-    using BagContent = std::deque<LootItem::Info>;
+    using BagContent = std::deque<LootItemInfo>;
 
     // Dog(Id id, Point pos, double width, Tag tag, size_t bag_cap);
     Dog(Id id, Point2D pos, double width, Tag tag, size_t bag_cap);
@@ -279,8 +303,29 @@ public:
     bool BagIsFull() const;
     void ClearBag();
 
-    bool TryCollectItem(const LootItemPtr& loot);
-    bool TryCollectItem(const LootItem::Info& loot_info);
+    bool TryCollectItem(LootItemInfo loot_info);
+
+    void ProcessCollision(const CollisionObjectPtr& obj) {
+        //Only two options for now, so use this method:
+        // 1.Is a loot item
+        if(obj->IsCollectible()) {
+            TryCollectItem(obj->Collect());
+        }
+        // 2.Is an office
+        else if(obj->IsItemsReturn()) {
+            for(const auto& item : GetBag()) {
+                AddScore(item.value);
+            }
+            ClearBag();
+        }
+        else {
+            throw std::logic_error("unknown collision object type");
+        }
+
+        /// If mechanics become more complex, can potentially use pointer_cast
+            // spBase base = std::make_shared<Derived>();
+            // spDerived derived = std::dynamic_pointer_cast<spDerived::element_type>(base);
+    }
 
 private:
     //what is a dog? Upd: A dog is a dynamic collision object
@@ -291,8 +336,8 @@ private:
     BagContent bag_;
 };
 
-using DogPtr = std::shared_ptr<Dog>;
-using ConstDogPtr = std::shared_ptr<const Dog>;
+using DogPtr = Dog*;
+using ConstDogPtr = const Dog*;
 
 
 //=================================================
@@ -367,29 +412,6 @@ using MapPtr = Map*;
 using ConstMapPtr = const Map*;
 
 
-//NB: Default values set here!
-struct GameSettings {
-    bool randomised_dog_spawn = false;
-
-    std::optional<double> map_dog_speed;
-    std::optional<size_t> map_bag_capacity;
-
-    double loot_gen_prob;
-    TimeMs loot_gen_interval;
-
-    double default_dog_speed = 1.0;
-    size_t default_bag_capacity = 3;
-
-    const double loot_item_width = 0.0;
-    const double dog_width = 0.6;
-    const double office_width = 0.5;
-
-    double GetDogSpeed() const;
-
-    double GetBagCap() const;
-};
-
-
 class Game {
 public:
     using Maps = std::vector<Map>;
@@ -403,13 +425,13 @@ public:
     void ConfigLootGen(TimeMs base_period, double probability);
 
     const Maps &GetMaps() const;
-    GameSettings GetSettings() const;
+    const gamedata::Settings& GetSettings() const;
 
     MapPtr FindMap(const Map::Id& id);
     ConstMapPtr FindMap(const Map::Id& id) const;
 
 private:
-    GameSettings settings_; //TODO: = gamedata::default_game_settings?;
+    gamedata::Settings settings_;
     size_t next_session_id_ = 0;
 
     Maps maps_;
@@ -418,51 +440,29 @@ private:
     MapIdToIndex map_id_to_index_;
 };
 
-template<typename LootContainer, typename OfficeContainer, typename DogContainer>
-class ItemEventHandler final : collision_detector::ItemGathererProvider {
+template<typename ObjPtrContainer, typename DogPtrContainer>
+class CollisionDetector final : collision_detector::ItemGathererProvider {
     using Item = collision_detector::Item;
     using Gatherer = collision_detector::Gatherer;
-    using Event = collision_detector::GatheringEvent;
 
 public:
-    struct EventResult {
-        GameObject::Id obj_id;
-        GameObject::Id dog_id;
-        bool is_loot_collect = false;
-        bool is_items_return = false;
-    };
+    using Event = collision_detector::GatheringEvent;
 
-    ItemEventHandler(const LootContainer& loot_items, const OfficeContainer& offices, const DogContainer& gatherers)
-        : loot_items_(loot_items)
-          , offices_(offices)
-          , gatherers_(gatherers) {
+    CollisionDetector(const ObjPtrContainer& objects, const DogPtrContainer& gatherers)
+        : objects_(objects)
+        , gatherers_(gatherers) {
     }
 
-    std::vector<EventResult> FindCollisions() const {
-        std::vector<EventResult> result;
-        auto collision_events = collision_detector::FindGatherEvents(*this);
-        for (const Event& event : collision_events) {
-            GameObject::Id obj_id = 0;
-            bool is_loot_item = IsLootItem(event.item_id);
-            if (is_loot_item) {
-                obj_id = event.item_id;
-            } else {
-                obj_id = GetOfficeIdx(event.item_id);
-            }
-            result.emplace_back(obj_id, event.gatherer_id, is_loot_item, is_loot_item);
-        }
-        return result;
+    std::vector<Event> FindCollisions() const {
+        return collision_detector::FindGatherEvents(*this);
     }
 
     size_t ItemsCount() const override {
-        return loot_items_.size() + offices_.size();
+        return objects_.size();
     }
 
     collision_detector::Item GetItem(size_t idx) const override {
-        if (IsLootItem(idx)) {
-            return loot_items_.at(idx)->AsCollisionItem();
-        }
-        return offices_.at(GetOfficeIdx(idx))->AsCollisionItem();
+        return objects_.at(idx)->AsCollisionItem();
     }
 
     size_t GatherersCount() const override {
@@ -474,26 +474,7 @@ public:
     }
 
 private:
-    const LootContainer& loot_items_;
-    const OfficeContainer& offices_;
-    const DogContainer& gatherers_;
-
-    bool IsLootItem(size_t idx) const {
-        return idx < loot_items_.size();
-    }
-
-    bool IsOffice(size_t idx) const {
-        if (IsLootItem()) {
-            return false;
-        }
-        return GetOfficeIdx(idx) < offices_.size();
-    }
-
-    size_t GetOfficeIdx(size_t idx) const {
-        if (IsLootItem(idx)) {
-            throw std::out_of_range("");
-        }
-        return idx - loot_items_.size();
-    }
+    ObjPtrContainer& objects_;
+    DogPtrContainer& gatherers_;
 };
 } // namespace model
