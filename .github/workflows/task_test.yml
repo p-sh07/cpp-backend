@@ -13,8 +13,12 @@ permissions:
 jobs:
   sprint_4:
     runs-on: ubuntu-22.04
+    container:
+      image: praktikumcpp/practicum_cpp_backend:latest
+      volumes:
+        - /var/run/docker.sock:/var/run/docker.sock
+      options: --name main-container
     steps:
-
       - name: Checkout code & tests
         uses: actions/checkout@v3
         with:
