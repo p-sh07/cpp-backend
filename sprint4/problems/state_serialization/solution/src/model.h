@@ -474,7 +474,7 @@ public:
     }
 
 private:
-    ObjPtrContainer& objects_;
-    DogPtrContainer& gatherers_;
+    const ObjPtrContainer& objects_;
+    const DogPtrContainer& gatherers_;
 };
 } // namespace model
