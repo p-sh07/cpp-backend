@@ -167,7 +167,7 @@ bool CollisionObject::IsItemsReturn() const {
 }
 
 LootItemInfo CollisionObject::Collect() {
-    return {0u, 0u, 0u, false};
+    return {};
 }
 
 Speed DynamicObject::GetSpeed() const {
@@ -233,6 +233,10 @@ LootItem::LootItem(GameObject::Id id, Point2D pos, double width, LootItem::Type 
 
 LootItem::Type LootItem::GetType() const {
     return type_;
+}
+
+Score LootItem::GetValue() const {
+    return value_;
 }
 
 bool LootItem::IsCollectible() const {

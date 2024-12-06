@@ -26,6 +26,7 @@ CollectionResult TryCollectPoint(geom::Point2D a, geom::Point2D b, geom::Point2D
 std::vector<GatheringEvent> FindGatherEvents(const ItemGathererProvider& provider) {
     std::vector<GatheringEvent> gather_events;
 
+    auto count = provider.GatherersCount();
     for(size_t gatherer_id = 0; gatherer_id < provider.GatherersCount(); ++gatherer_id) {
         const auto& gatherer = provider.GetGatherer(gatherer_id);
 

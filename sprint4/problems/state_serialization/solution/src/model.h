@@ -170,10 +170,23 @@ using ConstGameObject = std::shared_ptr<const GameObject>;
 
 //------------------------------------------------
 struct LootItemInfo {
-    GameObject::Id id;
-    LootType type;
-    Score value;
-    bool can_collect;
+    LootItemInfo() = default;
+    LootItemInfo(GameObject::Id id, LootType type)
+        : id(id)
+        , type(type) {
+    }
+
+    LootItemInfo(GameObject::Id id, LootType type, Score value, bool is_collectible)
+        : id(id)
+        , type(type)
+        , value(value)
+        , can_collect(is_collectible){
+    }
+
+    GameObject::Id id {0u};
+    LootType type {0u};
+    Score value {0u};
+    bool can_collect {true};
 
     auto operator<=>(const LootItemInfo&) const = default;
 };
@@ -239,6 +252,8 @@ public:
     LootItem(Id id, Point2D pos, double width, Type type, Score value);
 
     Type GetType() const;
+    Score GetValue() const;
+
     bool IsCollectible() const override;
 
     LootItemInfo Collect() override;
@@ -459,7 +474,7 @@ public:
     }
 
 private:
-    const ObjPtrContainer& objects_;
-    const DogPtrContainer& gatherers_;
+    ObjPtrContainer& objects_;
+    DogPtrContainer& gatherers_;
 };
 } // namespace model

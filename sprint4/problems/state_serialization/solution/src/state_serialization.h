@@ -2,12 +2,16 @@
 #include <boost/serialization/deque.hpp>
 #include <boost/serialization/shared_ptr.hpp>
 #include <boost/serialization/unordered_map.hpp>
-#include <boost/serialization/unordered_set.hpp>
-// #include <boost/serialization/
-// #include <boost/serialization/
+#include <boost/archive/text_iarchive.hpp>
+#include <boost/archive/text_oarchive.hpp>
+// #include <boost/serialization/>
 
 #include "application.h"
 #include "model.h"
+
+//Debug
+#include <iostream>
+#include <fstream>
 
 namespace geom {
 
@@ -22,10 +26,21 @@ void serialize(Archive& ar, Vec2D& vec, [[maybe_unused]] const unsigned version)
     ar& vec.x;
     ar& vec.y;
 }
-
 }  // namespace geom
 
+// namespace detail {
+// template <typename Archive>
+// void serialize(Archive& ar, TokenTag& obj, [[maybe_unused]] const unsigned version) {
+//     ar& obj;
+// }
+// }  // namespace detail
+
 namespace model {
+template <typename Archive>
+void serialize(Archive& ar, Map::Id& obj, [[maybe_unused]] const unsigned version) {
+    ar&(*obj);
+}
+
 template <typename Archive>
 void serialize(Archive& ar, Dog::Tag& obj, [[maybe_unused]] const unsigned version) {
     ar&(*obj);
@@ -37,6 +52,11 @@ void serialize(Archive& ar, LootItemInfo& obj, [[maybe_unused]] const unsigned v
     ar&(obj.type);
 }
 
+template <typename Archive>
+void serialize(Archive& ar, TimeMs& obj, [[maybe_unused]] const unsigned version) {
+    ar& obj;
+}
+
 }  // namespace model
 
 
@@ -46,39 +66,23 @@ void serialize(Archive& ar, Session& obj, [[maybe_unused]] const unsigned versio
     // ar&(*obj);
 }
 
-}  // namespace model
+template <typename Archive>
+void serialize(Archive& ar, Token& obj, [[maybe_unused]] const unsigned version) {
+    ar&(*obj);
+}
+}  // namespace app
 
 namespace serialization {
+using namespace std::literals;
 
 // DogRepr (DogRepresentation) - сериализованное представление класса Dog
 class DogRepr {
 public:
     DogRepr() = default;
 
-    explicit DogRepr(const model::Dog& dog)
-        : id_(dog.GetId())
-        , pos_(dog.GetPos())
-        , width_(dog.GetWidth())
-        , speed_(dog.GetSpeed())
-        , direction_(dog.GetDirection())
-        , tag_(dog.GetTag())
-        , bag_capacity_(dog.GetBagCap())
-        , score_(dog.GetScore())
-        , bag_content_(dog.GetBag()) {
-    }
+    explicit DogRepr(const model::Dog& dog);
 
-    [[nodiscard]] model::Dog Restore() const {
-        model::Dog dog{id_, pos_, width_, tag_, bag_capacity_};
-        dog.SetSpeed(speed_);
-        dog.SetDirection(direction_);
-        dog.AddScore(score_);
-        for (const auto& item : bag_content_) {
-            if (!dog.TryCollectItem(item)) {
-                throw std::runtime_error("Failed to put bag content");
-            }
-        }
-        return dog;
-    }
+    [[nodiscard]] model::Dog Restore() const;
 
     template <typename Archive>
     void serialize(Archive& ar, [[maybe_unused]] const unsigned version) {
@@ -105,124 +109,168 @@ private:
     model::Dog::BagContent bag_content_;
 };
 
-class LootItemRepr {
-public:
+struct LootItemRepr {
     LootItemRepr() = default;
 
-    explicit LootItemRepr(const model::LootItem& item)
-        : id_(item.GetId())
-        , type_(item.GetType())
-        , pos_(item.GetPos())
-        , width_(item.GetWidth()) {
-    }
-
-    app::LootItem Restore() const {
-        return model::LootItem{id_, pos_, width_, type_, value_};
-    }
+    explicit LootItemRepr(const model::LootItem& item);
 
     template <typename Archive>
     void serialize(Archive& ar, [[maybe_unused]] const unsigned version) {
-        ar& id_;
-        ar& type_;
-        ar& pos_;
-        ar& width_;
-        ar& value_;
+        ar& id;
+        ar& type;
+        ar& pos;
     }
 
-private:
-    model::LootItem::Id id_ {0u};
-    model::LootItem::Type type_ {0u};
-    model::Point2D pos_;
-    double width_ {0.0};
-    size_t value_;
+    model::LootItem::Id id {0u};
+    model::LootItem::Type type {0u};
+    model::Point2D pos;
 };
 
 class SessionRepr {
 public:
     SessionRepr() = default;
 
-    explicit SessionRepr(const app::Session& session)
-    : id_(session.GetId())
-    , time_(session.GetTime())
-    , map_id_(session.GetMapId())
-    {}
+    explicit SessionRepr(const app::Session& session);
 
-    app::Session Restore() const {
+    app::Session Restore(const app::GamePtr& game) const;
 
-    }
+    app::Session::Id GetId() const;
 
     template <typename Archive>
     void serialize(Archive& ar, [[maybe_unused]] const unsigned version) {
-
+        //TODO: fix compile error because of id
+        // ar& id_;
+        ar& map_id_content_;
+        ar& dog_reprs_;
+        //TODO:
+        // ar& loot_item_reprs_;
     }
 
 private:
-    const size_t id_;
-    model::TimeMs time_ {0u};
-    model::Map::Id map_id_;
+    const size_t id_ {0u};
+    std::string map_id_content_ {""s};
 
-    std::vector<DogRepr> dogs_;
-    std::vector<LootItemRepr> loot_items_;
+    std::vector<DogRepr> dog_reprs_;
+    std::vector<LootItemRepr> loot_item_reprs_;
 };
-
 
 class PlayerRepr {
 public:
     PlayerRepr() = default;
 
-    explicit PlayerRepr(const app::Player& player)
-        : id_(player.GetId())
-        , session_id_(player.GetSession()->GetId())
-        , dog_id_(player.GetDog()->GetId()) {
-    }
-
-    app::Player Restore() const {
-
-    }
+    explicit PlayerRepr(const app::Player& player, app::Token token);
 
     template <typename Archive>
     void serialize(Archive& ar, [[maybe_unused]] const unsigned version) {
-
+        ar& id_;
+        ar& session_id_;
+        ar& dog_id_;
+        ar& token_content_;
     }
+
+    app::Player::Id GetId() const;
+    app::Session::Id GetSessionId() const;
+    model::Dog::Id GetDogId() const;
+    app::Token GetToken() const;
 
 private:
     app::Player::Id id_;
     app::Session::Id session_id_;
     model::Dog::Id dog_id_;
+    std::string token_content_;
 };
 
-class PlayerSessionManager {
+class PsmRepr {
 public:
-    PlayerSessionManager() = default;
+    PsmRepr() = default;
 
-    explicit PlayerSessionManager(const app::PlayerSessionManager& psm)
-        : tokens_(psm.GetAllTokens()) {
-        for(const auto& [_, player] : psm.GetAllPlayers()) {
-            players_.emplace_back(PlayerRepr{player});
-        }
-        for(const auto& [_, session]: psm.GetAllSessions()) {
-            sessions_.emplace_back(SessionRepr{session});
-        }
-    }
+    explicit PsmRepr(const app::PlayerSessionManager& psm);
 
-    app::PlayerSessionManager Restore() const {
-
-
-    }
+    app::PlayerSessionManager Restore(const app::GamePtr& game) const;
 
     template <typename Archive>
     void serialize(Archive& ar, [[maybe_unused]] const unsigned version) {
-        ar& tokens_;
-        ar& players_;
-        ar& sessions_;
+        ar& session_reprs_;
+        ar& player_reprs_;
     }
 
 private:
-    app::PlayerSessionManager::TokenToPlayer tokens_;
-    std::vector<PlayerRepr> players_;
-    std::vector<SessionRepr> sessions_;
+    std::vector<SessionRepr> session_reprs_;
+    std::vector<PlayerRepr> player_reprs_;
 };
 
-/* Другие классы модели сериализуются и десериализуются похожим образом */
+
+//=================================================
+//================ Serializer =====================
+namespace fs = std::filesystem;
+namespace arch = boost::archive;
+class StateSerializer : public app::ApplicationListener {
+public:
+    StateSerializer(fs::path save_file, bool enable_periodic_backup, int64_t save_period)
+        : save_file_(std::move(save_file))
+        , enable_periodic_backup_(enable_periodic_backup)
+        , save_period_(save_period){
+    }
+
+    ~StateSerializer() override = default;
+
+    void OnTick(model::TimeMs delta_t, const app::PlayerSessionManager& psm) override {
+        time_since_last_save_ += delta_t;
+
+        //Do not save On tick if save file or save_period are nullopt
+        if(!enable_periodic_backup_ || time_since_last_save_ < save_period_) {
+            time_since_last_save_ += delta_t;
+            return;
+        }
+
+        //Otherwise, need to save game state
+        time_since_last_save_ = model::TimeMs{0u};
+        SaveGameState(psm);
+    }
+
+    void SaveGameState(const app::PlayerSessionManager& psm) const {
+        std::ofstream temp{save_temp_, std::ios_base::ate};
+
+        if(!temp) {
+            throw std::runtime_error("unable to open temp save file");
+        }
+
+        arch::text_oarchive out{temp};
+
+        PsmRepr player_manager_state{psm};
+        out << player_manager_state;
+
+        fs::rename(save_temp_, save_file_);
+    }
+
+    app::PlayerSessionManager Restore(app::GamePtr game) const override {
+        if(!fs::exists(save_file_)) {
+            return std::move(app::PlayerSessionManager{game});
+        }
+
+        std::ifstream saved_state{save_file_};
+
+        if(!saved_state) {
+            throw std::runtime_error("unable to open saved state file");
+        }
+
+        arch::text_iarchive in{saved_state};
+
+        PsmRepr psm_repr{};
+        in >> psm_repr;
+
+        return std::move(psm_repr.Restore(game));
+    }
+
+private:
+    fs::path save_temp_ = "temp.ssv"s;
+    fs::path save_file_;
+
+    bool enable_periodic_backup_ = false;
+    model::TimeMs save_period_;
+
+    model::TimeMs time_since_last_save_ {0u};
+};
+
 
 }  // namespace serialization
