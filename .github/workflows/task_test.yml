@@ -20,7 +20,7 @@ jobs:
       options: --name main-container
     steps:
       - name: get docker network
-      run: echo "DOCKER_NETWORK=$(docker inspect main-container -f '{{range $k, $v := .NetworkSettings.Networks}}{{printf "%s" $k}}{{end}}')" >> $GITHUB_ENV
+        run: echo "DOCKER_NETWORK=$(docker inspect main-container -f '{{range $k, $v := .NetworkSettings.Networks}}{{printf "%s" $k}}{{end}}')" >> $GITHUB_ENV
 
       - name: Checkout code & tests
         uses: actions/checkout@v3
