@@ -11,8 +11,7 @@ permissions:
   issues: read
 
 jobs:
-
-  sprint_3:
+  sprint_4:
     runs-on: ubuntu-22.04
     steps:
 
@@ -28,96 +27,10 @@ jobs:
           pip install -r requirements.txt
           pip show pytest
 
-      - name: run tests sprint3 instrumentation
+      - name: run tests sprint4 state_serialization
         run: |
-          cd cpp-backend-tests-practicum/scripts/sprint3
-          ./instrumentation/run.sh
-
-#      - name: Load map_json binary
-#        uses: actions/download-artifact@v3
-#        with:
-#          name: game_server
-#          path: ${{ github.workspace }}/sprint1/problems/map_json/solution/build/bin
-
-#      - run: chmod +x ${GITHUB_WORKSPACE}/sprint1/problems/map_json/solution/build/bin/game_server
-
-      - name: Load FlameGraph
-        uses: actions/checkout@v3
-        with:
-          repository: 'brendangregg/FlameGraph'
-          path: ${{ github.workspace }}/sprint3/problems/flamegraph/solution/FlameGraph
-
-      - name: run tests sprint3 flamegraph
-        run: |
-          ./cpp-backend-tests-practicum/scripts/sprint1/map_json/build.sh
-          cd cpp-backend-tests-practicum/scripts/sprint3
-          ./flamegraph/run.sh
-
-      - name: run tests sprint3 gen_objects
-        run: |
-          cd cpp-backend-tests-practicum/scripts/sprint3
-          ./gen_objects/run.sh
-
-      - name: run tests sprint3 static_lib
-        run: |
-          cd cpp-backend-tests-practicum/scripts/sprint3
-          pip show pytest
-          ./static_lib/run.sh
-
-      - name: run tests sprint3 gather-tests
-        run: |
-          cd cpp-backend-tests-practicum/scripts/sprint3
-          ./gather-tests/run.sh
-
-      - name: run tests sprint3 gather-tests_wrong1
-        run: |
-          cd cpp-backend-tests-practicum/scripts/sprint3
-          ./gather-tests_wrong1/run.sh
-
-      - name: run tests sprint3 gather-tests_wrong2
-        run: |
-          cd cpp-backend-tests-practicum/scripts/sprint3
-          ./gather-tests_wrong2/run.sh
-
-      - name: run tests sprint3 gather-tests_wrong3
-        run: |
-          cd cpp-backend-tests-practicum/scripts/sprint3
-          ./gather-tests_wrong3/run.sh
-
-      - name: run tests sprint3 gather-tests_wrong4
-        run: |
-          cd cpp-backend-tests-practicum/scripts/sprint3
-          ./gather-tests_wrong4/run.sh
-
-      - name: run tests sprint3 gather-tests_wrong5
-        run: |
-          cd cpp-backend-tests-practicum/scripts/sprint3
-          ./gather-tests_wrong5/run.sh
-
-      - name: run tests sprint3 gather
-        run: |
-          cd cpp-backend-tests-practicum/scripts/sprint3
-          ./gather/run.sh
-
-      - name: run tests sprint3 find_return
-        run: |
-          cd cpp-backend-tests-practicum/scripts/sprint3
-          ./find_return/run.sh
-
-      - name: run tests sprint3 scores
-        run: |
-          cd cpp-backend-tests-practicum/scripts/sprint3
-          ./scores/run.sh
-
-      # - name: run tests sprint3 ammo
-      #   run: |
-      #     cd cpp-backend-tests-practicum/scripts/sprint3
-      #     ./ammo/run.sh
-
-      # - name: run tests sprint3 load
-      #   run: |
-      #     cd cpp-backend-tests-practicum/scripts/sprint3
-      #     ./load/run.sh
+          cd cpp-backend-tests-practicum/scripts/sprint4
+          ./state_serialization/run.sh
 
       - name: Publish XML reports
         uses: EnricoMi/publish-unit-test-result-action@v2
