@@ -37,9 +37,10 @@ USER www
 COPY --from=build /app/build/bin/game_server /app/
 COPY ./data /app/data
 COPY ./static /app/static
+#COPY ./state /volume/state
 
 # Запускаем игровой сервер
-ENTRYPOINT ["/app/game_server", "--config-file", "/app/data/config.json", "--www-root", "/app/static"]
+ENTRYPOINT ["/app/game_server", "--config-file", "/app/data/config.json", "--www-root", "/app/static", "--state-file", "/volume/state", "--save-state-period", "1000"]
 
 #Commands to launch:
 #sudo docker build -t my_http_server .

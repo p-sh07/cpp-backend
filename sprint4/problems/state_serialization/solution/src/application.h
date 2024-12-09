@@ -103,7 +103,6 @@ private:
     MapPtr map_;
     gamedata::Settings settings_;
     loot_gen::LootGenerator loot_generator_;
-    model::CollisionDetector<CollisionObjects, Gatherers> collision_detector_;
 
     void AddOffices(const Map::Offices& offices);
 
