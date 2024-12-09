@@ -1,19 +1,4 @@
-name: test command_line
-
-on:
-  push:
-  workflow_dispatch:
-
-permissions:
-  checks: write
-  contents: read
-  pull-requests: write
-  issues: read
-
-jobs:
-  sprint_4:
-    runs-on: ubuntu-22.04
-    name: test command_line
+name: test serialize
 
 on:
   push:
