@@ -24,12 +24,14 @@ model::Dog serialization::DogRepr::Restore() const {
     return dog;
 }
 
-serialization::LootItemRepr::LootItemRepr(const model::LootItem& item): id(item.GetId())
+serialization::LootItemRepr::LootItemRepr(const model::LootItem& item)
+    : id(item.GetId())
     , type(item.GetType())
     , pos(item.GetPos()) {
 }
 
-serialization::SessionRepr::SessionRepr(const app::Session& session): id_(session.GetId())
+serialization::SessionRepr::SessionRepr(const app::Session& session)
+    : id_(session.GetId())
     , map_id_content_(*session.GetMapId()) {
     for(const auto& [_, dog] : session.GetDogs()) {
         dog_reprs_.emplace_back(DogRepr{dog});
@@ -109,4 +111,63 @@ app::PlayerSessionManager serialization::PsmRepr::Restore(const app::GamePtr& ga
         psm.RestorePlayer(plr.GetId(), plr.GetDogId(), plr.GetSessionId(), std::move(plr.GetToken()));
     }
     return psm;
+}
+
+serialization::StateSerializer::StateSerializer(fs::path save_file, bool enable_periodic_backup, int64_t save_period)
+    : save_file_(save_file.filename())
+    , save_dir_(save_file.parent_path())
+    , enable_periodic_backup_(enable_periodic_backup)
+    , save_period_(save_period) {
+}
+
+void serialization::StateSerializer::OnTick(model::TimeMs delta_t, const app::PlayerSessionManager& psm) {
+    time_since_last_save_ += delta_t;
+
+    //Do not save On tick if save file or save_period are nullopt
+    if(!enable_periodic_backup_ || time_since_last_save_ < save_period_) {
+        time_since_last_save_ += delta_t;
+        return;
+    }
+
+    //Otherwise, need to save game state
+    time_since_last_save_ = model::TimeMs{0u};
+    SaveGameState(psm);
+}
+
+void serialization::StateSerializer::SaveGameState(const app::PlayerSessionManager& psm) const {
+    //Create directories if they do not exist
+    fs::create_directories(save_dir_);
+
+    fs::path temp_full_path = save_dir_ / save_temp_;
+    std::ofstream temp{temp_full_path, std::ios_base::ate};
+
+    if(!temp) {
+        throw std::runtime_error("unable to open temp save file");
+    }
+
+    arch::text_oarchive out{temp};
+
+    PsmRepr player_manager_state{psm};
+    out << player_manager_state;
+
+    fs::rename(temp_full_path, save_dir_ / save_file_);
+}
+
+app::PlayerSessionManager serialization::StateSerializer::Restore(app::GamePtr game) const {
+    if(!fs::exists(save_dir_ / save_file_)) {
+        return std::move(app::PlayerSessionManager{game});
+    }
+
+    std::ifstream saved_state{save_dir_ / save_file_};
+
+    if(!saved_state) {
+        throw std::runtime_error("unable to open saved state file");
+    }
+
+    arch::text_iarchive in{saved_state};
+
+    PsmRepr psm_repr{};
+    in >> psm_repr;
+
+    return std::move(psm_repr.Restore(game));
 }

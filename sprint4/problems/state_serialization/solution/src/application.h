@@ -268,8 +268,8 @@ class GameInterface {
 
  private:
     net::io_context& io_;
-    GamePtr game_;
     AppListenerPtr app_listener_ = nullptr;
+    GamePtr game_;
     PlayerSessionManager player_manager_;
 
     //TODO: use from GameSettings

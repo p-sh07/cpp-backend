@@ -61,10 +61,10 @@ void serialize(Archive& ar, TimeMs& obj, [[maybe_unused]] const unsigned version
 
 
 namespace app {
-template <typename Archive>
-void serialize(Archive& ar, Session& obj, [[maybe_unused]] const unsigned version) {
-    // ar&(*obj);
-}
+// template <typename Archive>
+// void serialize(Archive& ar, Session::Id& sess_id, [[maybe_unused]] const unsigned version) {
+//     ar& sess_id;
+// }
 
 template <typename Archive>
 void serialize(Archive& ar, Token& obj, [[maybe_unused]] const unsigned version) {
@@ -138,16 +138,14 @@ public:
 
     template <typename Archive>
     void serialize(Archive& ar, [[maybe_unused]] const unsigned version) {
-        //TODO: fix compile error because of id
-        // ar& id_;
+        ar& id_;
         ar& map_id_content_;
         ar& dog_reprs_;
-        //TODO:
-        // ar& loot_item_reprs_;
+        ar& loot_item_reprs_;
     }
 
 private:
-    const size_t id_ {0u};
+    size_t id_ {0u};
     std::string map_id_content_ {""s};
 
     std::vector<DogRepr> dog_reprs_;
@@ -206,65 +204,18 @@ namespace fs = std::filesystem;
 namespace arch = boost::archive;
 class StateSerializer : public app::ApplicationListener {
 public:
-    StateSerializer(fs::path save_file, bool enable_periodic_backup, int64_t save_period)
-        : save_file_(std::move(save_file))
-        , enable_periodic_backup_(enable_periodic_backup)
-        , save_period_(save_period){
-    }
-
+    StateSerializer(fs::path save_file, bool enable_periodic_backup, int64_t save_period);
     ~StateSerializer() override = default;
 
-    void OnTick(model::TimeMs delta_t, const app::PlayerSessionManager& psm) override {
-        time_since_last_save_ += delta_t;
+    void OnTick(model::TimeMs delta_t, const app::PlayerSessionManager& psm) override;
+    void SaveGameState(const app::PlayerSessionManager& psm) const;
 
-        //Do not save On tick if save file or save_period are nullopt
-        if(!enable_periodic_backup_ || time_since_last_save_ < save_period_) {
-            time_since_last_save_ += delta_t;
-            return;
-        }
-
-        //Otherwise, need to save game state
-        time_since_last_save_ = model::TimeMs{0u};
-        SaveGameState(psm);
-    }
-
-    void SaveGameState(const app::PlayerSessionManager& psm) const {
-        std::ofstream temp{save_temp_, std::ios_base::ate};
-
-        if(!temp) {
-            throw std::runtime_error("unable to open temp save file");
-        }
-
-        arch::text_oarchive out{temp};
-
-        PsmRepr player_manager_state{psm};
-        out << player_manager_state;
-
-        fs::rename(save_temp_, save_file_);
-    }
-
-    app::PlayerSessionManager Restore(app::GamePtr game) const override {
-        if(!fs::exists(save_file_)) {
-            return std::move(app::PlayerSessionManager{game});
-        }
-
-        std::ifstream saved_state{save_file_};
-
-        if(!saved_state) {
-            throw std::runtime_error("unable to open saved state file");
-        }
-
-        arch::text_iarchive in{saved_state};
-
-        PsmRepr psm_repr{};
-        in >> psm_repr;
-
-        return std::move(psm_repr.Restore(game));
-    }
+    app::PlayerSessionManager Restore(app::GamePtr game) const override;
 
 private:
-    fs::path save_temp_ = "temp.ssv"s;
+    fs::path save_temp_ = "temp"s;
     fs::path save_file_;
+    fs::path save_dir_;
 
     bool enable_periodic_backup_ = false;
     model::TimeMs save_period_;

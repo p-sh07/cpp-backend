@@ -413,7 +413,7 @@ GameInterface::GameInterface(net::io_context& io, const GamePtr& game_ptr, const
     : io_(io)
     , game_(game_ptr)
     , app_listener_(app_listener_ptr)
-    , player_manager_(app_listener_ ? app_listener_->Restore(game_) : PlayerSessionManager{game_}) {
+    , player_manager_(app_listener_ptr ? app_listener_ptr->Restore(game_) : PlayerSessionManager{game_}) {
 }
 
 ConstSessionPtr GameInterface::GetSession(ConstPlayerPtr player) const {
@@ -463,8 +463,13 @@ model::ConstMapPtr GameInterface::GetMap(std::string_view map_id) const {
 
 void GameInterface::AdvanceGameTime(model::TimeMs delta_t) {
     player_manager_.AdvanceTime(delta_t);
-    if (app_listener_) {
-        app_listener_->OnTick(delta_t, player_manager_);
+    try {
+        if (app_listener_) {
+            app_listener_->OnTick(delta_t, player_manager_);
+        }
+    } catch (std::exception& ex) {
+        //TODO: Logger
+        std::cerr << "serialization error occured: " << ex.what() << std::endl;
     }
 }
 
