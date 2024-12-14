@@ -66,6 +66,10 @@ jobs:
       - name: Install dependencies
         run: |
           cp -R /home/forconan/.conan /github/home/.conan
+          pip uninstall conan -y
+          pip install -U conan==1.59.0
+          pip install -r requirements.txt
+          pip show pytest
 
       - name: run tests sprint4 db_of_books
         run: |
