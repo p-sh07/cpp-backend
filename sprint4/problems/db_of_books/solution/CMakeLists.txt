@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.11)
-project(book_manager)
+project(book_manager CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 
