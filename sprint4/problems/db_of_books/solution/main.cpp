@@ -39,16 +39,17 @@ int main(int argc, const char* argv[]) {
 
         //request loop
         std::string request_str;
-        while(std::getline(std::cin, request_str)) {
+        for(size_t i = 0; i < 10000000; ++i) {
+            std::getline(std::cin, request_str);
+
             json::object request_obj    = json::parse(request_str).as_object();
             std::string_view req_action = request_obj.at("action").as_string();
-
-            pqxx::work wk(conn);
 
             if(req_action == "exit"sv) {
                 break;
             } else if(req_action == "add_book"sv) {
                 try {
+                    pqxx::work wk(conn);
                     json::object jbook = request_obj.at("payload").as_object();
                     const std::string_view title = jbook.at("title").as_string();
                     const std::string_view author = jbook.at("author").as_string();
@@ -58,14 +59,16 @@ int main(int argc, const char* argv[]) {
                     : std::optional<std::string>{std::nullopt};
 
                     wk.exec_prepared(tag_add_book, title, author, year, isbn);
+                    wk.commit();
                     std::cout << "{\"result\":true}" << std::endl;
                 } catch (std::exception& ex) {
                     std::cout << "{\"result\":false}" << std::endl;
                 }
             } else if(req_action == "all_books"sv) {
+                pqxx::read_transaction rd(conn);
                 bool first = true;
                 std::cout << '[';
-                for(const auto& book : wk.exec("SELECT to_json(b) FROM books b;"_zv)) {
+                for(const auto& book : rd.exec(R"(SELECT to_json(b) FROM books b ORDER BY year DESC, title, author, ISBN;)"_zv)) {
                     if(!first) {
                         std::cout << ',';
                     }
@@ -76,8 +79,6 @@ int main(int argc, const char* argv[]) {
             } else {
                 break;
             }
-            // Применяем все изменения
-            wk.commit();
         }
     } catch (const std::exception& e) {
         std::cerr << e.what() << std::endl;
