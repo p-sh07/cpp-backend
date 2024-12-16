@@ -9,7 +9,7 @@ set(CONAN_DISABLE_CHECK_COMPILER True)
 #suppress warnings
 add_definitions(-w)
 
-file(GLOB_RECURSE CONNAN_FILE_PATH "conanbuildinfo.cmake" ${PROJECT_SOURCE_DIR})
+file(GLOB_RECURSE CONNAN_FILE_PATH "conanbuildinfo_multi.cmake" ${PROJECT_SOURCE_DIR})
 
 include(${CONNAN_FILE_PATH})
 conan_basic_setup(TARGETS)
