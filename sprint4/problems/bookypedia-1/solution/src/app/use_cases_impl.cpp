@@ -3,6 +3,8 @@
 #include "../domain/author.h"
 #include "../domain/book.h"
 
+#include <stdexcept>
+
 namespace app {
 using namespace domain;
 
