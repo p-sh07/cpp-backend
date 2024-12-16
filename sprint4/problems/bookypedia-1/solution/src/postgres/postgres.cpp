@@ -58,7 +58,7 @@ std::vector<std::pair<std::string, int>> BookRepositoryImpl::GetAllBooks() const
     pqxx::read_transaction read{connection_};
     std::vector<std::pair<std::string, int>> result;
 
-    for(auto const&[title, pub_year] : read.query<std::string, int>("SELECT title, publication_year FROM books ORDER BY publication_year, title"_zv)) {
+    for(auto const&[title, pub_year] : read.query<std::string, int>("SELECT title, publication_year FROM books ORDER BY title"_zv)) {
         result.emplace_back(title, pub_year);
                                                                     }
     return result;
