@@ -11,33 +11,6 @@ permissions:
   issues: read
 
 jobs:
-  sprint_4:
-    runs-on: ubuntu-22.04
-    steps:
-      - name: Checkout code & tests
-        uses: actions/checkout@v3
-        with:
-          submodules: true
-
-      - name: Install dependencies
-        run: |
-          pip uninstall conan -y
-          pip install -U conan==1.59.0
-          pip install -r requirements.txt
-          pip show pytest
-
-      - name: run tests sprint4 state_serialization
-        run: |
-          cd cpp-backend-tests-practicum/scripts/sprint4
-          ./state_serialization/run.sh
-
-      - name: Publish XML reports
-        uses: EnricoMi/publish-unit-test-result-action@v2
-        if: always()
-        with:
-          junit_files: ${{ github.workspace }}/*.xml
-
-
   sprint_4_with_postgress:
     runs-on: ubuntu-22.04
     container:

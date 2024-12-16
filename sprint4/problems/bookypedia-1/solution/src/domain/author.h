@@ -1,5 +1,7 @@
 #pragma once
 #include <string>
+#include <optional>
+#include <vector>
 
 #include "../util/tagged_uuid.h"
 

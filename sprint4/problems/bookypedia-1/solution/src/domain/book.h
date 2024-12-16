@@ -6,6 +6,7 @@
 
 #pragma once
 #include <string>
+#include <vector>
 
 #include "author.h"
 #include "../util/tagged_uuid.h"
