@@ -75,7 +75,7 @@ int main(int argc, const char* argv[]) {
                     first = false;
                     std::cout << *book.begin();
                 }
-                std::cout << ']';
+                std::cout << ']' << std::endl;
             } else {
                 break;
             }
