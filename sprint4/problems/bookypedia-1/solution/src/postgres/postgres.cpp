@@ -3,6 +3,7 @@
 #include <pqxx/zview.hxx>
 #include <pqxx/pqxx>
 #include <pqxx/internal/result_iterator.hxx>
+#include <stdexcept>
 
 namespace postgres {
 
@@ -14,13 +15,17 @@ void AuthorRepositoryImpl::Save(const domain::Author& author) {
     // В будущих уроках вы узнаете про паттерн Unit of Work, при помощи которого сможете несколько
     // запросов выполнить в рамках одной транзакции.
     // Вы также может самостоятельно почитать информацию про этот паттерн и применить его здесь.
-    pqxx::work work{connection_};
-    work.exec_params(R"(
+    try {
+        pqxx::work work{connection_};
+        work.exec_params(R"(
             INSERT INTO authors (id, name) VALUES ($1, $2)
             ON CONFLICT (id) DO UPDATE SET name=$2;
         )"_zv, author.GetId().ToString(), author.GetName()
-    );
-    work.commit();
+        );
+        work.commit();
+    } catch (...) {
+        throw std::runtime_error("failed to add author");
+    }
 }
 
 std::vector<std::pair<std::string, std::string>> AuthorRepositoryImpl::GetAllAuthors() {
