@@ -63,11 +63,18 @@ int main(int argc, const char* argv[]) {
                     std::cout << "{\"result\":false}" << std::endl;
                 }
             } else if(req_action == "all_books"sv) {
+                bool first = true;
+                std::cout << '[';
                 for(const auto& book : wk.exec("SELECT to_json(b) FROM books b;"_zv)) {
-                    std::cout << *book.begin() << std::endl;
+                    if(!first) {
+                        std::cout << ',';
+                    }
+                    first = false;
+                    std::cout << *book.begin();
                 }
+                std::cout << ']';
             } else {
-                std::cout << "unknown command" << std::endl;
+                break;
             }
             // Применяем все изменения
             wk.commit();
