@@ -38,9 +38,9 @@ int main(int argc, const char* argv[]) {
         conn.prepare(tag_add_book, "INSERT INTO books (title, author, year, ISBN) VALUES ($1, $2, $3, $4)"_zv);
 
         //request loop
-        std::string request_str;
         for(size_t i = 0; i < 10000000; ++i) {
-            std::getline(std::cin, request_str);
+            std::string request_str;
+            std::cin >> request_str;
 
             json::object request_obj    = json::parse(request_str).as_object();
             std::string_view req_action = request_obj.at("action").as_string();
