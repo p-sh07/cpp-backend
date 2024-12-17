@@ -30,7 +30,7 @@ int main(int argc, const char* argv[]) {
         // Используя транзакцию создадим таблицу в выбранной базе данных:
         make_table.exec(
             "CREATE TABLE IF NOT EXISTS books (id SERIAL PRIMARY KEY, title varchar(100) NOT NULL, author varchar(100) NOT NULL, year integer NOT NULL, ISBN char(13) UNIQUE);"_zv
-            );
+        );
 
         make_table.commit();
 
@@ -38,56 +38,61 @@ int main(int argc, const char* argv[]) {
         conn.prepare(tag_add_book, "INSERT INTO books (title, author, year, ISBN) VALUES ($1, $2, $3, $4)"_zv);
 
         //request loop
-        for(;;) {
+        for (;;) {
             std::string request_str;
-            // std::getline(std::cin, request_str);
-            std::cin >> request_str;
+            std::getline(std::cin, request_str);
+            // std::cin >> request_str;
+            try {
+                json::object request_obj    = json::parse(request_str).as_object();
+                std::string_view req_action = request_obj.at("action").as_string();
 
-            json::object request_obj    = json::parse(request_str).as_object();
-            std::string_view req_action = request_obj.at("action").as_string();
+                if (req_action == "exit"sv) {
+                    break;
+                } else if (req_action == "add_book"sv) {
+                    try {
+                        pqxx::work wk(conn);
+                        json::object jbook                    = request_obj.at("payload").as_object();
+                        const std::string_view title          = jbook.at("title").as_string();
+                        const std::string_view author         = jbook.at("author").as_string();
+                        const auto year                       = jbook.at("year").as_int64();
+                        const std::optional<std::string> isbn =
+                            jbook.at("ISBN").is_string()
+                                ? std::optional<std::string>{jbook.at("ISBN").as_string()}
+                                : std::optional<std::string>{std::nullopt};
 
-            if(req_action == "exit"sv) {
-                break;
-            } else if(req_action == "add_book"sv) {
-                try {
-                    pqxx::work wk(conn);
-                    json::object jbook = request_obj.at("payload").as_object();
-                    const std::string_view title = jbook.at("title").as_string();
-                    const std::string_view author = jbook.at("author").as_string();
-                    const auto year = jbook.at("year").as_int64();
-                    const std::optional<std::string> isbn =
-                        jbook.at("ISBN").is_string() ? std::optional<std::string>{jbook.at("ISBN").as_string()}
-                    : std::optional<std::string>{std::nullopt};
-
-                    wk.exec_prepared(tag_add_book, title, author, year, isbn);
-                    wk.commit();
-                    std::cout << "{\"result\":true}"sv << std::endl;
-                } catch (std::exception& ex) {
-                    std::cout << "{\"result\":false}"sv << std::endl;
-                }
-            } else if(req_action == "all_books"sv) {
-                pqxx::read_transaction rd(conn);
-                bool first = true;
-                std::cout << '[';
-                for(const auto& book : rd.exec(R"(SELECT to_json(b) FROM books b ORDER BY year DESC, title, author, ISBN;)"_zv)) {
-                    if(!first) {
-                        std::cout << ',';
+                        wk.exec_prepared(tag_add_book, title, author, year, isbn);
+                        wk.commit();
+                        std::cout << "{\"result\":true}"sv << std::endl;
+                    } catch (std::exception& ex) {
+                        std::cout << "{\"result\":false}"sv << std::endl;
                     }
-                    first = false;
-                    std::cout << *book.begin();
+                } else if (req_action == "all_books"sv) {
+                    pqxx::read_transaction rd(conn);
+                    bool first = true;
+                    std::cout << '[';
+                    for (const auto& book : rd.exec(R"(SELECT to_json(b) FROM books b ORDER BY year DESC, title, author, ISBN;)"_zv)) {
+                        if (!first) {
+                            std::cout << ',';
+                        }
+                        first = false;
+                        std::cout << *book.begin();
+                    }
+                    std::cout << ']' << std::endl;
+                } else {
+                    std::cout << "{\"result\":\"invalid command!\"}"sv << std::endl;
                 }
-                std::cout << ']' << std::endl;
-            } else {
-                std::cout << "{\"result\":\"invalid command!\"}"sv << std::endl;
+
+            } catch (std::exception& ex) {
+                std::cout << "{\"result\":false}"sv << std::endl;
             }
         }
-    } catch (const std::exception& e) {
-        std::cerr << e.what() << std::endl;
+    } catch (const std::exception& ex) {
+        std::cerr << ex.what() << std::endl;
         return EXIT_FAILURE;
     }
 }
 
-/**
+/*
  *
 {"action":"add_book","payload":{"title":"The Old Man and the Sea","author":"Hemingway","year":1952,"ISBN":"5555555555555"}}
 {"result":true}
