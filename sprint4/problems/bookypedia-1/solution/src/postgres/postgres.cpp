@@ -23,7 +23,7 @@ void AuthorRepositoryImpl::Save(const domain::Author& author) {
         )"_zv, author.GetId().ToString(), author.GetName()
         );
         work.commit();
-    } catch (...) {
+    } catch (std::exception&) {
         throw std::runtime_error("failed to add author");
     }
 }

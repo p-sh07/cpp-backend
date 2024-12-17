@@ -23,9 +23,9 @@ bookypedia::AppConfig GetConfigFromEnv() {
 
 int main([[maybe_unused]] int argc, [[maybe_unused]] const char* argv[]) {
     try {
-        bookypedia::Application app{GetConfigFromEnv()};
+        // bookypedia::Application app{GetConfigFromEnv()};
         // assert(argc == 2);
-        // bookypedia::Application app{{argv[1]}};
+        bookypedia::Application app{{argv[1]}};
         app.Run();
     } catch (const std::exception& e) {
         std::cerr << e.what() << std::endl;
