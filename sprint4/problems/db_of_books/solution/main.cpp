@@ -38,8 +38,9 @@ int main(int argc, const char* argv[]) {
         conn.prepare(tag_add_book, "INSERT INTO books (title, author, year, ISBN) VALUES ($1, $2, $3, $4)"_zv);
 
         //request loop
-        for(size_t i = 0; i < 10000000; ++i) {
+        for(;;) {
             std::string request_str;
+            // std::getline(std::cin, request_str);
             std::cin >> request_str;
 
             json::object request_obj    = json::parse(request_str).as_object();
@@ -60,9 +61,9 @@ int main(int argc, const char* argv[]) {
 
                     wk.exec_prepared(tag_add_book, title, author, year, isbn);
                     wk.commit();
-                    std::cout << "{\"result\":true}" << std::endl;
+                    std::cout << "{\"result\":true}"sv << std::endl;
                 } catch (std::exception& ex) {
-                    std::cout << "{\"result\":false}" << std::endl;
+                    std::cout << "{\"result\":false}"sv << std::endl;
                 }
             } else if(req_action == "all_books"sv) {
                 pqxx::read_transaction rd(conn);
@@ -77,7 +78,7 @@ int main(int argc, const char* argv[]) {
                 }
                 std::cout << ']' << std::endl;
             } else {
-                break;
+                std::cout << "{\"result\":\"invalid command!\"}"sv << std::endl;
             }
         }
     } catch (const std::exception& e) {
