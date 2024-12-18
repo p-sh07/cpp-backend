@@ -10,15 +10,6 @@ namespace json = boost::json;
 // libpqxx использует zero-terminated символьные литералы вроде "abc"_zv;
 using pqxx::operator"" _zv;
 
-template <typename T>
-json::value OptToVal(const T& opt) {
-    if(opt) {
-        return {opt.value()};
-    }
-    //if opt empty, return default construcled - null
-    return json::value{};
-}
-
 int main(int argc, const char* argv[]) {
     try {
         if (argc == 1) {
@@ -49,8 +40,8 @@ int main(int argc, const char* argv[]) {
         //request loop
         for (;;) {
             std::string request_str;
-            // std::getline(std::cin, request_str);
-            std::cin >> request_str;
+            std::getline(std::cin, request_str);
+            // std::cin >> request_str;
             try {
                 json::object request_obj    = json::parse(request_str).as_object();
                 std::string_view req_action = request_obj.at("action").as_string();
@@ -77,20 +68,19 @@ int main(int argc, const char* argv[]) {
                     }
                 } else if (req_action == "all_books"sv) {
                     pqxx::read_transaction rd(conn);
-
                     json::array jar;
-                    for (auto [id, title, author, year, isbn] : rd.query<int, std::string, std::string, int, std::optional<std::string>>(R"(SELECT * FROM books ORDER BY year DESC, title, author, ISBN;)"_zv)) {
+                    for (const auto& book : rd.exec(R"(SELECT to_json(b) FROM books b ORDER BY year DESC, title, author, ISBN;)"_zv)) {
+                        auto book_jobj = json::parse(book.begin().as<std::string>()).as_object();
                         jar.emplace_back(
                             json::object{
-                                {"id", id},
-                                {"title", title},
-                                {"author", author},
-                                {"year", year},
-                                {"ISBN", OptToVal(isbn)}
-                            }
-                        );
+                                {"id", book_jobj.at("id")},
+                                {"title", book_jobj.at("title")},
+                                {"author", book_jobj.at("author")},
+                                {"year", book_jobj.at("year")},
+                                {"ISBN", book_jobj.at("isbn")}
+                            });
                     }
-                    std::cout << serialize(jar);
+                    std::cout << serialize(jar) << std::endl;
                 } else {
                     std::cout << "{\"result\":\"invalid command!\"}"sv << std::endl;
                 }
