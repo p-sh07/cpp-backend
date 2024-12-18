@@ -49,8 +49,8 @@ int main(int argc, const char* argv[]) {
         //request loop
         for (;;) {
             std::string request_str;
-            std::getline(std::cin, request_str);
-            // std::cin >> request_str;
+            // std::getline(std::cin, request_str);
+            std::cin >> request_str;
             try {
                 json::object request_obj    = json::parse(request_str).as_object();
                 std::string_view req_action = request_obj.at("action").as_string();
