@@ -10,6 +10,15 @@ namespace json = boost::json;
 // libpqxx использует zero-terminated символьные литералы вроде "abc"_zv;
 using pqxx::operator"" _zv;
 
+template <typename T>
+json::value OptToVal(const T& opt) {
+    if(opt) {
+        return {opt.value()};
+    }
+    //if opt empty, return default construcled - null
+    return json::value{};
+}
+
 int main(int argc, const char* argv[]) {
     try {
         if (argc == 1) {
@@ -68,16 +77,20 @@ int main(int argc, const char* argv[]) {
                     }
                 } else if (req_action == "all_books"sv) {
                     pqxx::read_transaction rd(conn);
-                    bool first = true;
-                    std::cout << '[';
-                    for (const auto& book : rd.exec(R"(SELECT to_json(b) FROM books b ORDER BY year DESC, title, author, ISBN;)"_zv)) {
-                        if (!first) {
-                            std::cout << ',';
-                        }
-                        first = false;
-                        std::cout << *book.begin();
+
+                    json::array jar;
+                    for (auto [id, title, author, year, isbn] : rd.query<int, std::string, std::string, int, std::optional<std::string>>(R"(SELECT * FROM books ORDER BY year DESC, title, author, ISBN;)"_zv)) {
+                        jar.emplace_back(
+                            json::object{
+                                {"id", id},
+                                {"title", title},
+                                {"author", author},
+                                {"year", year},
+                                {"ISBN", OptToVal(isbn)}
+                            }
+                        );
                     }
-                    std::cout << ']' << std::endl;
+                    std::cout << serialize(jar);
                 } else {
                     std::cout << "{\"result\":\"invalid command!\"}"sv << std::endl;
                 }
