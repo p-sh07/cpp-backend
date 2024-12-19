@@ -56,6 +56,10 @@ public:
     virtual void Save(const Book& book) = 0;
     virtual std::vector<std::pair<std::string, int>> GetAllBooks() const = 0;
     virtual std::vector<std::pair<std::string, int>> GetAllBooksByAuthor(const std::string& author_id) const = 0;
+    virtual Book LoadBook(const std::string& book_id) const = 0;
+    virtual bool DeleteBook(const std::string& book_id) = 0;
+    virtual bool ModifyBookInfo(const std::string& book_id, const std::vector<std::string>& tags_, std::string new_title = "", int new_pub_year = -1) = 0;
+
 protected:
     ~BookRepository() = default;
 };

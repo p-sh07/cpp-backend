@@ -37,6 +37,36 @@ std::vector<std::pair<std::string, std::string>> AuthorRepositoryImpl::GetAllAut
     return result;
 }
 
+bool AuthorRepositoryImpl::DeleteAuthor(const std::string& author_id) {
+    pqxx::work work{connection_};
+    try {
+        //Delete book and tags inside a transaction
+        work.exec(R"(START TRANSACTION;)"_zv);
+        work.exec("DELETE FROM authors WHERE id = " + work.quote(author_id) + ";");
+        work.exec("DELETE FROM books WHERE author_id = " + work.quote(author_id) + ";");
+
+        work.exec(R"(COMMIT)"_zv);
+    } catch (std::exception&) {
+        work.exec(R"(ROLLBACK;)"_zv);
+        return false;
+    }
+    return true;
+}
+
+bool AuthorRepositoryImpl::EditAuthorName(const std::string& author_id, const std::string& new_name) {
+    pqxx::work work{connection_};
+    try {
+        //Delete book and tags inside a transaction
+        work.exec(R"(START TRANSACTION;)"_zv);
+        work.exec("UPDATE books SET name = " + work.quote(new_name) + " WHERE id = " + work.quote(author_id) + ";");
+        work.exec(R"(COMMIT)"_zv);
+    } catch (std::exception&) {
+        work.exec(R"(ROLLBACK;)"_zv);
+        return false;
+    }
+    return true;
+}
+
 std::optional<domain::AuthorId> AuthorRepositoryImpl::FindAuthorByName(std::string author_name) const {
     pqxx::read_transaction read{connection_};
     try {
@@ -80,21 +110,66 @@ std::vector<std::pair<std::string, int>> BookRepositoryImpl::GetAllBooksByAuthor
     return result;
 }
 
+domain::Book BookRepositoryImpl::LoadBook(const std::string& book_id) const {
+
+}
+
+bool BookRepositoryImpl::DeleteBook(const std::string& book_id) {
+    pqxx::work work{connection_};
+    try {
+        //Delete book and tags inside a transaction
+        work.exec(R"(START TRANSACTION;)"_zv);
+        work.exec("DELETE FROM books WHERE id = " + work.quote(book_id) + ";");
+        work.exec("DELETE FROM book_tags WHERE book_id = " + work.quote(book_id) + ";");
+        work.exec(R"(COMMIT)"_zv);
+        //TODO: linking the TAGS table with books could simplify this
+    } catch (std::exception&) {
+        work.exec(R"(ROLLBACK;)"_zv);
+        return false;
+    }
+    return true;
+}
+
+bool BookRepositoryImpl::ModifyBookInfo(const std::string& book_id, const std::vector<std::string>& tags_, std::string new_title, int new_pub_year) {
+    //TODO:
+    // pqxx::work work{connection_};
+    // try {
+    //     //Delete book and tags inside a transaction
+    //     work.exec(R"(START TRANSACTION;)"_zv);
+    //     work.exec("DELETE FROM books WHERE id = " + work.quote(book_id) + ";");
+    //     work.exec("DELETE FROM book_tags WHERE book_id = " + work.quote(book_id) + ";");
+    //     work.exec(R"(COMMIT)"_zv);
+    //     //TODO: linking the TAGS table with books could simplify this
+    // } catch (std::exception&) {
+    //     work.exec(R"(ROLLBACK;)"_zv);
+    //     return false;
+    // }
+    return false;
+}
+
 Database::Database(pqxx::connection connection)
     : connection_{std::move(connection)} {
     pqxx::work work{connection_};
     work.exec(R"(
         CREATE TABLE IF NOT EXISTS authors (
-            id UUID CONSTRAINT author_id_constraint PRIMARY KEY,
+            id UUID CONSTRAINT author_id_constraint PRIMARY KEY NOT NULL,
             name varchar(100) UNIQUE NOT NULL
         );
     )"_zv);
 
     work.exec(R"(
         CREATE TABLE IF NOT EXISTS books (
-            id UUID CONSTRAINT book_id_constraint PRIMARY KEY,
+            id UUID CONSTRAINT book_id_constraint PRIMARY KEY NOT NULL,
             author_id UUID CONSTRAINT author_id_constraint NOT NULL,
             title varchar(100) NOT NULL, publication_year integer NOT NULL
+        );
+    )"_zv);
+
+    work.exec(R"(
+        CREATE TABLE IF NOT EXISTS book_tags (
+            entry_id SERIAL PRIMARY KEY NOT NULL,
+            book_id UUID CONSTRAINT book_id_constraint NOT NULL,
+            tag varchar(30) NOT NULL
         );
     )"_zv);
 

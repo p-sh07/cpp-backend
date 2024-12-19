@@ -47,8 +47,11 @@ private:
     bool ShowAuthorBooks() const;
 
     std::optional<detail::AddBookParams> GetBookParams(std::istream& cmd_input) const;
-    std::string GetAuthorId(const std::string& author_name);
+    std::optional<std::string> GetAuthorId(const std::string& author_name) const;
+    std::optional<std::string> RequestAuthorName(std::istream& cmd_input) const;
     std::optional<std::string> SelectAuthor() const;
+    std::optional<std::string> AddAuthorOnAccept(const std::string& author_name, std::istream& cmd_input) const;
+
     std::vector<detail::AuthorInfo> GetAuthors() const;
     std::vector<detail::BookInfo> GetBooks() const;
     std::vector<detail::BookInfo> GetAuthorBooks(const std::string& author_id) const;

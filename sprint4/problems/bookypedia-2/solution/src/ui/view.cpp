@@ -40,7 +40,7 @@ View::View(menu::Menu& menu, app::UseCases& use_cases, std::istream& input, std:
     , output_{output} {
     menu_.AddAction(  //
         "AddAuthor"s, "name"s, "Adds author"s, std::bind(&View::AddAuthor, this, ph::_1)
-        // ����
+        // or
         // [this](auto& cmd_input) { return AddAuthor(cmd_input); }
     );
     menu_.AddAction("AddBook"s, "<pub year> <title>"s, "Adds book"s,
@@ -118,14 +118,43 @@ std::optional<detail::AddBookParams> View::GetBookParams(std::istream& cmd_input
     std::getline(cmd_input, params.title);
     boost::algorithm::trim(params.title);
 
-    auto author_id = SelectAuthor();
-    if (not author_id.has_value())
-        return std::nullopt;
-    else {
+    output_ << "Enter author name or empty line to select from list:" << std::endl;
+    if(auto author_id = RequestAuthorName(cmd_input); author_id) {
         params.author_id = author_id.value();
-        return params;
+    } else if(author_id = SelectAuthor(); author_id) {
+        params.author_id = author_id.value();
     }
+    return std::nullopt;
 }
+
+std::optional<std::string> View::RequestAuthorName(std::istream& cmd_input) const {
+    std::string name;
+    std::getline(cmd_input, name);
+    boost::algorithm::trim(name);
+
+    if(name.empty()) {
+        return std::nullopt;
+    }
+    //If author exists, return id
+    if(auto id = GetAuthorId(name); id) {
+        return id;
+    }
+    //If doesn't exist, offer to add author
+
+    return name;
+}
+
+std::optional<std::string> View::AddAuthorOnAccept(const std::string& author_name, std::istream& cmd_input) const {
+
+    std::optional<std::string> id;
+    char c;
+    if(cmd_input >> c; c == 'y' || c == 'Y') {
+        use_cases_.AddAuthor(author_name);
+        return use_cases_.GetAuthorId(author_name);
+    }
+    return std::nullopt;
+}
+
 
 std::optional<std::string> View::SelectAuthor() const {
     output_ << "Select author:" << std::endl;
@@ -194,7 +223,7 @@ std::vector<detail::BookInfo> View::GetAuthorBooks(const std::string& author_id)
     return books;
 }
 
-std::string View::GetAuthorId(const std::string& author_name) {
+std::optional<std::string> View::GetAuthorId(const std::string& author_name) const {
     return use_cases_.GetAuthorId(author_name);
 }
 }  // namespace ui
