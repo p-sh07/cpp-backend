@@ -9,9 +9,7 @@ using pqxx::operator"" _zv;
 
 class PlayerStatsImpl final : public database::PlayerStats {
 public:
-    PlayerStatsImpl(const std::string& database_url, int max_conections = 1)
-    //make a connection pool using a lambda as a connection factory
-    ;
+    PlayerStatsImpl(const std::string& database_url, int max_conections = 1);
 
     void SavePlayersStats(const std::vector<gamedata::PlayerStats>& players_stats) override;
     std::vector<gamedata::PlayerStats> LoadPlayersStats(std::optional<size_t> start, std::optional<size_t> maxItems) override;

@@ -92,15 +92,15 @@ void RunWorkers(unsigned n, const Fn& fn) {
     }
 }
 
-constexpr const char GAME_DB_URL[]{"PLAYERSTATS_DB_URL"};
+constexpr const char GAME_DB_URL[]{"GAME_DB_URL"};
 constexpr const char DEBUG_GAME_DB_URL[]{"DEBUG_DB_URL"};
 
 std::string GetDbUrlFromEnv() {
     std::string url_str;// = "postgres://postgres:Mys3Cr3t@localhost:30432/playerdb"s;
     if (const auto* url = std::getenv(GAME_DB_URL)) {
         url_str = url;
-    } else if(const auto* debug_url = std::getenv(DEBUG_GAME_DB_URL)) {
-        url_str = debug_url;
+    // } else if(const auto* debug_url = std::getenv(DEBUG_GAME_DB_URL)) {
+    //     url_str = debug_url;
     } else {
         throw std::runtime_error(GAME_DB_URL + " environment variable not found"s);
     }
@@ -142,7 +142,7 @@ int main(int argc, const char* argv[]) {
             : nullptr;
 
           // 1.2. PostgreS база данных уставших игроков. По одному соединению на каждый thread
-        postgres::PlayerStatsImpl pstat_db(GetDbUrlFromEnv(), 2);
+        postgres::PlayerStatsImpl pstat_db(GetDbUrlFromEnv(), num_threads);
 
         // 2. Загружаем карту из файла, создаем модель и интерфейс (application) игры
         auto game = std::make_shared<model::Game>(json_loader::LoadGame(args->config_path));

@@ -5,9 +5,11 @@
 #include "postgres.h"
 
 namespace postgres {
-PlayerStatsImpl::PlayerStatsImpl(const std::string& database_url, int max_conections): conn_pool_(max_conections, [&database_url]() {
-    return std::make_shared<pqxx::connection>(database_url);
-}) {
+PlayerStatsImpl::PlayerStatsImpl(const std::string& database_url, int max_conections)
+//make a connection pool using a lambda as a connection factory
+    : conn_pool_(max_conections, [&database_url]() {
+        return std::make_shared<pqxx::connection>(database_url);
+    }) {
     auto conn = conn_pool_.GetConnection();
     //TODO: create table, etc;
     pqxx::work wk{*conn};

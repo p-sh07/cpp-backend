@@ -40,7 +40,7 @@ COPY ./static /app/static
 #COPY ./state /volume/state
 
 #Env var for db
-ENV DEBUG_DB_URL=postgres://postgres:Mys3Cr3t@localhost:30432/playerdb
+ENV DEBUG_DB_URL=postgres://postgres:Mys3Cr3t@172.17.0.2:5432/playerdb
 
 # Запускаем игровой сервер
 ENTRYPOINT ["/app/game_server", "--config-file", "/app/data/config.json", "--www-root", "/app/static"]
