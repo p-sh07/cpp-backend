@@ -6,6 +6,7 @@
 #include <pqxx/pqxx>
 #include <vector>
 #include <string>
+#include <optional>
 
 #include "game_data.h"
 
@@ -89,12 +90,12 @@ private:
     size_t used_connections_ = 0;
 };
 
-class DatabaseInterface {
+class PlayerStats {
 protected:
-    ~DatabaseInterface() = default;
+    ~PlayerStats() = default;
 
 public:
-    virtual std::vector<gamedata::PlayerStats> LoadPlayersStats() const = 0;
+    virtual std::vector<gamedata::PlayerStats> LoadPlayersStats(std::optional<size_t> start, std::optional<size_t> maxItems) = 0;
     virtual void SavePlayersStats(const std::vector<gamedata::PlayerStats>& players_stats) = 0;
 };
 

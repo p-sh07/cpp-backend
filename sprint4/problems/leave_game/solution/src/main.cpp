@@ -9,6 +9,7 @@
 
 #include "request_handling.h"
 #include "state_serialization.h"
+#include "postgres.h"
 
 namespace net = boost::asio;
 namespace sys = boost::system;
@@ -90,6 +91,18 @@ void RunWorkers(unsigned n, const Fn& fn) {
         t.join();
     }
 }
+
+constexpr const char GAME_DB_URL[]{"PLAYERSTATS_DB_URL"};
+
+std::string GetDbUrlFromEnv() {
+    std::string url_str = "postgres://postgres:Mys3Cr3t@localhost:30432/playerdb"s;
+    // if (const auto* url = std::getenv(GAME_DB_URL)) {
+    //     url_str = url;
+    // } else {
+    //     throw std::runtime_error(GAME_DB_URL + " environment variable not found"s);
+    // }
+    return url_str;
+}
 } // namespace
 
 int main(int argc, const char* argv[]) {
@@ -108,7 +121,7 @@ int main(int argc, const char* argv[]) {
         // 0. Инициализируем
         server_logger::InitLogging();
 
-        // 0.1. Парсим аргументы переданные в функцию
+          // 0.1. Парсим аргументы переданные в функцию
         auto args = ParseCommandLine(argc, argv);
         if (!args) {
             //failed to parse arguments
@@ -120,22 +133,25 @@ int main(int argc, const char* argv[]) {
         net::io_context ioc(static_cast<int>(num_threads));
         auto api_strand          = net::make_strand(ioc);
 
+          // 1.1 Сериализатор
         auto serializer_listener = args->enable_save
             ? std::make_shared<serialization::StateSerializer>(args->state_file, args->enable_periodic_save, args->save_period)
             : nullptr;
+
+          // 1.2. PostgreS база данных уставших игроков. По одному соединению на каждый thread
+        postgres::PlayerStatsImpl pstat_db(GetDbUrlFromEnv(), num_threads);
 
         // 2. Загружаем карту из файла, создаем модель и интерфейс (application) игры
         auto game = std::make_shared<model::Game>(json_loader::LoadGame(args->config_path));
         game->EnableRandomDogSpawn(args->randomize_spawn_points);
 
-        // 2.1. При наличии сохраненного состояния, восстанавливаем данные из файла //TODO: Restore throw if unsuccessful
-        auto game_app = std::make_shared<app::GameInterface>(ioc, game, serializer_listener);
+          // 2.1. При наличии сохраненного состояния, восстанавливаем данные из файла //TODO: Restore throw if unsuccessful
+        auto game_app = std::make_shared<app::GameInterface>(ioc, game, serializer_listener, pstat_db);
 
         // 3. Добавляем асинхронный обработчик сигналов SIGINT и SIGTERM
         net::signal_set signals(ioc, SIGINT, SIGTERM);
         signals.async_wait([&ioc, game_app, serializer_listener](const sys::error_code& ec, [[maybe_unused]] int signal_number) {
             if (!ec) {
-                //TODO: does this work?
                 if (serializer_listener) {
                     serializer_listener->SaveGameState(game_app->GetPlayerManager());
                 }
@@ -155,7 +171,7 @@ int main(int argc, const char* argv[]) {
             }
         };
 
-        const auto address                = net::ip::make_address("0.0.0.0");
+        const auto address = net::ip::make_address("0.0.0.0");
         constexpr net::ip::port_type port = 8080;
 
         // Сервер готов к обработке запросов
@@ -183,37 +199,3 @@ int main(int argc, const char* argv[]) {
     BOOST_LOG_TRIVIAL(info) << logging::add_value(log_message, "server exited")
                             << logging::add_value(log_msg_data, log_server_exit_report);
 }
-
-/**
- *Задание
-Добавьте в игровой сервер возможность сохранять игровое состояние в файл и восстанавливать состояние из файла при старте.
-Добавьте следующие параметры командной строки:
-Параметр --state-file <путь-к-файлу> задаёт путь к файлу, в который приложение должно сохранять своё состояние в процессе работы,
-а при старте — восстанавливать. Если параметр не задан, игровой сервер всегда запускается с чистого листа и не сохраняет своё состояние
-в файл. Когда параметр задан и сервер завершает работу, получив сигналы SIGINT и SIGTERM, программа должна сохранить на диск своё текущее состояние.
-Параметр --save-state-period <игровое-время-в-миллисекундах>. Задаёт период автоматического сохранения состояния сервера. Сохранение должно
-происходить синхронно с ходом игровых часов, если с момента предыдущего сохранения состояния прошло не меньше указанного времени. Если
-параметр не задан, состояние должно сохраняться автоматически только перед завершением работы сервера, когда ему отправлены сигналы SIGINT
-и SIGTERM. Этот параметр игнорируется, если запустить сервер без параметра --state-file.
-Когда в командной строке сервера указан параметр --state-file и по указанному пути есть файл, сервер должен восстановить своё состояние
-из этого файла. Если при восстановлении состояния возникла ошибка, например, в файле есть некорректные данные, сервер должен:
-в log вывести сообщение об ошибке;
-завершить работу и вернуть из функции код ошибки EXIT_FAILURE.
-Если файл, путь к которому задан в --state-file, на диске не существует, сервер должен начать работу с чистого листа.
-Сервер должен использовать игровое время для определения моментов автоматического сохранения состояния. То есть сохранение должно происходить
-в те моменты, когда происходит обновление игровых часов по HTTP-запросу /api/v1/game/tick либо автоматически, если сервер был запущен
-с параметром командой строки --tick-period.
-Состояние, которое сохраняется на диск, должно включать:
-информацию обо всех динамических объектах на всех картах — собаках и потерянных предметах;
-информацию о токенах и идентификаторах пользователей, вошедших в игру.
-В каталоге sprint4/state_serialization/precode вы найдёте:
-пример кода, который иллюстрирует сохранение и восстановление состояния нашей версии класса Dog,
-заготовку юнит-тестов, которые проверяют загрузку и сериализацию.
-Как будет тестироваться ваш код
-Автоматические тесты проверят следующие сценарии:
-Когда сервер запускается без указания пути к файлу с сохранённым состоянием, он должен стартовать с чистого листа. При получении сигнала о завершении работы сервер не должен создавать никаких файлов.
-Когда сервер запускается с указанием пути к отсутствующему файлу состояния, он должен стартовать с чистого листа. При получении сигнала о завершении работы сервер должен сохранить состояние в файл.
-Когда сервер запускается с указанием пути к существующему файлу состояния, он должен должен восстановить это состояние. При получении сигнала о завершении работы сервер должен сохранить обновлённое состояние.
-Тесты не будут проверять содержимое файла — формат может быть любым. Но ваш сервер должен успешно восстанавливать игровое состояние из сохранённого файла.
-При запуске с параметром --save-state-period сервер должен сохранять в него состояние, когда с момента предыдущего сохранения или старта игры прошёл интервал времени, не меньший заданного. Если время на сервере идёт автоматически (сервер запущен с параметром --tick-period), сохранение должно происходить синхронно с ходом игровых часов. Если сервер запущен без параметра --tick-period, сохранение должно происходить синхронно с обработкой запросов /api/v1/game/tick.
-*/

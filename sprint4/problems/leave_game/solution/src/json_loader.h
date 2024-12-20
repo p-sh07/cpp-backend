@@ -34,8 +34,16 @@ std::string PrintMapList(const model::Game::Maps& map_list);
 const char ParseMove(const std::string& request_body);
 model::TimeMs ParseTick(const std::string& request_body);
 
+struct StatsCommand {
+    std::optional<size_t> start {std::nullopt};
+    std::optional<size_t> maxItems {std::nullopt};
+};
+
+StatsCommand ParseStatsCommand(const std::string& request_body);
+
 std::string PrintPlayerList(const std::vector<app::ConstPlayerPtr>& players);
 std::string PrintGameState(app::ConstPlayerPtr& player, const std::shared_ptr<app::GameInterface>& game_app);
+std::string PrintPlayerStats(const std::vector<gamedata::PlayerStats>& players_stats);
 
 model::Game LoadGame(const std::filesystem::path& json_path);
 } // namespace json_loader

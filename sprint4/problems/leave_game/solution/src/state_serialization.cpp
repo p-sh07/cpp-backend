@@ -8,7 +8,9 @@ serialization::DogRepr::DogRepr(const model::Dog& dog): id_(dog.GetId())
     , tag_(dog.GetTag())
     , bag_capacity_(dog.GetBagCap())
     , score_(dog.GetScore())
-    , bag_content_(dog.GetBag()) {
+    , bag_content_(dog.GetBag())
+    , ingame_time_(dog.GetIngameTime().count())
+    , inactive_time_(dog.GetInactiveTime().count()){
 }
 
 model::Dog serialization::DogRepr::Restore() const {
@@ -16,6 +18,7 @@ model::Dog serialization::DogRepr::Restore() const {
     dog.SetSpeed(speed_);
     dog.SetDirection(direction_);
     dog.AddScore(score_);
+    dog.RestoreTimers(model::TimeMs{ingame_time_}, model::TimeMs{inactive_time_});
     for (const auto& item : bag_content_) {
         if (!dog.TryCollectItem(item)) {
             throw std::runtime_error("Failed to put bag content");

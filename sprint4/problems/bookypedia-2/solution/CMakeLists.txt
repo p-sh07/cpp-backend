@@ -19,7 +19,7 @@ find_package(Threads REQUIRED)
 
 add_library(libbookypedia STATIC
 	src/menu/menu.cpp
-	src/menu/menu.h
+	src/menu/menu.hd
 	src/ui/view.cpp
 	src/ui/view.h
 	src/app/use_cases.h

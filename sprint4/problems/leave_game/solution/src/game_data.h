@@ -26,7 +26,7 @@ struct Settings {
     const double dog_width       = 0.6;
     const double office_width    = 0.5;
 
-    static constexpr auto valid_move_chars = "UDLR"sv;
+    static constexpr auto valid_move_chars = "UDLRN"sv;
 
     double GetDogSpeed() const {
         return map_dog_speed ? *map_dog_speed : default_dog_speed;
@@ -64,7 +64,7 @@ private:
 struct PlayerStats {
     std::string name {""s};
     size_t score {0};
-    size_t time_in_game_sec {0};
+    size_t game_time_msec {0};
 };
 
 }

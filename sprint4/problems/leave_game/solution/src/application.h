@@ -5,9 +5,11 @@
 #include <boost/asio/io_context.hpp>
 #include <deque>
 #include <filesystem>
+#include <ranges>
 #include <unordered_map>
 
 #include "app_util.h"
+#include "database.h"
 #include "model.h"
 #include "loot_generator.h"
 
@@ -83,7 +85,7 @@ class Session {
     void RemoveDog(Dog::Id dog_id);
     void RemoveLootItem(GameObject::Id loot_item_id);
 
-    void AdvanceTime(model::TimeMs delta_t);
+    std::vector<gamedata::PlayerStats> AdvanceTime(model::TimeMs delta_t);
 
 private:
     //net::strand<net::io_context::executor_type> strand_;
@@ -111,6 +113,7 @@ private:
 
     void GenerateLoot(model::TimeMs delta_t);
     void ProcessCollisions() const;
+    std::vector<gamedata::PlayerStats> ProcessRetiredDogs();
 
     // void HandleCollision(const model::LootItemPtr& loot, const DogPtr& dog) const;
     // void HandleCollision(const model::ItemsReturnPointPtr& office, const DogPtr& dog) const;
@@ -191,7 +194,7 @@ class PlayerSessionManager {
     std::vector<ConstPlayerPtr> GetAllPlayersInSession(ConstPlayerPtr player) const;
     static const Session::LootItems& GetSessionLootList(ConstPlayerPtr player);
 
-    void AdvanceTime(model::TimeMs delta_t);
+    std::vector<gamedata::PlayerStats> AdvanceTime(model::TimeMs delta_t);
 
 private:
     GamePtr game_;
@@ -238,7 +241,7 @@ struct JoinGameResult {
 class GameInterface {
  public:
     //GameInterface(const fs::path& game_config);
-    GameInterface(net::io_context& io, const GamePtr& game_ptr, const AppListenerPtr& app_listener_ptr);
+    GameInterface(net::io_context& io, GamePtr game_ptr, AppListenerPtr app_listener_ptr, database::PlayerStats& player_db);
 
     //use cases
     model::ConstMapPtr GetMap(std::string_view map_id) const;
@@ -248,13 +251,8 @@ class GameInterface {
     void SetPlayerMovement(ConstPlayerPtr player, char move_command);
     void AdvanceGameTime(model::TimeMs delta_t);
 
-    const PlayerSessionManager& GetPlayerManager() const {
-        return player_manager_;
-    }
-
-    void RestorePlayerManagerState(PlayerSessionManager psm) {
-        player_manager_ = std::move(psm);
-    }
+    const PlayerSessionManager& GetPlayerManager() const;
+    void RestorePlayerManagerState(PlayerSessionManager psm);
 
     JoinGameResult JoinGame(std::string map_id_str, std::string player_dog_name);
     ConstPlayerPtr FindPlayerByToken(const Token& token) const;
@@ -265,12 +263,14 @@ class GameInterface {
     //Returns vector of all players in same session as player
     std::vector<ConstPlayerPtr> GetPlayerList(ConstPlayerPtr player) const;
     const Session::LootItems& GetLootList(ConstPlayerPtr player) const;
+    std::vector<gamedata::PlayerStats> GetPlayerStats(std::optional<size_t> start, std::optional<size_t> max_players);
 
- private:
+private:
     net::io_context& io_;
     AppListenerPtr app_listener_ = nullptr;
     GamePtr game_;
     PlayerSessionManager player_manager_;
+    database::PlayerStats& player_stat_db_;
 
     //TODO: use from GameSettings
     static constexpr auto valid_move_chars_ = "UDLR"sv;

@@ -175,15 +175,23 @@ json::value MapToValue(const Map& map) {
     return jv;
 }
 
+StatsCommand ParseStatsCommand(const std::string& request_body) {
+    auto params_obj   = json::parse(request_body).as_object();
+    auto start_ptr    = params_obj.if_contains("start");
+    auto maxItems_ptr = params_obj.if_contains("maxItems");
+
+    return {start_ptr ? start_ptr->as_int64() : std::optional<size_t>{}
+        , maxItems_ptr ? maxItems_ptr->as_int64() : std::optional<size_t>{}
+    };
+}
+
 std::string PrintPlayerList(const std::vector<app::ConstPlayerPtr>& players) {
     std::stringstream ss;
     print_json(ss, std::move(MakePlayerListJson(players)));
-
     return ss.str();
 }
 
 std::string PrintGameState(app::ConstPlayerPtr& player, const std::shared_ptr<app::GameInterface>& game_app) {
-    std::stringstream ss;
     json::object game_state;
     game_state.emplace("players", std::move(MakePlayerStateJson(game_app->GetPlayerList(player)))
     );
@@ -191,7 +199,24 @@ std::string PrintGameState(app::ConstPlayerPtr& player, const std::shared_ptr<ap
     game_state.emplace("lostObjects", std::move(MakeLostObjectsJson(game_app->GetLootList(player)))
     );
 
+    std::stringstream ss;
     print_json(ss, game_state);
+    return ss.str();
+}
+
+std::string PrintPlayerStats(const std::vector<gamedata::PlayerStats>& players_stats) {
+    json::array pstats;
+
+    //NB: Assumes the stats are alreasy sorted
+    for(const auto& player : players_stats) {
+        pstats.emplace_back(json::object{
+            {"name", json::value_from(player.name)},
+            {"score", json::value_from(player.score)},
+            {"playTime", json::value_from(player.game_time_msec / 1000.0)}
+        });
+    }
+    std::stringstream ss;
+    print_json(ss, pstats);
     return ss.str();
 }
 
@@ -263,7 +288,9 @@ const char ParseMove(const std::string& request_body) {
     auto j_obj = json::parse(request_body).as_object();
     if(auto it = j_obj.find("move"); it != j_obj.end()) {
         auto mv_cmd = it->value().as_string();
-        return mv_cmd.empty() ? char{} : mv_cmd[0];
+        return mv_cmd.empty()
+        ? static_cast<char>(model::Direction::NONE)
+        : mv_cmd[0];
     }
     throw std::invalid_argument("cannot parse move command");
 }

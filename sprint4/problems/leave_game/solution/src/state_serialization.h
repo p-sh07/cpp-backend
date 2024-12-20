@@ -1,7 +1,5 @@
 #include <boost/serialization/vector.hpp>
 #include <boost/serialization/deque.hpp>
-#include <boost/serialization/shared_ptr.hpp>
-#include <boost/serialization/unordered_map.hpp>
 #include <boost/archive/text_iarchive.hpp>
 #include <boost/archive/text_oarchive.hpp>
 // #include <boost/serialization/>
@@ -95,6 +93,8 @@ public:
         ar& bag_capacity_;
         ar& score_;
         ar& bag_content_;
+        ar& ingame_time_;
+        ar& inactive_time_;
     }
 
 private:
@@ -107,6 +107,8 @@ private:
     size_t bag_capacity_ {0u};
     model::Score score_ {0u};
     model::Dog::BagContent bag_content_;
+    int64_t ingame_time_;
+    int64_t inactive_time_;
 };
 
 struct LootItemRepr {

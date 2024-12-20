@@ -3,28 +3,21 @@
 //
 #pragma once;
 #include "database.h"
+
 namespace postgres {
+using pqxx::operator"" _zv;
 
-
-class Database final : public database::DatabaseInterface {
+class PlayerStatsImpl final : public database::PlayerStats {
 public:
-    Database(const std::string& database_url, int max_conections = 1)
+    PlayerStatsImpl(const std::string& database_url, int max_conections = 1)
     //make a connection pool using a lambda as a connection factory
-        : conn_pool_(max_conections, [&database_url]() {
-            return std::make_shared<pqxx::connection>(database_url);
-        }) {
-        auto conn = conn_pool_.GetConnection();
-        //TODO: create table, etc;
-    }
+    ;
 
-    void SavePlayersStats(const std::vector<gamedata::PlayerStats>& players_stats) override {
-        //TODO:
-    }
-    virtual std::vector<gamedata::PlayerStats> LoadPlayersStats() const override {
-        //TODO:
-    }
+    void SavePlayersStats(const std::vector<gamedata::PlayerStats>& players_stats) override;
+    std::vector<gamedata::PlayerStats> LoadPlayersStats(std::optional<size_t> start, std::optional<size_t> maxItems) override;
 
 private:
+    static constexpr size_t max_allowed_results_ = 100;
     database::ConnectionPool conn_pool_;
 };
 

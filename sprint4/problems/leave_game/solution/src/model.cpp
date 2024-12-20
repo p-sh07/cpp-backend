@@ -134,6 +134,7 @@ Offset Office::GetOffset() const {
 CollisionObject::CollisionObject(GameObject::Id id, Point2D pos, double width)
     : GameObject(id)
     , pos_(pos)
+    , prev_pos_(pos)
     , width_(width) {}
 
 Point2D CollisionObject::GetPos() const {
@@ -204,6 +205,9 @@ DynamicObject& DynamicObject::SetMovement(Direction dir, double speed_value) {
         case Direction::EAST:
             SetSpeed({speed_value, 0.0});
             break;
+        case Direction::NONE:
+            Stop();
+            break;
 
         default:SetSpeed({0.0, 0.0});
             break;
@@ -215,11 +219,11 @@ void DynamicObject::Stop() {
     SetSpeed({0.0, 0.0});
 }
 
-Point2D DynamicObject::ComputeMoveEndPoint(TimeMs delta_t) const {
-    //converts to seconds
-    double delta_t_sec = std::chrono::duration<double>(delta_t).count();
-    return {GetPos().x + delta_t_sec * speed_.x, GetPos().y + delta_t_sec * speed_.y};
-}
+// Point2D DynamicObject::ComputeMoveEndPoint(TimeMs delta_t) const {
+//     //converts to seconds
+//     double delta_t_sec = std::chrono::duration<double>(delta_t).count();
+//     return {GetPos().x + delta_t_sec * speed_.x, GetPos().y + delta_t_sec * speed_.y};
+// }
 
 collision_detector::Gatherer DynamicObject::AsGatherer() const {
     return {GetPrevPos(), GetPos(), GetWidth()};
@@ -295,6 +299,28 @@ bool Dog::TryCollectItem(LootItemInfo loot_info) {
     }
     bag_.push_back(std::move(loot_info));
     return true;
+}
+
+void Dog::ProcessCollision(const CollisionObjectPtr& obj) {
+    //Only two options for now, so use this method:
+    // 1.Is a loot item
+    if(obj->IsCollectible()) {
+        TryCollectItem(obj->Collect());
+    }
+    // 2.Is an office
+    else if(obj->IsItemsReturn()) {
+        for(const auto& item : GetBag()) {
+            AddScore(item.value);
+        }
+        ClearBag();
+    }
+    else {
+        throw std::logic_error("unknown collision object type");
+    }
+
+    /// If mechanics become more complex, can potentially use pointer_cast
+    // spBase base = std::make_shared<Derived>();
+    // spDerived derived = std::dynamic_pointer_cast<spDerived::element_type>(base);
 }
 
 void Dog::ClearBag() {

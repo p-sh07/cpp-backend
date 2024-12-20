@@ -31,6 +31,8 @@ add_library(game_lib STATIC
         src/loot_generator.cpp
         src/model.h
         src/model.cpp
+        src/database.cpp
+        src/database.h
 )
 
 #Server code
@@ -47,8 +49,6 @@ add_executable(game_server
         src/server_logger.cpp
         src/state_serialization.h
         src/state_serialization.cpp
-        src/database.cpp
-        src/database.h
         src/postgres.cpp
         src/postgres.h
 )
@@ -61,10 +61,10 @@ ENDIF ()
 #Lib
 #target_compile_definitions(game_server PRIVATE BOOST_BEAST_USE_STD_STRING_VIEW)
 target_include_directories(game_lib PUBLIC CONAN_PKG::boost)
-target_link_libraries(game_lib PUBLIC Threads::Threads CONAN_PKG::boost)
+target_link_libraries(game_lib PUBLIC Threads::Threads CONAN_PKG::boost CONAN_PKG::libpq CONAN_PKG::libpqxx)
 
 #Server
-target_link_libraries(game_server PUBLIC game_lib CONAN_PKG::libpq CONAN_PKG::libpqxx)
+target_link_libraries(game_server PUBLIC game_lib)
 
 #For CTest
 include(CTest)

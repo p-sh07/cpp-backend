@@ -215,7 +215,9 @@ class ApiHandler : public std::enable_shared_from_this<ApiHandler> {
         static constexpr std::string_view player_list{"players"sv};
         static constexpr std::string_view player_action{"player/action"sv};
         static constexpr std::string_view time_tick{"tick"sv};
+        static constexpr std::string_view player_stats{"records"sv};
     };
+    static constexpr size_t max_player_record_request_num_ {100u};
 
     bool use_http_tick_debug_ = false;
     Strand strand_;

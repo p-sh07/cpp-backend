@@ -42,6 +42,7 @@ enum class Direction : char {
     EAST = 'R',
     SOUTH = 'D',
     WEST = 'L',
+    NONE = 'N',
 };
 
 struct Size {
@@ -121,7 +122,7 @@ class Building {
 public:
     explicit Building(Rectangle bounds);
 
-    const Rectangle &GetBounds() const;
+    const Rectangle& GetBounds() const;
 
 private:
     Rectangle bounds_;
@@ -134,7 +135,7 @@ public:
 
     Office(Id id, Point position, Offset offset);
 
-    const Id &GetId() const;
+    const Id& GetId() const;
 
     Point GetPosition() const;
 
@@ -202,7 +203,8 @@ public:
     Point2D GetPos() const;
     Point2D GetPrevPos() const;
 
-    CollisionObject &SetPos(Point2D pos);
+    //Redefined for dog to allow inactivity tracking
+    virtual CollisionObject& SetPos(Point2D pos);
 
     double GetWidth() const;
     collision_detector::Item AsCollisionItem() const;
@@ -211,7 +213,7 @@ public:
     virtual bool IsItemsReturn() const;
     virtual LootItemInfo Collect();
 
-private:
+protected:
     Point2D pos_;
     Point2D prev_pos_;
     const double width_;
@@ -226,18 +228,18 @@ public:
     using CollisionObject::CollisionObject;
 
     Speed GetSpeed() const;
-    DynamicObject &SetSpeed(Speed speed);
+    DynamicObject& SetSpeed(Speed speed);
 
     Direction GetDirection() const;
-    DynamicObject &SetDirection(Direction dir);
-    DynamicObject &SetMovement(Direction dir, double speed_value);
+    DynamicObject& SetDirection(Direction dir);
+    DynamicObject& SetMovement(Direction dir, double speed_value);
 
-    void Stop();
+    //This function needs to be redefined for dogs to allow inactive time keeping
+    virtual void Stop();
 
-    Point2D ComputeMoveEndPoint(TimeMs delta_t) const;
     collision_detector::Gatherer AsGatherer() const;
 
-private:
+protected:
     Speed speed_;
     Direction direction_ = Direction::NORTH;
 };
@@ -294,9 +296,27 @@ public:
 
     Tag GetTag() const;
     size_t GetBagCap() const;
-    Dog &SetBagCap(size_t capacity);
-    const BagContent &GetBag() const;
+    Dog& SetBagCap(size_t capacity);
+    const BagContent& GetBag() const;
 
+    void AddTime(TimeMs delta_t) {
+        ingame_time_ += delta_t;
+        if(is_inactive_ && direction_ == Direction::NONE) {
+            inactive_time_ += delta_t;
+        }
+    }
+
+    void RestoreTimers(TimeMs total_time, TimeMs inactive_time) {
+        ingame_time_ = total_time;
+        inactive_time_ = inactive_time;
+    }
+
+    TimeMs GetIngameTime() const {
+        return ingame_time_;
+    }
+    TimeMs GetInactiveTime() const {
+        return inactive_time_;
+    }
     void AddScore(Score points);
     Score GetScore() const;
 
@@ -304,27 +324,27 @@ public:
     void ClearBag();
 
     bool TryCollectItem(LootItemInfo loot_info);
+    void ProcessCollision(const CollisionObjectPtr& obj);
 
-    void ProcessCollision(const CollisionObjectPtr& obj) {
-        //Only two options for now, so use this method:
-        // 1.Is a loot item
-        if(obj->IsCollectible()) {
-            TryCollectItem(obj->Collect());
-        }
-        // 2.Is an office
-        else if(obj->IsItemsReturn()) {
-            for(const auto& item : GetBag()) {
-                AddScore(item.value);
-            }
-            ClearBag();
-        }
-        else {
-            throw std::logic_error("unknown collision object type");
-        }
+    void Stop() override {
+        is_inactive_ = true;
+        DynamicObject::Stop();
+    }
 
-        /// If mechanics become more complex, can potentially use pointer_cast
-            // spBase base = std::make_shared<Derived>();
-            // spDerived derived = std::dynamic_pointer_cast<spDerived::element_type>(base);
+    Dog& SetPos(Point2D pos) override {
+        //If dog moved during this tick, reset inactivity time
+        if(pos != prev_pos_) {
+            ResetInactiveTime();
+        } else {
+            is_inactive_ = true;
+        }
+        CollisionObject::SetPos(pos);
+        return *this;
+    }
+
+    bool IsExpiredDueToInactivity() const {
+        //TODO: round down to seconds?
+        return is_inactive_ && inactive_time_ >= max_inactive_time_;
     }
 
 private:
@@ -333,7 +353,21 @@ private:
     size_t bag_capacity_{0u};
     Score score_{0u};
 
+    //Dogs expire only on the next tick after they have become inactive
+    bool is_inactive_ {false};
+    TimeMs ingame_time_{0u};
+    TimeMs inactive_time_{0u};
+
+    //default max inactive time is 60 seconds
+    TimeMs max_inactive_time_{60000u};
+
     BagContent bag_;
+
+    //Time is reset if movement End Point is different from Starting Point
+    void ResetInactiveTime() {
+        inactive_time_ = TimeMs{0u};
+        is_inactive_ = false;
+    }
 };
 
 using DogPtr = Dog*;
@@ -356,12 +390,12 @@ public:
 
     Map(Id tag, std::string name);
 
-    const Id &GetId() const;
-    const std::string &GetName() const;
-    const Buildings &GetBuildings() const;
-    const Roads &GetRoads() const;
-    const Offices &GetOffices() const;
-    const gamedata::LootTypesInfo &GetLootTypesInfo() const;
+    const Id& GetId() const;
+    const std::string& GetName() const;
+    const Buildings& GetBuildings() const;
+    const Roads& GetRoads() const;
+    const Offices& GetOffices() const;
+    const gamedata::LootTypesInfo& GetLootTypesInfo() const;
     size_t GetLootTypesSize() const;
     Score GetLootItemValue(LootType type) const;
 
@@ -424,7 +458,7 @@ public:
     void ModifyDefaultBagCapacity(size_t capacity);
     void ConfigLootGen(TimeMs base_period, double probability);
 
-    const Maps &GetMaps() const;
+    const Maps& GetMaps() const;
     const gamedata::Settings& GetSettings() const;
 
     MapPtr FindMap(const Map::Id& id);

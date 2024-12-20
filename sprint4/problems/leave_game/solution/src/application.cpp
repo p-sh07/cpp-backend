@@ -28,6 +28,10 @@ app::Token GenerateToken() {
 }
 
 namespace app {
+using namespace std::literals;
+namespace rg = std::ranges;
+namespace vw = std::views;
+
 size_t TokenHasher::operator()(const Token& token) const {
     auto str_hasher = std::hash<std::string>();
     return str_hasher(*token);
@@ -35,7 +39,7 @@ size_t TokenHasher::operator()(const Token& token) const {
 
 //=================================================
 //=================== Session =====================
-Session::Session(size_t id, MapPtr map, gamedata::Settings settings)
+Session::Session(size_t id, MapPtr map, gamedata::Settings settings/*, std::shared_ptr<database::Listener> db_listener*/)
     : id_(id)
     , map_(map)
     , settings_(std::move(settings))
@@ -174,7 +178,7 @@ void Session::RemoveLootItem(GameObject::Id loot_item_id) {
     loot_items_.erase(it);
 }
 
-void Session::AdvanceTime(model::TimeMs delta_t) {
+std::vector<gamedata::PlayerStats> Session::AdvanceTime(model::TimeMs delta_t) {
     session_time_ += delta_t;
 
     MoveAllDogs(delta_t);
@@ -182,6 +186,7 @@ void Session::AdvanceTime(model::TimeMs delta_t) {
 
     //Generate loot after, so that a loot item is not randomly picked up by dog
     GenerateLoot(delta_t);
+    return ProcessRetiredDogs();
 }
 
 void Session::AddOffices(const Map::Offices& offices) {
@@ -202,14 +207,17 @@ void Session::MoveDog(Dog& dog, model::TimeMs delta_t) {
 
     model::Point2D max_move_pt  = dog.GetPos() + dog.GetSpeed() * delta_t;
     Map::MoveResult move_result = map_->ComputeRoadMove(dog.GetPos(), max_move_pt);
+
     if (move_result.road_edge_reached_) {
         dog.Stop();
     }
+    //If dog had no movement during this tick, it will continue to add expiration time
     dog.SetPos(move_result.dst);
+    dog.AddTime(delta_t);
 }
 
 void Session::MoveAllDogs(model::TimeMs delta_t) {
-    for (auto& [id, dog] : dogs_) {
+    for (auto& dog : dogs_ | vw::values) {
         MoveDog(dog, delta_t);
     }
 }
@@ -240,6 +248,20 @@ void Session::ProcessCollisions() const {
     } catch (...) {
         std::cerr << "collision detection error";
     }
+}
+
+std::vector<gamedata::PlayerStats> Session::ProcessRetiredDogs() {
+    std::vector<gamedata::PlayerStats> result;
+    for(auto& [id, dog] : dogs_) {
+        if(dog.IsExpiredDueToInactivity()) {
+            result.emplace_back(*dog.GetTag(), dog.GetScore(), dog.GetIngameTime().count());
+        }
+    }
+    //TODO: make sure player is deleted also, add player id to playerstats?
+    std::erase_if(dogs_, [](const auto& item) {
+        return item.second.IsExpiredDueToInactivity();
+    });
+    return result;
 }
 
 //=================================================
@@ -389,8 +411,8 @@ std::vector<ConstPlayerPtr> PlayerSessionManager::GetAllPlayersInSession(ConstPl
     auto player_session = player->GetSession();
     const auto& map_id  = player_session->GetMapId();
 
-    for (const auto& [dog_id, _] : player_session->GetDogs()) {
-        std::cerr << dog_id << std::endl;
+    for (const auto& dog_id : player_session->GetDogs() | vw::keys) {
+        // std::cerr << dog_id << std::endl;
         result.push_back(GetPlayerByMapDogId(map_id, dog_id));
     }
     return result;
@@ -400,20 +422,24 @@ const Session::LootItems &PlayerSessionManager::GetSessionLootList(ConstPlayerPt
     return player->GetSession()->GetLootItems();
 }
 
-void PlayerSessionManager::AdvanceTime(model::TimeMs delta_t) {
-    for (auto& [_, session] : sessions_) {
-        session.AdvanceTime(delta_t);
+std::vector<gamedata::PlayerStats> PlayerSessionManager::AdvanceTime(model::TimeMs delta_t) {
+    std::vector<gamedata::PlayerStats> retired_players;
+    for (auto& session : sessions_ | vw::values) {
+        auto retired = session.AdvanceTime(delta_t);
+        rg::move(retired, std::back_inserter(retired_players));
     }
+    return retired_players;
 }
 
 
 //=================================================
 //============= GameInterface =====================
-GameInterface::GameInterface(net::io_context& io, const GamePtr& game_ptr, const AppListenerPtr& app_listener_ptr)
+GameInterface::GameInterface(net::io_context& io, GamePtr game_ptr, AppListenerPtr app_listener_ptr, database::PlayerStats& player_db)
     : io_(io)
-    , game_(game_ptr)
-    , app_listener_(app_listener_ptr)
-    , player_manager_(app_listener_ptr ? app_listener_ptr->Restore(game_) : PlayerSessionManager{game_}) {
+    , game_(std::move(game_ptr))
+    , app_listener_(std::move(app_listener_ptr))
+    , player_manager_(app_listener_ptr ? app_listener_ptr->Restore(game_) : PlayerSessionManager{game_})
+    , player_stat_db_(player_db){
 }
 
 ConstSessionPtr GameInterface::GetSession(ConstPlayerPtr player) const {
@@ -428,8 +454,16 @@ const Session::LootItems &GameInterface::GetLootList(ConstPlayerPtr player) cons
     return player_manager_.GetSessionLootList(player);
 }
 
+std::vector<gamedata::PlayerStats> GameInterface::GetPlayerStats(std::optional<size_t> start, std::optional<size_t> max_players) {
+    return player_stat_db_.LoadPlayersStats(std::move(start), std::move(max_players));
+}
+
 ConstPlayerPtr GameInterface::FindPlayerByToken(const Token& token) const {
     return player_manager_.GetPlayerByToken(token);
+}
+
+void GameInterface::RestorePlayerManagerState(PlayerSessionManager psm) {
+    player_manager_ = std::move(psm);
 }
 
 JoinGameResult GameInterface::JoinGame(std::string map_id_str, std::string player_dog_name) {
@@ -462,20 +496,26 @@ model::ConstMapPtr GameInterface::GetMap(std::string_view map_id) const {
 }
 
 void GameInterface::AdvanceGameTime(model::TimeMs delta_t) {
-    player_manager_.AdvanceTime(delta_t);
+    auto retired_players = player_manager_.AdvanceTime(delta_t);
     try {
         if (app_listener_) {
             app_listener_->OnTick(delta_t, player_manager_);
         }
+        //TODO: add listener for player retirement?
     } catch (std::exception& ex) {
         //TODO: Logger
         std::cerr << "serialization error occured: " << ex.what() << std::endl;
     }
+    //TODO: Dispatch db write to io
+    player_stat_db_.SavePlayersStats(retired_players);
+}
+
+const PlayerSessionManager& GameInterface::GetPlayerManager() const {
+    return player_manager_;
 }
 
 bool GameInterface::MoveCommandValid(const char move_command) const {
     const auto& valid_move_chars = game_->GetSettings().valid_move_chars;
-    return !isblank(move_command)
-           && valid_move_chars.find(move_command) != valid_move_chars_.npos;
+    return valid_move_chars.find(move_command) != valid_move_chars_.npos;
 }
 } //namespace app

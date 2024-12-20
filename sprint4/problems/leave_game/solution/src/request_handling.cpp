@@ -345,6 +345,20 @@ StringResponse ApiHandler::HandleApiRequest(const StringRequest& req) {
                 game_app_->AdvanceGameTime(delta_t);
                 return to_html(http::status::ok, "{}");
             }
+
+            /// -->> Get Retired Player Stats table
+            if(RemoveIfHasPrefix(Uri::player_stats, api_uri)) {
+                //NB: Assume here that the params are sent as a json body:
+                json_loader::StatsCommand stat_cmd;
+                if(!req.body().empty()) {
+                    stat_cmd = json_loader::ParseStatsCommand(req.body());
+                }
+                if (stat_cmd.maxItems && *stat_cmd.maxItems > max_player_record_request_num_) {
+                    throw ApiError(ErrCode::bad_request);
+                }
+                auto json_str_body = json_loader::PrintPlayerStats(game_app_->GetPlayerStats(stat_cmd.start, stat_cmd.maxItems));
+                return to_html(http::status::ok, json_str_body);
+            }
         }
 
         // *Error: Bad request
