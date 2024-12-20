@@ -39,8 +39,11 @@ COPY ./data /app/data
 COPY ./static /app/static
 #COPY ./state /volume/state
 
+#Env var for db
+ENV DEBUG_DB_URL=postgres://postgres:Mys3Cr3t@localhost:30432/playerdb
+
 # Запускаем игровой сервер
-ENTRYPOINT ["/app/game_server", "--config-file", "/app/data/config.json", "--www-root", "/app/static", "--state-file", "/volume/state", "--save-state-period", "1000"]
+ENTRYPOINT ["/app/game_server", "--config-file", "/app/data/config.json", "--www-root", "/app/static"]
 
 #Commands to launch:
 #sudo docker build -t my_http_server .
