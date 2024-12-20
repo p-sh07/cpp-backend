@@ -4,6 +4,7 @@
 #pragma once;
 #include <pqxx/zview>
 #include <pqxx/pqxx>
+#include <condition_variable>
 #include <vector>
 #include <string>
 #include <optional>
