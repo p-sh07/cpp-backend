@@ -21,6 +21,7 @@ struct JsonKeys {
     static constexpr Key loot_types = "lootTypes";
     static constexpr Key dog_speed = "dogSpeed";
     static constexpr Key bag_cap = "bagCapacity";
+    static constexpr Key dog_expire = "dogRetirementTime";
 
     static constexpr Key dog_speed_dflt = "defaultDogSpeed";
     static constexpr Key bag_cap_dflt = "defaultBagCapacity";

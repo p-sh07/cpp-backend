@@ -298,25 +298,13 @@ public:
     size_t GetBagCap() const;
     Dog& SetBagCap(size_t capacity);
     const BagContent& GetBag() const;
+    Dog& SetRetireTime(TimeMs time_msec);
 
-    void AddTime(TimeMs delta_t) {
-        ingame_time_ += delta_t;
-        if(is_inactive_ && direction_ == Direction::NONE) {
-            inactive_time_ += delta_t;
-        }
-    }
+    void AddTime(TimeMs delta_t);
+    void RestoreTimers(TimeMs total_time, TimeMs inactive_time);
+    TimeMs GetIngameTime() const;
+    TimeMs GetInactiveTime() const;
 
-    void RestoreTimers(TimeMs total_time, TimeMs inactive_time) {
-        ingame_time_ = total_time;
-        inactive_time_ = inactive_time;
-    }
-
-    TimeMs GetIngameTime() const {
-        return ingame_time_;
-    }
-    TimeMs GetInactiveTime() const {
-        return inactive_time_;
-    }
     void AddScore(Score points);
     Score GetScore() const;
 
@@ -431,6 +419,7 @@ private:
     Buildings buildings_;
     std::optional<double> dog_speed_;
     std::optional<size_t> bag_capacity_;
+    std::optional<TimeMs> dog_timeout_;
 
     Offices offices_;
     OfficeIdToIndex warehouse_id_to_index_;
@@ -456,6 +445,8 @@ public:
     void EnableRandomDogSpawn(bool enable);
     void ModifyDefaultDogSpeed(double speed);
     void ModifyDefaultBagCapacity(size_t capacity);
+    void ModifyDefaultDogTimeout(TimeMs timeout);
+
     void ConfigLootGen(TimeMs base_period, double probability);
 
     const Maps& GetMaps() const;

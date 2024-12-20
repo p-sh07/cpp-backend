@@ -126,10 +126,10 @@ DogPtr Session::AddDog(Dog::Id id, const Dog::Tag& name) {
                                   : map_->GetFirstRoadPt();
 
     const auto [dog_map_it, success] = dogs_.emplace(id,
-                                                     Dog{
-                                                         id, starting_pos, settings_.dog_width
-                                                         , name, settings_.GetBagCap()
-                                                     });
+         Dog{
+           id, starting_pos, settings_.dog_width
+           , name, settings_.GetBagCap()
+    });
 
     if (!success) {
         if (dog_map_it->second.GetTag() != name) {
@@ -137,6 +137,9 @@ DogPtr Session::AddDog(Dog::Id id, const Dog::Tag& name) {
         }
         return &dog_map_it->second;
     }
+    //Update default dog expiry time
+    &dog_map_it->second.SetRetireTime(settings_.default_inactivity_timeout_ms_);
+
     //update gatherers index
     return gatherers_.emplace_back(&dog_map_it->second);
 }
@@ -284,6 +287,15 @@ PlayerSessionManager::PlayerSessionManager(const GamePtr& game)
 
 PlayerSessionManager::PlayerSessionManager(GamePtr&& game)
     : game_(std::move(game)) {
+}
+
+PlayerSessionManager::PlayerSessionManager(const GamePtr& game, Sessions sessions): game_(game)
+    , sessions_(std::move(sessions)) {
+    //update indices
+    for(const auto& [sess_id, session] : sessions_) {
+        map_to_session_index_[session.GetMap()->GetId()] = sess_id;
+    }
+
 }
 
 PlayerPtr PlayerSessionManager::CreatePlayer(const Map::Id& map, const Dog::Tag& dog_tag) {

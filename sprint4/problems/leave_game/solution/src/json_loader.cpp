@@ -282,6 +282,12 @@ void ProcessOptionalGameParams(const json::object game_obj, Game& game) {
                                  , it->value().at("probability").as_double()
         );
     }
+
+    //Dog expiration timeout due to inactivity
+    if(auto it = game_obj.find(JsonKeys::dog_expire); it != game_obj.end()) {
+        TimeMs expire_timeout_msec {static_cast<size_t>(it->value().as_double() * 1000)};
+        game.ModifyDefaultDogTimeout(expire_timeout_msec);
+    }
 }
 
 const char ParseMove(const std::string& request_body) {

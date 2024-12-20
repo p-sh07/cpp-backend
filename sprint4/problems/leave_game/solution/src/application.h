@@ -165,15 +165,7 @@ class PlayerSessionManager {
     explicit PlayerSessionManager(const GamePtr& game);
     explicit PlayerSessionManager(GamePtr&& game);
 
-    PlayerSessionManager(const GamePtr& game, Sessions sessions)
-        : game_(game)
-        , sessions_(std::move(sessions)){
-        //update indices
-        for(const auto& [sess_id, session] : sessions_) {
-            map_to_session_index_[session.GetMap()->GetId()] = sess_id;
-        }
-
-    }
+    PlayerSessionManager(const GamePtr& game, Sessions sessions);
 
     PlayerPtr CreatePlayer(const Map::Id& map, const Dog::Tag& dog_tag);
     PlayerPtr AddPlayer(Player::Id id, DogPtr dog, SessionPtr session, Token token);

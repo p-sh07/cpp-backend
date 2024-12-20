@@ -335,12 +335,37 @@ const Dog::BagContent& Dog::GetBag() const {
     return bag_;
 }
 
+Dog& Dog::SetRetireTime(TimeMs time_msec) {
+    max_inactive_time_ = time_msec;
+    return *this;
+}
+
+void Dog::AddTime(TimeMs delta_t) {
+    ingame_time_ += delta_t;
+    if(is_inactive_ && direction_ == Direction::NONE) {
+        inactive_time_ += delta_t;
+    }
+}
+
 size_t Dog::GetBagCap() const {
     return bag_capacity_;
 }
 
 Score Dog::GetScore() const {
     return score_;
+}
+
+void Dog::RestoreTimers(TimeMs total_time, TimeMs inactive_time) {
+    ingame_time_   = total_time;
+    inactive_time_ = inactive_time;
+}
+
+TimeMs Dog::GetIngameTime() const {
+    return ingame_time_;
+}
+
+TimeMs Dog::GetInactiveTime() const {
+    return inactive_time_;
 }
 
 void Dog::AddScore(Score points) {
@@ -586,6 +611,10 @@ void Game::ModifyDefaultDogSpeed(double speed) {
 
 void Game::ModifyDefaultBagCapacity(size_t capacity) {
     settings_.default_bag_capacity = capacity;
+}
+
+void Game::ModifyDefaultDogTimeout(TimeMs timeout) {
+    settings_.default_inactivity_timeout_ms_ = timeout;
 }
 
 void Game::EnableRandomDogSpawn(bool enable) {

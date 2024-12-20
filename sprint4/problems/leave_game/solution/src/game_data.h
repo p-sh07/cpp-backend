@@ -15,12 +15,14 @@ struct Settings {
 
     std::optional<double> map_dog_speed;
     std::optional<size_t> map_bag_capacity;
+    // std::optional<std::chrono::milliseconds> map_inactiviti_expire_time_ms_;
 
     double loot_gen_prob = 0;
     std::chrono::milliseconds loot_gen_interval{0u};
 
     double default_dog_speed    = 1.0;
     size_t default_bag_capacity = 3;
+    std::chrono::milliseconds default_inactivity_timeout_ms_ {60000u};
 
     const double loot_item_width = 0.0;
     const double dog_width       = 0.6;
