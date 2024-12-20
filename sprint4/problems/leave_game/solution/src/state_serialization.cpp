@@ -5,7 +5,7 @@ serialization::DogRepr::DogRepr(const model::Dog& dog): id_(dog.GetId())
     , width_(dog.GetWidth())
     , speed_(dog.GetSpeed())
     , direction_(dog.GetDirection())
-    , tag_(dog.GetTag())
+    , name_(dog.GetName())
     , bag_capacity_(dog.GetBagCap())
     , score_(dog.GetScore())
     , bag_content_(dog.GetBag())
@@ -14,7 +14,7 @@ serialization::DogRepr::DogRepr(const model::Dog& dog): id_(dog.GetId())
 }
 
 model::Dog serialization::DogRepr::Restore() const {
-    model::Dog dog{id_, pos_, width_, tag_, bag_capacity_};
+    model::Dog dog{id_, pos_, width_, name_, bag_capacity_};
     dog.SetSpeed(speed_);
     dog.SetDirection(direction_);
     dog.AddScore(score_);

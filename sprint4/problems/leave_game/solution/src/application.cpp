@@ -111,7 +111,7 @@ DogPtr Session::AddDog(Dog dog) {
 
     //Dog with this id already exists
     if (!success) {
-        if (dog_map_it->second.GetTag() != dog.GetTag()) {
+        if (dog_map_it->second.GetName() != dog.GetName()) {
             throw std::runtime_error("Different dog with this id already exists");
         }
         return &dog_map_it->second;
@@ -120,19 +120,18 @@ DogPtr Session::AddDog(Dog dog) {
 }
 
 //---------------------------------------------------------
-DogPtr Session::AddDog(Dog::Id id, const Dog::Tag& name) {
+DogPtr Session::AddDog(Dog::Id id, std::string name) {
     const auto starting_pos = settings_.randomised_dog_spawn
                                   ? map_->GetRandomRoadPt()
                                   : map_->GetFirstRoadPt();
 
     const auto [dog_map_it, success] = dogs_.emplace(id,
-         Dog{
-           id, starting_pos, settings_.dog_width
-           , name, settings_.GetBagCap()
+         Dog{ id, starting_pos, settings_.dog_width
+           , std::move(name), settings_.GetBagCap()
     });
 
     if (!success) {
-        if (dog_map_it->second.GetTag() != name) {
+        if (dog_map_it->second.GetName() != name) {
             throw std::runtime_error("Different dog with this id already exists");
         }
         return &dog_map_it->second;
@@ -190,6 +189,10 @@ std::vector<Dog::Id> Session::AdvanceTime(model::TimeMs delta_t) {
     //Generate loot after, so that a loot item is not randomly picked up by dog
     GenerateLoot(delta_t);
     return GetRetiredDogs();
+}
+
+void Session::EraseDog(Dog::Id dog_id) {
+    dogs_.erase(dog_id);
 }
 
 void Session::AddOffices(const Map::Offices& offices) {
@@ -260,11 +263,20 @@ std::vector<Dog::Id> Session::GetRetiredDogs() {
             retired.emplace_back(id);
         }
     }
-    //erase all expired dogs
+    return retired;
+}
+
+void Session::ClearRetiredDogs() {
+    //no parameter version: erase all expired dogs
     std::erase_if(dogs_, [](const auto& item) {
         return item.second.IsExpired();
     });
-    return retired;
+}
+
+void Session::EraseRetiredDogs(const std::vector<Dog::Id>& retired_dog_ids) {
+    rg::for_each(retired_dog_ids, [&](const auto dog_id) {
+        dogs_.erase(dog_id);
+    });
 }
 
 //=================================================
@@ -298,9 +310,9 @@ PlayerSessionManager::PlayerSessionManager(const GamePtr& game, Sessions session
 
 }
 
-PlayerPtr PlayerSessionManager::CreatePlayer(const Map::Id& map, const Dog::Tag& dog_tag) {
+PlayerPtr PlayerSessionManager::CreatePlayer(const Map::Id& map, std::string dog_name) {
     auto session = JoinOrCreateSession(next_session_id_++, map);
-    auto dog     = session->AddDog(next_dog_id_++, dog_tag);
+    auto dog     = session->AddDog(next_dog_id_++, dog_name);
     return AddPlayer(next_player_id_++, dog, session, GenerateToken());
 }
 
@@ -435,13 +447,16 @@ const Session::LootItems &PlayerSessionManager::GetSessionLootList(ConstPlayerPt
 }
 
 gamedata::PlayerStats PlayerSessionManager::RetirePlayer(const Map::Id map_id, Dog::Id dog_id) {
-    auto player     = GetPlayerByMapDogId(map_id, dog_id);
-    const auto& dog = player->GetDog();
+    auto player      = GetPlayerByMapDogId(map_id, dog_id);
+    const auto& dog  = player->GetDog();
+    auto player_sess = player->GetSession();
+
     gamedata::PlayerStats stats{
-        dog->GetTag().GetVal(),
+        dog->GetName(),
         dog->GetScore(),
         dog->GetIngameTime().count()
     };
+    player_sess->EraseDog(dog_id);
     players_.erase(player->GetId());
     return stats;
 }
@@ -499,9 +514,7 @@ JoinGameResult GameInterface::JoinGame(std::string map_id_str, std::string playe
     //auto api_strand = net::make_strand(ioc);
 
     const Map::Id map_id{std::move(map_id_str)};
-    const Dog::Tag dog_tag{std::move(player_dog_name)};
-
-    const auto player = player_manager_.CreatePlayer(map_id, dog_tag);
+    const auto player = player_manager_.CreatePlayer(std::move(map_id), std::move(player_dog_name));
 
     // <-Make response, send player token
     auto token = player_manager_.GetToken(player);

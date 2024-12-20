@@ -43,7 +43,7 @@ SCENARIO_METHOD(Fixture, "Point serialization") {
 SCENARIO_METHOD(Fixture, "Dog Serialization") {
     GIVEN("a dog") {
         const auto dog = [] {
-            Dog dog{Dog::Id{42u}, {42.2, 12.5}, 0.6, Dog::Tag{"Pluto"s}, 3};
+            Dog dog{Dog::Id{42u}, {42.2, 12.5}, 0.6, "Pluto"s, 3};
             dog.AddScore(42);
             CHECK(dog.TryCollectItem({LootItem::Id{10u}, 2u, 1u, true}));
             dog.SetDirection(Direction::EAST);
@@ -64,7 +64,7 @@ SCENARIO_METHOD(Fixture, "Dog Serialization") {
                 const auto restored = repr.Restore();
 
                 CHECK(dog.GetId() == restored.GetId());
-                CHECK(dog.GetTag() == restored.GetTag());
+                CHECK(dog.GetName() == restored.GetName());
                 CHECK(dog.GetPos() == restored.GetPos());
                 CHECK(dog.GetSpeed() == restored.GetSpeed());
                 CHECK(dog.GetBagCap() == restored.GetBagCap());
@@ -81,8 +81,8 @@ SCENARIO_METHOD(Fixture, "Session serialization") {
 
         const auto session = [&game] {
             app::Session sessn(0u, game->FindMap(model::Map::Id{"map1"s}), game->GetSettings());
-            Dog dog{Dog::Id{42u}, {42.2, 12.5}, 0.6, Dog::Tag{"Pluto"s}, 3};
-            Dog dog2{Dog::Id{0u}, {49.1, 12.12}, 0.6, Dog::Tag{"Mercury"s}, 3};
+            Dog dog{Dog::Id{42u}, {42.2, 12.5}, 0.6, "Pluto"s, 3};
+            Dog dog2{Dog::Id{0u}, {49.1, 12.12}, 0.6, "Mercury"s, 3};
             dog.AddScore(42);
             dog2.AddScore(18);
 
@@ -109,7 +109,7 @@ SCENARIO_METHOD(Fixture, "Session serialization") {
                 auto restored_dog = restored_sessn.GetDog(42u);
 
                 CHECK(42u == restored_dog->GetId());
-                CHECK(Dog::Tag{"Pluto"s} == restored_dog->GetTag());
+                CHECK("Pluto"s == restored_dog->GetName());
 
                 //TODO: etc.
 
@@ -126,8 +126,8 @@ SCENARIO_METHOD(Fixture, "Psm serialization") {
         const auto psm = [&game] {
             app::PlayerSessionManager psm(game);
 
-            psm.CreatePlayer(Map::Id{"map1"s}, Dog::Tag{"pluto"s});
-            psm.CreatePlayer(Map::Id{"map1"s}, Dog::Tag{"mercury"s});
+            psm.CreatePlayer(Map::Id{"map1"s}, "pluto"s);
+            psm.CreatePlayer(Map::Id{"map1"s}, "mercury"s);
 
             return psm;
         }();

@@ -40,11 +40,6 @@ void serialize(Archive& ar, Map::Id& obj, [[maybe_unused]] const unsigned versio
 }
 
 template <typename Archive>
-void serialize(Archive& ar, Dog::Tag& obj, [[maybe_unused]] const unsigned version) {
-    ar&(*obj);
-}
-
-template <typename Archive>
 void serialize(Archive& ar, LootItemInfo& obj, [[maybe_unused]] const unsigned version) {
     ar&(obj.id);
     ar&(obj.type);
@@ -89,7 +84,7 @@ public:
         ar& width_;
         ar& speed_;
         ar& direction_;
-        ar& tag_;
+        ar& name_;
         ar& bag_capacity_;
         ar& score_;
         ar& bag_content_;
@@ -103,7 +98,7 @@ private:
     double width_;
     model::Speed speed_;
     model::Direction direction_ {model::Direction::NORTH};;
-    model::Dog::Tag tag_ {""};
+    std::string name_ {""};
     size_t bag_capacity_ {0u};
     model::Score score_ {0u};
     model::Dog::BagContent bag_content_;

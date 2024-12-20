@@ -288,13 +288,12 @@ using ConstItemsReturnPointPtr = std::shared_ptr<const ItemsReturnPoint>;
 //=================== Dog =========================
 class Dog : public DynamicObject {
 public:
-    using Tag = util::Tagged<std::string, Dog>;
     using BagContent = std::deque<LootItemInfo>;
 
     // Dog(Id id, Point pos, double width, Tag tag, size_t bag_cap);
-    Dog(Id id, Point2D pos, double width, Tag tag, size_t bag_cap);
+    Dog(Id id, Point2D pos, double width, std::string name, size_t bag_cap);
 
-    Tag GetTag() const;
+    std::string GetName() const;
     size_t GetBagCap() const;
     Dog& SetBagCap(size_t capacity);
     const BagContent& GetBag() const;
@@ -330,14 +329,11 @@ public:
         return *this;
     }
 
-    bool IsExpired() const {
-        //TODO: round down to seconds?
-        return is_inactive_ && inactive_time_ >= max_inactive_time_;
-    }
+    bool IsExpired() const;
 
 private:
     //what is a dog? Upd: A dog is a dynamic collision object
-    const Tag tag_;
+    const std::string name_;
     size_t bag_capacity_{0u};
     Score score_{0u};
 
@@ -376,7 +372,7 @@ public:
         Point2D dst;
     };
 
-    Map(Id tag, std::string name);
+    Map(Id id, std::string name);
 
     const Id& GetId() const;
     const std::string& GetName() const;

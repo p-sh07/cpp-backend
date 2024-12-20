@@ -277,14 +277,14 @@ bool ItemsReturnPoint::IsItemsReturn() const {
 //     , bag_capacity_(bag_cap) {
 // }
 
-Dog::Dog(Id id, Point2D pos, double width, Tag tag, size_t bag_cap)
+Dog::Dog(Id id, Point2D pos, double width, std::string name, size_t bag_cap)
     : DynamicObject(id, pos, width)
-    , tag_(std::move(tag))
+    , name_(std::move(name))
     , bag_capacity_(bag_cap) {
 }
 
-Dog::Tag Dog::GetTag() const {
-    return tag_;
+std::string Dog::GetName() const {
+    return name_;
 }
 
 Dog& Dog::SetBagCap(size_t capacity) {
@@ -323,6 +323,11 @@ void Dog::ProcessCollision(const CollisionObjectPtr& obj) {
     // spDerived derived = std::dynamic_pointer_cast<spDerived::element_type>(base);
 }
 
+bool Dog::IsExpired() const {
+    //TODO: round down to seconds?
+    return is_inactive_ && inactive_time_ >= max_inactive_time_;
+}
+
 void Dog::ClearBag() {
     bag_.clear();
 }
@@ -341,9 +346,20 @@ Dog& Dog::SetRetireTime(TimeMs time_msec) {
 }
 
 void Dog::AddTime(TimeMs delta_t) {
+    if(IsExpired()) {
+        std::cerr << "Trying to add time to an expired dog!!!"s << std::endl;
+        throw std::runtime_error("Trying to add time to an expired dog"s);
+    }
+
     ingame_time_ += delta_t;
-    if(is_inactive_ && direction_ == Direction::NONE) {
+    if(is_inactive_ || direction_ == Direction::NONE) {
         inactive_time_ += delta_t;
+
+        //when dog expires, decrease ingame time by the extra tick time after expiry
+        if(IsExpired()) {
+            auto tick_time_diff = inactive_time_ - max_inactive_time_;
+            ingame_time_ -= tick_time_diff;
+        }
     }
 }
 

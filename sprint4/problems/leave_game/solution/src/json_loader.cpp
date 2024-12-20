@@ -118,7 +118,7 @@ json::object MakePlayerListJson(const std::vector<app::ConstPlayerPtr>& players)
     for(const auto& p_ptr : players) {
         player_list.emplace(std::to_string(p_ptr->GetId()),
                             json::object{
-                                {"name", *(p_ptr->GetDog()->GetTag())}
+                                {"name", p_ptr->GetDog()->GetName()}
                             }
         );
     }

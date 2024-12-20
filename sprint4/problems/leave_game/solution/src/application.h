@@ -77,7 +77,7 @@ class Session {
     //At construction there are 0 dogs. Session is always on 1 map
     //When a player is added, he gets a new dog to control
     DogPtr AddDog(Dog dog);
-    DogPtr AddDog(Dog::Id id, const Dog::Tag& name);
+    DogPtr AddDog(Dog::Id id, std::string name);
 
     void AddLootItem(LootItem::Id id, LootItem::Type type, model::Point2D pos);
     void AddRandomLootItems(size_t num_items);
@@ -86,6 +86,10 @@ class Session {
     void RemoveLootItem(GameObject::Id loot_item_id);
 
     std::vector<Dog::Id> AdvanceTime(model::TimeMs delta_t);
+
+    void EraseDog(Dog::Id dog_id);
+    void ClearRetiredDogs();
+    void EraseRetiredDogs(const std::vector<Dog::Id>& retired_dog_ids);
 
 private:
     //net::strand<net::io_context::executor_type> strand_;
@@ -167,7 +171,7 @@ class PlayerSessionManager {
 
     PlayerSessionManager(const GamePtr& game, Sessions sessions);
 
-    PlayerPtr CreatePlayer(const Map::Id& map, const Dog::Tag& dog_tag);
+    PlayerPtr CreatePlayer(const Map::Id& map, std::string dog_name);
     PlayerPtr AddPlayer(Player::Id id, DogPtr dog, SessionPtr session, Token token);
     PlayerPtr RestorePlayer(Player::Id id, Dog::Id dog_id, Session::Id session_id, Token token);
 
