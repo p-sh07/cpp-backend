@@ -456,7 +456,14 @@ gamedata::PlayerStats PlayerSessionManager::RetirePlayer(const Map::Id map_id, D
         dog->GetScore(),
         dog->GetIngameTime().count()
     };
+    //Erase player's dog
     player_sess->EraseDog(dog_id);
+
+    //Erase player's token:
+    auto token_it = player_to_token_.at(player->GetId());
+    token_to_player_.erase(token_it);
+
+    //Erase player
     players_.erase(player->GetId());
     return stats;
 }
