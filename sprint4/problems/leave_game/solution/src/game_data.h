@@ -66,7 +66,10 @@ private:
 struct PlayerStats {
     std::string name {""s};
     size_t score {0};
-    size_t game_time_msec {0};
+    int64_t game_time_msec {0};
+    //
+    // size_t dog_id {0u};
+    // std::string map_id {};
 };
 
 }

@@ -85,7 +85,7 @@ class Session {
     void RemoveDog(Dog::Id dog_id);
     void RemoveLootItem(GameObject::Id loot_item_id);
 
-    std::vector<gamedata::PlayerStats> AdvanceTime(model::TimeMs delta_t);
+    std::vector<Dog::Id> AdvanceTime(model::TimeMs delta_t);
 
 private:
     //net::strand<net::io_context::executor_type> strand_;
@@ -113,7 +113,7 @@ private:
 
     void GenerateLoot(model::TimeMs delta_t);
     void ProcessCollisions() const;
-    std::vector<gamedata::PlayerStats> ProcessRetiredDogs();
+    std::vector<Dog::Id> GetRetiredDogs();
 
     // void HandleCollision(const model::LootItemPtr& loot, const DogPtr& dog) const;
     // void HandleCollision(const model::ItemsReturnPointPtr& office, const DogPtr& dog) const;
@@ -186,6 +186,7 @@ class PlayerSessionManager {
     std::vector<ConstPlayerPtr> GetAllPlayersInSession(ConstPlayerPtr player) const;
     static const Session::LootItems& GetSessionLootList(ConstPlayerPtr player);
 
+    gamedata::PlayerStats RetirePlayer(const Map::Id map_id, Dog::Id dog_id);
     std::vector<gamedata::PlayerStats> AdvanceTime(model::TimeMs delta_t);
 
 private:

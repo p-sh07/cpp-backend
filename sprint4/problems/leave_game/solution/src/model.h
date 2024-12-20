@@ -330,7 +330,7 @@ public:
         return *this;
     }
 
-    bool IsExpiredDueToInactivity() const {
+    bool IsExpired() const {
         //TODO: round down to seconds?
         return is_inactive_ && inactive_time_ >= max_inactive_time_;
     }

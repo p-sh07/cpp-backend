@@ -181,7 +181,7 @@ void Session::RemoveLootItem(GameObject::Id loot_item_id) {
     loot_items_.erase(it);
 }
 
-std::vector<gamedata::PlayerStats> Session::AdvanceTime(model::TimeMs delta_t) {
+std::vector<Dog::Id> Session::AdvanceTime(model::TimeMs delta_t) {
     session_time_ += delta_t;
 
     MoveAllDogs(delta_t);
@@ -189,7 +189,7 @@ std::vector<gamedata::PlayerStats> Session::AdvanceTime(model::TimeMs delta_t) {
 
     //Generate loot after, so that a loot item is not randomly picked up by dog
     GenerateLoot(delta_t);
-    return ProcessRetiredDogs();
+    return GetRetiredDogs();
 }
 
 void Session::AddOffices(const Map::Offices& offices) {
@@ -253,18 +253,18 @@ void Session::ProcessCollisions() const {
     }
 }
 
-std::vector<gamedata::PlayerStats> Session::ProcessRetiredDogs() {
-    std::vector<gamedata::PlayerStats> result;
-    for(auto& [id, dog] : dogs_) {
-        if(dog.IsExpiredDueToInactivity()) {
-            result.emplace_back(*dog.GetTag(), dog.GetScore(), dog.GetIngameTime().count());
+std::vector<Dog::Id> Session::GetRetiredDogs() {
+    std::vector<Dog::Id> retired;
+    for(const auto&[id, dog] : dogs_) {
+        if(dog.IsExpired()) {
+            retired.emplace_back(id);
         }
     }
-    //TODO: make sure player is deleted also, add player id to playerstats?
+    //erase all expired dogs
     std::erase_if(dogs_, [](const auto& item) {
-        return item.second.IsExpiredDueToInactivity();
+        return item.second.IsExpired();
     });
-    return result;
+    return retired;
 }
 
 //=================================================
@@ -434,11 +434,27 @@ const Session::LootItems &PlayerSessionManager::GetSessionLootList(ConstPlayerPt
     return player->GetSession()->GetLootItems();
 }
 
+gamedata::PlayerStats PlayerSessionManager::RetirePlayer(const Map::Id map_id, Dog::Id dog_id) {
+    auto player     = GetPlayerByMapDogId(map_id, dog_id);
+    const auto& dog = player->GetDog();
+    gamedata::PlayerStats stats{
+        dog->GetTag().GetVal(),
+        dog->GetScore(),
+        dog->GetIngameTime().count()
+    };
+    players_.erase(player->GetId());
+    return stats;
+}
+
 std::vector<gamedata::PlayerStats> PlayerSessionManager::AdvanceTime(model::TimeMs delta_t) {
     std::vector<gamedata::PlayerStats> retired_players;
     for (auto& session : sessions_ | vw::values) {
-        auto retired = session.AdvanceTime(delta_t);
-        rg::move(retired, std::back_inserter(retired_players));
+        auto map_id = session.GetMapId();
+        auto retired_dogs = session.AdvanceTime(delta_t);
+
+        rg::for_each(retired_dogs, [&](const auto& dog_id) {
+            retired_players.emplace_back(RetirePlayer(map_id, dog_id));
+        });
     }
     return retired_players;
 }
