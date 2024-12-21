@@ -232,7 +232,7 @@ public:
 
     Direction GetDirection() const;
     DynamicObject& SetDirection(Direction dir);
-    DynamicObject& SetMovement(Direction dir, double speed_value);
+    virtual DynamicObject& SetMovement(Direction dir, double speed_value);
 
     //This function needs to be redefined for dogs to allow inactive time keeping
     virtual void Stop();
@@ -314,6 +314,8 @@ public:
     void ProcessCollision(const CollisionObjectPtr& obj);
 
     void Stop() override;
+    Dog& SetMovement(Direction dir, double speed_value) override;
+
     Dog& SetPos(Point2D new_pos) override;
     bool IsExpired() const;
 

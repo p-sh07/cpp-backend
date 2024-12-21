@@ -328,6 +328,14 @@ void Dog::Stop() {
     DynamicObject::Stop();
 }
 
+Dog& Dog::SetMovement(Direction dir, double speed_value) {
+    if(dir != Direction::NONE) {
+        ResetInactiveTime();
+    }
+    DynamicObject::SetMovement(dir, speed_value);
+    return *this;
+}
+
 Dog& Dog::SetPos(Point2D new_pos) {
     //If dog moves during this tick, reset inactivity time
     if(new_pos != pos_) {
