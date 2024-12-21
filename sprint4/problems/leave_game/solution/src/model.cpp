@@ -145,9 +145,9 @@ Point2D CollisionObject::GetPrevPos() const {
     return prev_pos_;
 }
 
-CollisionObject& CollisionObject::SetPos(Point2D pos) {
+CollisionObject& CollisionObject::SetPos(Point2D new_pos) {
     prev_pos_ = pos_;
-    pos_ = pos;
+    pos_ = new_pos;
     return *this;
 }
 
@@ -321,6 +321,22 @@ void Dog::ProcessCollision(const CollisionObjectPtr& obj) {
     /// If mechanics become more complex, can potentially use pointer_cast
     // spBase base = std::make_shared<Derived>();
     // spDerived derived = std::dynamic_pointer_cast<spDerived::element_type>(base);
+}
+
+void Dog::Stop() {
+    is_inactive_ = true;
+    DynamicObject::Stop();
+}
+
+Dog& Dog::SetPos(Point2D new_pos) {
+    //If dog moves during this tick, reset inactivity time
+    if(new_pos != pos_) {
+        ResetInactiveTime();
+    } else {
+        is_inactive_ = true;
+    }
+    CollisionObject::SetPos(new_pos);
+    return *this;
 }
 
 bool Dog::IsExpired() const {

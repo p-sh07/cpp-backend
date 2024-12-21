@@ -204,7 +204,7 @@ public:
     Point2D GetPrevPos() const;
 
     //Redefined for dog to allow inactivity tracking
-    virtual CollisionObject& SetPos(Point2D pos);
+    virtual CollisionObject& SetPos(Point2D new_pos);
 
     double GetWidth() const;
     collision_detector::Item AsCollisionItem() const;
@@ -313,22 +313,8 @@ public:
     bool TryCollectItem(LootItemInfo loot_info);
     void ProcessCollision(const CollisionObjectPtr& obj);
 
-    void Stop() override {
-        is_inactive_ = true;
-        DynamicObject::Stop();
-    }
-
-    Dog& SetPos(Point2D pos) override {
-        //If dog moved during this tick, reset inactivity time
-        if(pos != prev_pos_) {
-            ResetInactiveTime();
-        } else {
-            is_inactive_ = true;
-        }
-        CollisionObject::SetPos(pos);
-        return *this;
-    }
-
+    void Stop() override;
+    Dog& SetPos(Point2D new_pos) override;
     bool IsExpired() const;
 
 private:
