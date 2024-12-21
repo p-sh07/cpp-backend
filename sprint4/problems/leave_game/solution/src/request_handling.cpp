@@ -1,4 +1,5 @@
 #include "request_handling.h"
+#include <regex>
 
 namespace http_handler {
 
@@ -349,14 +350,15 @@ StringResponse ApiHandler::HandleApiRequest(const StringRequest& req) {
             /// -->> Get Retired Player Stats table
             if(RemoveIfHasPrefix(Uri::player_stats, api_uri)) {
                 //NB: Assume here that the params are sent as a json body:
-                json_loader::StatsCommand stat_cmd;
-                if(!req.body().empty()) {
-                    stat_cmd = json_loader::ParseStatsCommand(req.body());
-                }
-                if (stat_cmd.maxItems && *stat_cmd.maxItems > max_player_record_request_num_) {
+                // json_loader::StatsCommand stat_cmd;
+                // if(!req.body().empty()) {
+                //     stat_cmd = json_loader::ParseStatsCommand(req.body());
+                // }
+                auto params = ExtractRecordsUrlParams(api_uri);
+                if (params.maxItems && *params.maxItems > max_player_record_request_num_) {
                     throw ApiError(ErrCode::bad_request);
                 }
-                auto json_str_body = json_loader::PrintPlayerStats(game_app_->GetPlayerStats(stat_cmd.start, stat_cmd.maxItems));
+                auto json_str_body = json_loader::PrintPlayerStats(game_app_->GetPlayerStats(params.start, params.maxItems));
                 return to_html(http::status::ok, json_str_body);
             }
         }
@@ -389,6 +391,7 @@ StringResponse ApiHandler::ReportApiError(unsigned version, bool keep_alive, std
     error_message += '}';
     return MakeStringResponse(http::status::unknown, error_message, version, keep_alive);
 }
+
 bool ApiHandler::RemoveIfHasPrefix(std::string_view prefix, std::string_view& uri) {
     if(uri.starts_with(prefix)) {
         uri.remove_prefix(prefix.size());
@@ -396,6 +399,7 @@ bool ApiHandler::RemoveIfHasPrefix(std::string_view prefix, std::string_view& ur
     }
     return false;
 }
+
 std::pair<std::string, std::string> ApiHandler::ExtractMapIdPlayerName(const std::string& request_body) {
     std::string map_id_str;
     std::string player_dog_name;
@@ -413,6 +417,33 @@ std::pair<std::string, std::string> ApiHandler::ExtractMapIdPlayerName(const std
         throw ApiError(ErrCode::invalid_player_name);
     }
     return {map_id_str, player_dog_name};
+}
+
+//.../records?start=10&maxItems=100
+ApiHandler::RecordsRequestParams ApiHandler::ExtractRecordsUrlParams(std::string_view url_params) {
+    RecordsRequestParams result;
+    if(url_params.size() == 0) {
+        return result;
+    }
+    std::string param_string{url_params};
+
+    // Регулярное выражение для разбора строки запроса
+    std::regex regex("([\\?&\\=])(\\w+)=([^&\\=]*)");
+
+    std::smatch match;
+    std::sregex_iterator it(param_string.begin(), param_string.end(), regex);
+    std::sregex_iterator end;
+
+    while (it != end) {
+        if(it->str(2) == Uri::records_offset) {
+            result.start = std::stoi(it->str(3));
+        } else if(it->str(2) == Uri::records_limit) {
+            result.maxItems = std::stoi(it->str(3));
+        }
+        ++it;
+    }
+
+    return result;
 }
 
 //==================================================================
