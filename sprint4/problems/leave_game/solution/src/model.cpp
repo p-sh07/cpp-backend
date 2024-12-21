@@ -338,7 +338,7 @@ Dog& Dog::SetMovement(Direction dir, double speed_value) {
 
 Dog& Dog::SetPos(Point2D new_pos) {
     //If dog moves during this tick, reset inactivity time
-    if(new_pos != pos_) {
+    if(new_pos != prev_pos_) {
         ResetInactiveTime();
     } else {
         is_inactive_ = true;
