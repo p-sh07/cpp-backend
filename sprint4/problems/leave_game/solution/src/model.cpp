@@ -190,7 +190,9 @@ DynamicObject& DynamicObject::SetDirection(Direction dir) {
 }
 
 DynamicObject& DynamicObject::SetMovement(Direction dir, double speed_value) {
-    SetDirection(dir);
+    if(dir != Direction::NONE) {
+        SetDirection(dir);
+    }
 
     switch(dir) {
         case Direction::NORTH:
@@ -340,9 +342,10 @@ Dog& Dog::SetPos(Point2D new_pos) {
     //If dog moves during this tick, reset inactivity time
     if(new_pos != pos_) {
         ResetInactiveTime();
-    } else {
-        is_inactive_ = true;
     }
+    //else {
+    //     is_inactive_ = true;
+    // }
     CollisionObject::SetPos(new_pos);
     return *this;
 }
@@ -376,7 +379,7 @@ void Dog::AddTime(TimeMs delta_t) {
     }
 
     ingame_time_ += delta_t;
-    if(is_inactive_ || direction_ == Direction::NONE) {
+    if(is_inactive_) {
         inactive_time_ += delta_t;
 
         //when dog expires, decrease ingame time by the extra tick time after expiry
