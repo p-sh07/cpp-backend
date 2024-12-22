@@ -43,7 +43,7 @@ COPY ./static /app/static
 #ENV DEBUG_DB_URL=postgres://postgres:Mys3Cr3t@172.17.0.2:5432/playerdb
 
 # Запускаем игровой сервер
-ENTRYPOINT ["/app/game_server", "--config-file", "/app/data/config.json", "--www-root", "/app/static"]
+ENTRYPOINT ["/app/game_server", "--config-file", "/app/data/config.json", "--www-root", "/app/static", "--randomize_spawn_points"]
 
 #Commands to launch:
 #sudo docker build -t my_http_server .

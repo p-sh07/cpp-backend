@@ -464,7 +464,7 @@ gamedata::PlayerStats PlayerSessionManager::RetirePlayer(const Map::Id map_id, D
         dog->GetScore(),
         dog->GetIngameTime().count()
     };
-    std::cerr << "retiring player: " << player->GetId() << ", " << dog->GetName() << " after: " << dog->GetIngameTime().count() / 1000.0 << " sec" << std::endl;
+    //std::cerr << "retiring player: " << player->GetId() << ", " << dog->GetName() << " after: " << dog->GetIngameTime().count() / 1000.0 << "s, inactive: " << dog->GetInactiveTime().count() / 1000.0 << 's' << std::endl;
     //Erase player's dog
     player_sess->EraseDog(dog_id);
 
