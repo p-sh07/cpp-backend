@@ -13,7 +13,8 @@ RUN apt update && \
 # копируем conanfile.txt в контейнер и запускаем conan install
 COPY conanfile.txt /app/
 RUN mkdir /app/build && cd /app/build && \
-    conan install .. --build=missing -s compiler.libcxx=libstdc++11 -s build_type=Debug
+    conan install .. --build=missing -s compiler.libcxx=libstdc++11
+    #-s build_type=Debug
 
 # только после этого копируем остальные иходники
 COPY ./src /app/src
@@ -40,7 +41,7 @@ COPY ./static /app/static
 #COPY ./state /volume/state
 
 #Env var for db
-ENV DEBUG_DB_URL=postgres://postgres:Mys3Cr3t@172.17.0.2:5432/playerdb
+#ENV DEBUG_DB_URL=postgres://postgres:Mys3Cr3t@172.17.0.2:5432/playerdb
 
 # Запускаем игровой сервер
 ENTRYPOINT ["/app/game_server", "--config-file", "/app/data/config.json", "--www-root", "/app/static"]
