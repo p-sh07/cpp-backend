@@ -11,7 +11,7 @@ namespace json_loader {
 namespace json = boost::json;
 
 struct JsonKeys {
-    using Key = std::string_view;
+    using Key = json::string_view;
 
     static constexpr Key maps = "maps";
     static constexpr Key roads = "roads";
