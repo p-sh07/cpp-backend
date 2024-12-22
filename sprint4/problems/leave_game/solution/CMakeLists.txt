@@ -9,7 +9,7 @@ set(CONAN_DISABLE_CHECK_COMPILER True)
 #suppress warnings
 add_definitions(-w)
 
-file(GLOB_RECURSE CONNAN_FILE_PATH "conanbuildinfo_multi.cmake" ${PROJECT_SOURCE_DIR})
+file(GLOB_RECURSE CONNAN_FILE_PATH "conanbuildinfo.cmake" ${PROJECT_SOURCE_DIR})
 
 include(${CONNAN_FILE_PATH})
 conan_basic_setup(TARGETS)
@@ -66,34 +66,34 @@ target_link_libraries(game_lib PUBLIC Threads::Threads CONAN_PKG::boost CONAN_PK
 #Server
 target_link_libraries(game_server PUBLIC game_lib)
 
-#For CTest
-#include(CTest)
-#include(${CONAN_BUILD_DIRS_CATCH2}/Catch.cmake)
-#
-##Unit tests
-#add_executable(game_server_tests
-#        src/json_loader.h
-#        src/json_loader.cpp
-#        src/postgres.cpp
-#        src/postgres.h
-#        tests/game_server_tests.cpp
-#)
-#add_executable(collision_detection_tests
-#        src/json_loader.h
-#        src/json_loader.cpp
-#        tests/collision-detector-tests.cpp
-#)
-#add_executable(serialization_tests
-#        src/state_serialization.h
-#        src/state_serialization.cpp
-#        tests/state-serialization-tests.cpp
-#)
-#
-##Tests: Catch2 Ctest
-#catch_discover_tests(game_server_tests)
-#catch_discover_tests(collision_detection_tests)
-#catch_discover_tests(serialization_tests)
-#
-#target_link_libraries(game_server_tests PRIVATE CONAN_PKG::catch2 game_lib)
-#target_link_libraries(collision_detection_tests PRIVATE CONAN_PKG::catch2 game_lib)
-#target_link_libraries(serialization_tests PRIVATE CONAN_PKG::catch2 game_lib)
+For CTest
+include(CTest)
+include(${CONAN_BUILD_DIRS_CATCH2}/Catch.cmake)
+
+#Unit tests
+add_executable(game_server_tests
+        src/json_loader.h
+        src/json_loader.cpp
+        src/postgres.cpp
+        src/postgres.h
+        tests/game_server_tests.cpp
+)
+add_executable(collision_detection_tests
+        src/json_loader.h
+        src/json_loader.cpp
+        tests/collision-detector-tests.cpp
+)
+add_executable(serialization_tests
+        src/state_serialization.h
+        src/state_serialization.cpp
+        tests/state-serialization-tests.cpp
+)
+
+#Tests: Catch2 Ctest
+catch_discover_tests(game_server_tests)
+catch_discover_tests(collision_detection_tests)
+catch_discover_tests(serialization_tests)
+
+target_link_libraries(game_server_tests PRIVATE CONAN_PKG::catch2 game_lib)
+target_link_libraries(collision_detection_tests PRIVATE CONAN_PKG::catch2 game_lib)
+target_link_libraries(serialization_tests PRIVATE CONAN_PKG::catch2 game_lib)
