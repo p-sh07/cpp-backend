@@ -288,7 +288,15 @@ Player::Player(size_t id, SessionPtr session, DogPtr dog)
 }
 
 void Player::SetDirection(model::Direction dir) const {
-    dog_->SetMovement(dir, session_->GetDogSpeedVal());
+    try {
+        if(dog_) {
+            dog_->SetMovement(dir, session_->GetDogSpeedVal());
+        } else {
+            std::cerr << "DEBUG: Trying to access dog null pointer in Player\n";
+        }
+    } catch (std::exception& ex) {
+        std::cerr << "DEBUG: Unable to move dog, exception occured: " << ex.what() << '\n';
+    }
 }
 
 //=================================================
@@ -485,7 +493,7 @@ std::vector<gamedata::PlayerStats> PlayerSessionManager::AdvanceTime(model::Time
 
 //=================================================
 //============= GameInterface =====================
-GameInterface::GameInterface(net::io_context& io, GamePtr game_ptr, AppListenerPtr app_listener_ptr, database::PlayerStats& player_db)
+GameInterface::GameInterface(net::io_context& io, GamePtr game_ptr, AppListenerPtr app_listener_ptr, std::shared_ptr<database::PlayerStats> player_db)
     : io_(io)
     , game_(std::move(game_ptr))
     , app_listener_(std::move(app_listener_ptr))
@@ -505,8 +513,11 @@ const Session::LootItems &GameInterface::GetLootList(ConstPlayerPtr player) cons
     return player_manager_.GetSessionLootList(player);
 }
 
-std::vector<gamedata::PlayerStats> GameInterface::GetPlayerStats(std::optional<size_t> start, std::optional<size_t> max_players) {
-    return player_stat_db_.LoadPlayersStats(std::move(start), std::move(max_players));
+std::vector<gamedata::PlayerStats> GameInterface::GetPlayerStats(std::optional<size_t> start, std::optional<size_t> max_players) const {
+    if(player_stat_db_) {
+        return player_stat_db_->LoadPlayersStats(std::move(start), std::move(max_players));
+    }
+    return {};
 }
 
 ConstPlayerPtr GameInterface::FindPlayerByToken(const Token& token) const {
@@ -532,7 +543,11 @@ JoinGameResult GameInterface::JoinGame(std::string map_id_str, std::string playe
 void GameInterface::SetPlayerMovement(ConstPlayerPtr player, const char move_command) {
     //use game default speed if map speed not set
     auto dir = static_cast<model::Direction>(move_command);
-    player->SetDirection(dir);
+    if(player) {
+        player->SetDirection(dir);
+    } else {
+        std::cerr << "DEBUG: Passed player nullptr to SetPlayerMovement\n";
+    }
 }
 
 
@@ -556,7 +571,15 @@ void GameInterface::AdvanceGameTime(model::TimeMs delta_t) {
         std::cerr << "serialization error occured: " << ex.what() << std::endl;
     }
     //TODO: Dispatch db write to io
-    player_stat_db_.SavePlayersStats(retired_players);
+    if(player_stat_db_) {
+        player_stat_db_->SavePlayersStats(retired_players);
+    } else if(!retired_players.empty()) {
+        std::cerr << "retiring Players: ";
+        for(const auto& [name, _, __] : retired_players) {
+            std::cerr << name << ", ";
+        }
+        std::cerr << std::endl;
+    }
 }
 
 const PlayerSessionManager& GameInterface::GetPlayerManager() const {

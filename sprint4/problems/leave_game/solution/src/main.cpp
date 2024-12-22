@@ -142,7 +142,7 @@ int main(int argc, const char* argv[]) {
             : nullptr;
 
           // 1.2. PostgreS база данных уставших игроков. По одному соединению на каждый thread
-        postgres::PlayerStatsImpl pstat_db(GetDbUrlFromEnv(), num_threads);
+        auto pstat_db = std::make_shared<postgres::PlayerStatsImpl>(GetDbUrlFromEnv(), num_threads);
 
         // 2. Загружаем карту из файла, создаем модель и интерфейс (application) игры
         auto game = std::make_shared<model::Game>(json_loader::LoadGame(args->config_path));

@@ -72,14 +72,18 @@ include(${CONAN_BUILD_DIRS_CATCH2}/Catch.cmake)
 
 #Unit tests
 add_executable(game_server_tests
+        src/json_loader.h
+        src/json_loader.cpp
+        src/postgres.cpp
+        src/postgres.h
         tests/game_server_tests.cpp
 )
 add_executable(collision_detection_tests
+        src/json_loader.h
+        src/json_loader.cpp
         tests/collision-detector-tests.cpp
 )
 add_executable(serialization_tests
-        src/json_loader.h
-        src/json_loader.cpp
         src/state_serialization.h
         src/state_serialization.cpp
         tests/state-serialization-tests.cpp

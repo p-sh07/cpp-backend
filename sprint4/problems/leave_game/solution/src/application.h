@@ -238,7 +238,7 @@ struct JoinGameResult {
 class GameInterface {
  public:
     //GameInterface(const fs::path& game_config);
-    GameInterface(net::io_context& io, GamePtr game_ptr, AppListenerPtr app_listener_ptr, database::PlayerStats& player_db);
+    GameInterface(net::io_context& io, GamePtr game_ptr, AppListenerPtr app_listener_ptr, std::shared_ptr<database::PlayerStats> player_db);
 
     //use cases
     model::ConstMapPtr GetMap(std::string_view map_id) const;
@@ -260,14 +260,14 @@ class GameInterface {
     //Returns vector of all players in same session as player
     std::vector<ConstPlayerPtr> GetPlayerList(ConstPlayerPtr player) const;
     const Session::LootItems& GetLootList(ConstPlayerPtr player) const;
-    std::vector<gamedata::PlayerStats> GetPlayerStats(std::optional<size_t> start, std::optional<size_t> max_players);
+    std::vector<gamedata::PlayerStats> GetPlayerStats(std::optional<size_t> start, std::optional<size_t> max_players) const;
 
 private:
     net::io_context& io_;
     AppListenerPtr app_listener_ = nullptr;
     GamePtr game_;
     PlayerSessionManager player_manager_;
-    database::PlayerStats& player_stat_db_;
+    std::shared_ptr<database::PlayerStats> player_stat_db_;
 
     //TODO: use from GameSettings
     static constexpr auto valid_move_chars_ = "UDLR"sv;
