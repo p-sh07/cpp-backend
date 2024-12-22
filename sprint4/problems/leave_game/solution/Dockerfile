@@ -34,7 +34,7 @@ USER www
 
 # Скопируем приложение со сборочного контейнера в директорию /app.
 # Не забываем также папку data, она пригодится.
-COPY --from=build /app/build/bin/game_server /app/
+COPY --from=build /app/build/game_server /app/
 COPY ./data /app/data
 COPY ./static /app/static
 #COPY ./state /volume/state
