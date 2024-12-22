@@ -66,7 +66,7 @@ target_link_libraries(game_lib PUBLIC Threads::Threads CONAN_PKG::boost CONAN_PK
 #Server
 target_link_libraries(game_server PUBLIC game_lib)
 
-For CTest
+#For CTest
 include(CTest)
 include(${CONAN_BUILD_DIRS_CATCH2}/Catch.cmake)
 

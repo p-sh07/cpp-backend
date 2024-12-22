@@ -132,7 +132,7 @@ int main(int argc, const char* argv[]) {
         }
 
         // 1. Инициализируем io_context и другие переменные
-        const auto num_threads = std::thread::hardware_concurrency();
+        const auto num_threads = 1u; //std::thread::hardware_concurrency();
         net::io_context ioc(static_cast<int>(num_threads));
         auto api_strand          = net::make_strand(ioc);
 

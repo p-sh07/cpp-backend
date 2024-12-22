@@ -310,7 +310,7 @@ StringResponse ApiHandler::HandleApiRequest(const StringRequest& req) {
                     it == req.end() || it->value() != ContentType::APP_JSON) {
                     throw ApiError(ErrCode::invalid_content_type);
                 }
-                std::cerr << "Received move cmd " << std::endl; // << req.body() << " for player token: " << ExtractToken(req) << std::endl;
+                // std::cerr << "Received move cmd " << std::endl; // << req.body() << " for player token: " << ExtractToken(req) << std::endl;
                 auto player = AuthorizePlayer(req);
                 const auto move_command = json_loader::ParseMove(req.body());
 
