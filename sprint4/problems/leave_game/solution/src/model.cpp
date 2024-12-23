@@ -376,10 +376,10 @@ void Dog::AddTime(TimeMs delta_t) {
         inactive_time_ += delta_t;
 
         //when dog expires, decrease ingame time by the extra tick time after expiry
-        if(IsExpired()) {
-            auto tick_time_diff = inactive_time_ - max_inactive_time_;
-            ingame_time_ -= tick_time_diff;
-        }
+        // if(IsExpired()) {
+        //     auto tick_time_diff = inactive_time_ - max_inactive_time_;
+        //     ingame_time_ -= tick_time_diff;
+        // }
     }
     /** NB: This function must be called LAST during tick,
      *  because it depends on player cmd being already processed,

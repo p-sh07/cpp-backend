@@ -456,7 +456,7 @@ gamedata::PlayerStats PlayerSessionManager::RetirePlayer(const Map::Id map_id, D
         dog->GetScore(),
         dog->GetIngameTime().count()
     };
-    std::cerr << "retiring player: " << player->GetId() << ", " << dog->GetName() << " after: " << dog->GetIngameTime().count() / 1000.0 << " sec" << std::endl;
+    //std::cerr << "retiring player: " << player->GetId() << ", " << dog->GetName() << " after: " << dog->GetIngameTime().count() / 1000.0 << " sec" << std::endl;
     //Erase player's dog
     player_sess->EraseDog(dog_id);
 
@@ -553,7 +553,7 @@ void GameInterface::AdvanceGameTime(model::TimeMs delta_t) {
         //TODO: add listener for player retirement?
     } catch (std::exception& ex) {
         //TODO: Logger
-        std::cerr << "serialization error occured: " << ex.what() << std::endl;
+        // std::cerr << "serialization error occured: " << ex.what() << std::endl;
     }
     //TODO: Dispatch db write to io
     player_stat_db_.SavePlayersStats(retired_players);
