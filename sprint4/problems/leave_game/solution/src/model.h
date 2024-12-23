@@ -232,10 +232,10 @@ public:
 
     Direction GetDirection() const;
     DynamicObject& SetDirection(Direction dir);
-    virtual DynamicObject& SetMovement(Direction dir, double speed_value);
 
     //This function needs to be redefined for dogs to allow inactive time keeping
-    virtual void Stop();
+    virtual DynamicObject& SetMovement(Direction dir, double speed_value);
+    void Stop();
 
     collision_detector::Gatherer AsGatherer() const;
 
@@ -313,10 +313,9 @@ public:
     bool TryCollectItem(LootItemInfo loot_info);
     void ProcessCollision(const CollisionObjectPtr& obj);
 
-    void Stop() override;
     Dog& SetMovement(Direction dir, double speed_value) override;
-
     Dog& SetPos(Point2D new_pos) override;
+    bool IsStopped() const;
     bool IsExpired() const;
 
 private:
@@ -326,7 +325,8 @@ private:
     Score score_{0u};
 
     //Dogs expire only on the next tick after they have become inactive
-    bool is_inactive_ {false};
+    bool move_cmd_received_ {false};
+
     TimeMs ingame_time_{0u};
     TimeMs inactive_time_{0u};
 
@@ -338,7 +338,6 @@ private:
     //Time is reset if movement End Point is different from Starting Point
     void ResetInactiveTime() {
         inactive_time_ = TimeMs{0u};
-        is_inactive_ = false;
     }
 };
 

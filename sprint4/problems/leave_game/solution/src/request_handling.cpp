@@ -310,7 +310,7 @@ StringResponse ApiHandler::HandleApiRequest(const StringRequest& req) {
                     it == req.end() || it->value() != ContentType::APP_JSON) {
                     throw ApiError(ErrCode::invalid_content_type);
                 }
-                std::cerr << "REceived move cmd " << req.body() << " for player token: " << ExtractToken(req) << std::endl;
+                // std::cerr << "REceived move cmd " << req.body() << " for player token: " << ExtractToken(req) << std::endl;
                 auto player = AuthorizePlayer(req);
                 const auto move_command = json_loader::ParseMove(req.body());
 
@@ -349,11 +349,7 @@ StringResponse ApiHandler::HandleApiRequest(const StringRequest& req) {
 
             /// -->> Get Retired Player Stats table
             if(RemoveIfHasPrefix(Uri::player_stats, api_uri)) {
-                //NB: Assume here that the params are sent as a json body:
-                // json_loader::StatsCommand stat_cmd;
-                // if(!req.body().empty()) {
-                //     stat_cmd = json_loader::ParseStatsCommand(req.body());
-                // }
+
                 auto params = ExtractRecordsUrlParams(api_uri);
                 if (params.maxItems && *params.maxItems > max_player_record_request_num_) {
                     throw ApiError(ErrCode::bad_request);

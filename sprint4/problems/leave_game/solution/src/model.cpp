@@ -190,7 +190,10 @@ DynamicObject& DynamicObject::SetDirection(Direction dir) {
 }
 
 DynamicObject& DynamicObject::SetMovement(Direction dir, double speed_value) {
-    SetDirection(dir);
+    //remove this condition to get a cool effect of rotating dogs when arrow key is not pressed
+    if(dir != Direction::NONE) {
+        SetDirection(dir);
+    }
 
     switch(dir) {
         case Direction::NORTH:
@@ -323,15 +326,11 @@ void Dog::ProcessCollision(const CollisionObjectPtr& obj) {
     // spDerived derived = std::dynamic_pointer_cast<spDerived::element_type>(base);
 }
 
-void Dog::Stop() {
-    is_inactive_ = true;
-    DynamicObject::Stop();
-}
-
 Dog& Dog::SetMovement(Direction dir, double speed_value) {
-    if(dir != Direction::NONE) {
+    if(move_cmd_received_ = (dir != Direction::NONE); move_cmd_received_) {
         ResetInactiveTime();
     }
+    //SetMovement calls Stop if dir == none
     DynamicObject::SetMovement(dir, speed_value);
     return *this;
 }
@@ -340,16 +339,17 @@ Dog& Dog::SetPos(Point2D new_pos) {
     //If dog moves during this tick, reset inactivity time
     if(new_pos != pos_) {
         ResetInactiveTime();
-    } else {
-        is_inactive_ = true;
     }
     CollisionObject::SetPos(new_pos);
     return *this;
 }
 
+bool Dog::IsStopped() const {
+    return speed_ == Speed{0.0, 0.0};
+}
+
 bool Dog::IsExpired() const {
-    //TODO: round down to seconds?
-    return is_inactive_ && inactive_time_ >= max_inactive_time_;
+    return IsStopped() && inactive_time_ >= max_inactive_time_;
 }
 
 void Dog::ClearBag() {
@@ -370,13 +370,9 @@ Dog& Dog::SetRetireTime(TimeMs time_msec) {
 }
 
 void Dog::AddTime(TimeMs delta_t) {
-    if(IsExpired()) {
-        std::cerr << "Trying to add time to an expired dog!!!"s << std::endl;
-        throw std::runtime_error("Trying to add time to an expired dog"s);
-    }
-
     ingame_time_ += delta_t;
-    if(is_inactive_ || direction_ == Direction::NONE) {
+    //Only add tick time, when the dog is stationary and move cmd was not received
+    if(!move_cmd_received_ && IsStopped()) {
         inactive_time_ += delta_t;
 
         //when dog expires, decrease ingame time by the extra tick time after expiry
@@ -385,6 +381,10 @@ void Dog::AddTime(TimeMs delta_t) {
             ingame_time_ -= tick_time_diff;
         }
     }
+    /** NB: This function must be called LAST during tick,
+     *  because it depends on player cmd being already processed,
+     *  resets bool move_cmd_received */
+    move_cmd_received_ = false;
 }
 
 size_t Dog::GetBagCap() const {
@@ -540,6 +540,7 @@ Map::MoveResult Map::ComputeRoadMove(Point2D start, Point2D end) const {
 
     //Case 1: start point is not on road
     if(!roadH && !roadV) {
+        std::cerr << "DEBUG: Dog is not on a road" << std::endl;
         return {true, start};
     }
 
