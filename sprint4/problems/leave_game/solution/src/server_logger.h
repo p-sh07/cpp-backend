@@ -87,7 +87,7 @@ class LoggingRequestHandler {
 
         auto log_and_send_response = [&](auto&& resp) {
             LogResponse(start_ts, resp);
-            send(std::move(resp));
+            send(std::forward<decltype(resp)>(resp));
         };
 
         //End timer when logging response

@@ -260,7 +260,7 @@ void ApiHandler::Execute(http::request<Body, http::basic_fields<Allocator>>&& re
     //currently all api requests performed inside one strand consecutively
     //TODO: switch to one strand per Session
     try {
-        auto handle = [self = shared_from_this(), send,
+        auto handle = [self = shared_from_this(), send = std::forward<decltype(send)>(send),
             req = std::move(req), version, keep_alive] {
             try {
                 return send(self->HandleApiRequest(req));
@@ -376,7 +376,7 @@ void RequestHandler::operator()(tcp::endpoint&&, http::request<Body, http::basic
         //AssertRequestValid(req);
 
         if(api_handler_->IsApiRequest(req)) {
-            return api_handler_->Execute(std::move(req), send);
+            return api_handler_->Execute(std::move(req), std::forward<decltype(send)>(send));
         }
         // Возвращаем результат обработки запроса к файлу
         file_handler_->Execute(std::move(req), send);
