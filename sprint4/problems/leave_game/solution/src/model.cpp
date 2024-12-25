@@ -349,7 +349,7 @@ bool Dog::IsStopped() const {
 }
 
 bool Dog::IsExpired() const {
-    return IsStopped() && inactive_time_ >= max_inactive_time_;
+    return !move_cmd_received_ && IsStopped() && inactive_time_ >= max_inactive_time_;
 }
 
 void Dog::ClearBag() {
