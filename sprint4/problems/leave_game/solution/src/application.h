@@ -112,7 +112,7 @@ private:
 
     void AddOffices(const Map::Offices& offices);
 
-    void MoveDog(Dog& dog, model::TimeMs delta_t);
+    void MoveDog(Dog& dog, model::TimeMs delta_t) const;
     void MoveAllDogs(model::TimeMs delta_t);
 
     void GenerateLoot(model::TimeMs delta_t);

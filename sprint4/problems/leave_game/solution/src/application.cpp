@@ -206,7 +206,7 @@ void Session::AddOffices(const Map::Offices& offices) {
 }
 
 //---------------------------------------------------------
-void Session::MoveDog(Dog& dog, model::TimeMs delta_t) {
+void Session::MoveDog(Dog& dog, model::TimeMs delta_t) const {
     //Operators for time-distance calculations
     using model::operator+;
     using model::operator*;
