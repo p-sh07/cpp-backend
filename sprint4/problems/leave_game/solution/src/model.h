@@ -325,6 +325,7 @@ private:
     Score score_{0u};
 
     //Dogs expire only on the next tick after they have become inactive
+    bool is_stopped_ {false};
     bool move_cmd_received_ {false};
 
     TimeMs ingame_time_{0u};

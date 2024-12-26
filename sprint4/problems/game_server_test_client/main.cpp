@@ -188,7 +188,7 @@ void GetScores(beast::tcp_stream& stream) {
 
 //=============================================//
 //=================== PARAMS ===================//
-static constexpr auto MAP_NAME = "town"s;
+static constexpr auto MAP_NAME = "map3"s;
 static constexpr auto NUM_PLAYERS = 10u;
 static constexpr auto NUM_ITERATIONS = 200u;
 static constexpr auto MAX_TICK_TIME = 10000u;
@@ -229,7 +229,7 @@ void RunTestTwoSequential(beast::tcp_stream& stream) {
     GetScores(stream);
 
     //orange_racoons
-    auto orange_raccoons = JoinPlayers(stream, MAP_NAME, 1000, "or_racc");
+    auto orange_raccoons = JoinPlayers(stream, MAP_NAME, 100, "or_racc");
     for(int n = 0; n < 35; ++n) {
         RandomMovePlayers(stream, orange_raccoons);
         RandomTick(stream, MAX_TICK_TIME);

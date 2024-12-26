@@ -327,7 +327,10 @@ void Dog::ProcessCollision(const CollisionObjectPtr& obj) {
 }
 
 Dog& Dog::SetMovement(Direction dir, double speed_value) {
-    if(move_cmd_received_ = (dir != Direction::NONE); move_cmd_received_) {
+    move_cmd_received_ = (dir != Direction::NONE);
+
+    if(move_cmd_received_) {
+        is_stopped_ = false;
         ResetInactiveTime();
     }
     //SetMovement calls Stop if dir == none
@@ -339,13 +342,16 @@ Dog& Dog::SetPos(Point2D new_pos) {
     //If dog moves during this tick, reset inactivity time
     if(new_pos != pos_) {
         ResetInactiveTime();
+    } else {
+        is_stopped_ = true;
     }
     CollisionObject::SetPos(new_pos);
     return *this;
 }
 
 bool Dog::IsStopped() const {
-    return speed_ == Speed{0.0, 0.0};
+    return is_stopped_;
+    //return speed_ == Speed{0.0, 0.0};
 }
 
 bool Dog::IsExpired() const {
