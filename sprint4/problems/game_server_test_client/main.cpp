@@ -186,6 +186,10 @@ void GetScores(beast::tcp_stream& stream) {
     }
 }
 
+void GetRecords(beast::tcp_stream& stream) {
+
+}
+
 //=============================================//
 //=================== PARAMS ===================//
 static constexpr auto MAP_NAME = "map3"s;
@@ -214,6 +218,21 @@ void RunTestOldTribes(beast::tcp_stream& stream) {
         RandomTick(stream, MAX_TICK_TIME);
     }
     Tick(stream, RETIRE_TIME / 2u);
+}
+
+void RunTestAFewREcords(beast::tcp_stream& stream) {
+    //Send random move requests for all players, followed by a random tick, repeat Num times
+    //Old tribe
+    auto red_foxes = JoinPlayers(stream, "town", 100, "a_few_records");
+    for(int n = 0; n < 350; ++n) {
+        RandomMovePlayers(stream, red_foxes);
+        RandomTick(stream, MAX_TICK_TIME);
+    }
+    GetScores(stream);
+    StopAllPlayers(stream, red_foxes);
+    Tick(stream, RETIRE_TIME);
+
+    GetRecords(stream);
 }
 
 void RunTestTwoSequential(beast::tcp_stream& stream) {
@@ -262,6 +281,8 @@ int main(int argc, char** argv)
         stream.connect(results);
 
         RunTestTwoSequential(stream);
+        RunTestAFewREcords(stream);
+        RunTestOldTribes(stream);
 
         // Gracefully close the socket
         beast::error_code ec;

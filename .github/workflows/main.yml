@@ -242,14 +242,14 @@ jobs:
           ./scores/run.sh
 
       - name: run tests sprint3 ammo
-        # run: |
-        #   cd cpp-backend-tests-practicum/scripts/sprint3
-        #   ./ammo/run.sh
+        run: |
+          cd cpp-backend-tests-practicum/scripts/sprint3
+          ./ammo/run.sh
 
       - name: run tests sprint3 load
-        # run: |
-        #   cd cpp-backend-tests-practicum/scripts/sprint3
-        #   ./load/run.sh
+        run: |
+          cd cpp-backend-tests-practicum/scripts/sprint3
+          ./load/run.sh
 
       - name: Publish XML reports
         uses: EnricoMi/publish-unit-test-result-action@v2
@@ -301,15 +301,15 @@ jobs:
         with:
           submodules: true
 
-      # - name: run tests sprint3 ammo
-      #   run: |
-      #     cd cpp-backend-tests-practicum/scripts/sprint3
-      #     ./ammo/run_ci.sh
+      - name: run tests sprint3 ammo
+        # run: |
+        #   cd cpp-backend-tests-practicum/scripts/sprint3
+        #   ./ammo/run_ci.sh
 
-      # - name: run tests sprint3 load
-      #   run: |
-      #     cd cpp-backend-tests-practicum/scripts/sprint3
-      #     ./load/run_ci.sh
+      - name: run tests sprint3 load
+        # run: |
+        #   cd cpp-backend-tests-practicum/scripts/sprint3
+        #   ./load/run_ci.sh
 
 ##      - name: run tests sprint3 stress
 ##        run: |
@@ -366,14 +366,14 @@ jobs:
           ./bookypedia-1/run_postgresless.sh
 
       - name: run tests sprint4 bookypedia-2
-        # run: |
-        #   cd cpp-backend-tests-practicum/scripts/sprint4
-        #   ./bookypedia-2/run_postgresless.sh
+        run: |
+          cd cpp-backend-tests-practicum/scripts/sprint4
+          ./bookypedia-2/run_postgresless.sh
 
       - name: run tests sprint4 leave_game
-        # run: |
-        #   cd cpp-backend-tests-practicum/scripts/sprint4
-        #   ./leave_game/run_postgresless.sh
+        run: |
+          cd cpp-backend-tests-practicum/scripts/sprint4
+          ./leave_game/run_postgresless.sh
 
       - name: Publish XML reports
         uses: EnricoMi/publish-unit-test-result-action@v2
