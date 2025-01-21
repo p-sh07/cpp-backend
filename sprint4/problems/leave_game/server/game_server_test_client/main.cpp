@@ -5,7 +5,7 @@
 //
 //------------------------------------------------------------------------------
 
-//example_http_client
+//[example_http_client
 
 #include <boost/beast/core.hpp>
 #include <boost/beast/http.hpp>
