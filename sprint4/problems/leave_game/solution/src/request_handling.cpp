@@ -221,6 +221,10 @@ app::ConstPlayerPtr ApiHandler::AuthorizePlayer(const auto& request) const {
 }
 
 StringResponse ApiHandler::HandleApiRequest(const StringRequest& req) {
+
+//DEBUG:
+//std::cerr << "-received api request: " << req << '\n\n';
+
         //General purpose string-response forming lambda, CT = App-json by default, cache_control = no-cache
         auto to_html = [&](http::status status, std::string_view text, std::string_view cache_value = "no-cache") {
             auto resp = MakeStringResponse(status, text, req.version(),

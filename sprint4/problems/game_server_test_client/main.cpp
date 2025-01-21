@@ -192,11 +192,11 @@ void GetRecords(beast::tcp_stream& stream) {
 
 //=============================================//
 //=================== PARAMS ===================//
-static constexpr auto MAP_NAME = "map3"s;
-static constexpr auto NUM_PLAYERS = 10u;
-static constexpr auto NUM_ITERATIONS = 200u;
-static constexpr auto MAX_TICK_TIME = 10000u;
-static constexpr auto RETIRE_TIME = 15000u;
+static const auto MAP_NAME = "map3"s;
+static const auto NUM_PLAYERS = 10u;
+static const auto NUM_ITERATIONS = 200u;
+static const auto MAX_TICK_TIME = 10000u;
+static const auto RETIRE_TIME = 15000u;
 
 //=============================================//
 
@@ -238,7 +238,7 @@ void RunTestAFewREcords(beast::tcp_stream& stream) {
 void RunTestTwoSequential(beast::tcp_stream& stream) {
     //Send random move requests for all players, followed by a random tick, repeat Num times
     //Old tribe
-    auto red_foxes = JoinPlayers(stream, MAP_NAME, 100, "red_fox");
+    auto red_foxes = JoinPlayers(stream, MAP_NAME, 50, "red_fox");
     for(int n = 0; n < 35; ++n) {
         RandomMovePlayers(stream, red_foxes);
         RandomTick(stream, MAX_TICK_TIME);
@@ -248,7 +248,7 @@ void RunTestTwoSequential(beast::tcp_stream& stream) {
     GetScores(stream);
 
     //orange_racoons
-    auto orange_raccoons = JoinPlayers(stream, MAP_NAME, 100, "or_racc");
+    auto orange_raccoons = JoinPlayers(stream, MAP_NAME, 50, "or_racc");
     for(int n = 0; n < 35; ++n) {
         RandomMovePlayers(stream, orange_raccoons);
         RandomTick(stream, MAX_TICK_TIME);
@@ -265,7 +265,7 @@ int main(int argc, char** argv)
     try
     {
         auto const host = "localhost";
-        auto const port = "8080";
+        auto const port = "80";
 
         // The io_context is required for all I/O
         net::io_context ioc;
@@ -299,6 +299,7 @@ int main(int argc, char** argv)
     catch(std::exception const& e)
     {
         std::cerr << "Error: " << e.what() << std::endl;
+        return EXIT_FAILURE;
     }
     std::cerr << "Sent all requests"s << std::endl;
     return EXIT_SUCCESS;

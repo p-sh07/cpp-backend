@@ -183,17 +183,24 @@ void Session::RemoveLootItem(GameObject::Id loot_item_id) {
 std::vector<Dog::Id> Session::AdvanceTime(model::TimeMs delta_t) {
     session_time_ += delta_t;
 
+    // std::cerr << std::endl << "moving dogs...\n";
+
     MoveAllDogs(delta_t);
+
+    std::cerr << "collisions"  << std::endl;
     ProcessCollisions();
 
+    std::cerr << "loot" << std::endl;
     //Generate loot after, so that a loot item is not randomly picked up by dog
     GenerateLoot(delta_t);
+
+    // std::cerr << "retired dogs" << std::endl;
     return GetRetiredDogs();
 }
 
-void Session::EraseDog(Dog::Id dog_id) {
-    dogs_.erase(dog_id);
-}
+// void Session::EraseDog(Dog::Id dog_id) {
+//     dogs_.erase(dog_id);
+// }
 
 void Session::AddOffices(const Map::Offices& offices) {
     for (const auto& office : map_->GetOffices()) {
@@ -211,7 +218,10 @@ void Session::MoveDog(Dog& dog, model::TimeMs delta_t) const {
     using model::operator+;
     using model::operator*;
 
+    // std::cerr << " -> computing max move\n";
     model::Point2D max_move_pt  = dog.GetPos() + dog.GetSpeed() * delta_t;
+
+    // std::cerr << " -> computing dog pos\n";
     Map::MoveResult move_result = map_->ComputeRoadMove(dog.GetPos(), max_move_pt);
 
     if (move_result.road_edge_reached_) {
@@ -223,7 +233,10 @@ void Session::MoveDog(Dog& dog, model::TimeMs delta_t) const {
 }
 
 void Session::MoveAllDogs(model::TimeMs delta_t) {
+    // std::cerr << "=inside MoveAllDogs, dogs sz = " << dogs_.size() << '\n';
     for (auto& dog : dogs_ | vw::values) {
+        // std::cerr << "moving dog " << std::endl; 
+        // std::cerr << dog.GetId() << "...\n";
         MoveDog(dog, delta_t);
     }
 }
@@ -243,13 +256,26 @@ void Session::GenerateLoot(model::TimeMs delta_t) {
 void Session::ProcessCollisions() const {
     try {
         //NB: this used to be a member of Session, but recent changes introduced bugs:
-        // - refs to object/gatherer container were becoming invalidates - could be due to std::move or unordered_map/rehash?
+        // - refs to object/gatherer container were becoming invalidated - could be due to std::move or unordered_map/rehash?
+        // std::cerr << " -> init detector" << std::endl;
         model::CollisionDetector collision_detector{objects_, gatherers_};
+
+        // std::cerr << " -> find collisions" << std::endl; 
         auto collision_events = collision_detector.FindCollisions();
 
+        // std::cerr << "process:" << std::endl; 
         for (const auto& event : collision_events) {
+            // std::cerr << " -> processing: gath.sz = " << gatherers_.size();
+            // std::cerr << " id = " << event.gatherer_id << std::endl;
             const auto& dog = gatherers_.at(event.gatherer_id);
-            dog->ProcessCollision(objects_.at(event.item_id));
+            if(dog) {
+                // std::cerr << " --> going into dog: " << dog->GetId() << std::endl;
+                dog->ProcessCollision(objects_.at(event.item_id));
+            } else {
+                std::cerr << "nullptr gatherer!" << std::endl;
+                //gatherers_.erase(event.gatherer_id);
+            }
+            
         }
     } catch (...) {
         std::cerr << "collision detection error";
@@ -266,16 +292,16 @@ std::vector<Dog::Id> Session::GetRetiredDogs() {
     return retired;
 }
 
-void Session::ClearRetiredDogs() {
-    //no parameter version: erase all expired dogs
-    std::erase_if(dogs_, [](const auto& item) {
-        return item.second.IsExpired();
-    });
-}
+// void Session::ClearRetiredDogs() {
+//     //no parameter version: erase all expired dogs
+//     std::erase_if(dogs_, [](const auto& item) {
+//         return item.second.IsExpired();
+//     });
+// }
 
 void Session::EraseRetiredDogs(const std::vector<Dog::Id>& retired_dog_ids) {
     rg::for_each(retired_dog_ids, [&](const auto dog_id) {
-        dogs_.erase(dog_id);
+        RemoveDog(dog_id);
     });
 }
 
@@ -458,7 +484,7 @@ gamedata::PlayerStats PlayerSessionManager::RetirePlayer(const Map::Id map_id, D
     };
     //std::cerr << "retiring player: " << player->GetId() << ", " << dog->GetName() << " after: " << dog->GetIngameTime().count() / 1000.0 << " sec" << std::endl;
     //Erase player's dog
-    player_sess->EraseDog(dog_id);
+    player_sess->RemoveDog(dog_id);
 
     //Erase player's token:
     auto token_it = player_to_token_.at(player->GetId());
@@ -556,6 +582,7 @@ void GameInterface::AdvanceGameTime(model::TimeMs delta_t) {
         // std::cerr << "serialization error occured: " << ex.what() << std::endl;
     }
     //TODO: Dispatch db write to io
+    std::cerr << "writing to db...\n";
     player_stat_db_.SavePlayersStats(retired_players);
 }
 
