@@ -187,14 +187,14 @@ std::vector<Dog::Id> Session::AdvanceTime(model::TimeMs delta_t) {
 
     MoveAllDogs(delta_t);
 
-    std::cerr << "collisions"  << std::endl;
+    // std::cerr << "collisions"  << std::endl;
     ProcessCollisions();
 
-    std::cerr << "loot" << std::endl;
+    // std::cerr << "loot" << std::endl;
     //Generate loot after, so that a loot item is not randomly picked up by dog
     GenerateLoot(delta_t);
 
-    // std::cerr << "retired dogs" << std::endl;
+    std::cerr << "retired dogs" << std::endl;
     return GetRetiredDogs();
 }
 
@@ -284,9 +284,13 @@ void Session::ProcessCollisions() const {
 
 std::vector<Dog::Id> Session::GetRetiredDogs() {
     std::vector<Dog::Id> retired;
+    retired.reserve(dogs_.size());
+    // std::cerr << " -> dogs.sz = " << dogs_.size() << std::endl;
     for(const auto&[id, dog] : dogs_) {
+        // std::cerr << " --> proc. dog: " << id << '\n';
         if(dog.IsExpired()) {
-            retired.emplace_back(id);
+            // std::cerr << " --> ins. dog: " << id << '\n';
+            retired.push_back(id);
         }
     }
     return retired;
@@ -497,6 +501,7 @@ gamedata::PlayerStats PlayerSessionManager::RetirePlayer(const Map::Id map_id, D
 
 std::vector<gamedata::PlayerStats> PlayerSessionManager::AdvanceTime(model::TimeMs delta_t) {
     std::vector<gamedata::PlayerStats> retired_players;
+
     for (auto& session : sessions_ | vw::values) {
         auto map_id = session.GetMapId();
         auto retired_dogs = session.AdvanceTime(delta_t);

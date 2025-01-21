@@ -306,14 +306,14 @@ bool Dog::TryCollectItem(LootItemInfo loot_info) {
 
 void Dog::ProcessCollision(const CollisionObjectPtr& obj) {
     //Only two options for now, so use this method:
-    std::cerr << " --- inside pr. coll" << std::endl;
+    // std::cerr << " --- inside pr. coll" << std::endl;
     if(!obj) {
-        std::cerr << "nullptr object!" << std::endl;
+        // std::cerr << "nullptr object!" << std::endl;
         return;
     }
     // 1.Is a loot item
     if(obj->IsCollectible()) {
-        std::cerr << "collect" << std::endl;
+        // std::cerr << "collect" << std::endl;
         try {
         TryCollectItem(obj->Collect());
         } catch(std::exception& ex) {
@@ -322,15 +322,15 @@ void Dog::ProcessCollision(const CollisionObjectPtr& obj) {
     }
     // 2.Is an office
     else if(obj->IsItemsReturn()) {
-        std::cerr << "return" << std::endl;
+        // std::cerr << "return" << std::endl;
         try {
             auto bag = GetBag();
-            std::cerr << "bag.sz = " << bag.size() << std::endl;
+            // std::cerr << "bag.sz = " << bag.size() << std::endl;
         for(const auto& item : GetBag()) {
-            std::cerr << "add value: " << item.value << std::endl;
+            // std::cerr << "add value: " << item.value << std::endl;
             AddScore(item.value);
         }
-        std::cerr << "clearing bag" << std::endl;
+        // std::cerr << "clearing bag" << std::endl;
         ClearBag();
         } catch(std::exception& ex) {
             std::cerr << " ---> exception ocurred in add score: " << ex.what() << std::endl;
