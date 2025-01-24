@@ -161,12 +161,12 @@ void Session::AddRandomLootItems(size_t num_items) {
 }
 
 void Session::RemoveDog(Dog::Id dog_id) {
-    dogs_.erase(dog_id);
     gatherers_.erase(
         std::ranges::find_if(gatherers_, [dog_id](const DogPtr& dog_ptr) {
             return dog_ptr->GetId() == dog_id;
         })
     );
+    dogs_.erase(dog_id);
 }
 
 void Session::RemoveLootItem(GameObject::Id loot_item_id) {

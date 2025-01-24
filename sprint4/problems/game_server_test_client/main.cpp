@@ -193,6 +193,9 @@ void GetRecords(beast::tcp_stream& stream) {
 //=============================================//
 //=================== PARAMS ===================//
 static const auto MAP_NAME = "map3"s;
+static const auto MAP_TOWN = "map3"s;
+static const auto MAP_MAP1 = "map1"s;
+static const auto MAP_MAP3 = "map3"s;
 static const auto NUM_PLAYERS = 10u;
 static const auto NUM_ITERATIONS = 200u;
 static const auto MAX_TICK_TIME = 10000u;
@@ -258,7 +261,7 @@ void RunTestTwoSequential(beast::tcp_stream& stream) {
     GetScores(stream);
 }
 
-void RunTestAHundredPlusRecords(beast::tcp_stream& stream) {
+void RunTestAHundredPlusRecords(beast::tcp_stream& stream, std::string_view map_name = MAP_NAME) {
     //Send random move requests for all players, followed by a random tick, repeat Num times
     //Old tribe
     auto red_foxes = JoinPlayers(stream, MAP_NAME, 150, "legion");
@@ -279,7 +282,7 @@ int main(int argc, char** argv)
     try
     {
         auto const host = "localhost";
-        auto const port = "80";
+        auto const port = "8080";
 
         // The io_context is required for all I/O
         net::io_context ioc;
@@ -297,7 +300,9 @@ int main(int argc, char** argv)
         // RunTestTwoSequential(stream);
         // RunTestAFewREcords(stream);
         // RunTestOldTribes(stream);
-        RunTestAHundredPlusRecords(stream);
+        RunTestAHundredPlusRecords(stream, MAP_TOWN);
+        RunTestAHundredPlusRecords(stream, MAP_MAP1);
+        RunTestAHundredPlusRecords(stream, MAP_MAP3);
 
         // Gracefully close the socket
         beast::error_code ec;
