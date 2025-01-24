@@ -100,7 +100,7 @@ std::string GetDbUrlFromEnv() {
     if (const auto* url = std::getenv(GAME_DB_URL)) {
         url_str = url;
     } else {
-        std::cerr << "using debug db" << std::endl;
+        // std::cerr << "using debug db" << std::endl;
     //throw std::runtime_error(GAME_DB_URL + " environment variable not found"s);
     }
     return url_str;

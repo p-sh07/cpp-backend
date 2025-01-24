@@ -282,7 +282,7 @@ int main(int argc, char** argv)
     try
     {
         auto const host = "localhost";
-        auto const port = "8080";
+        auto const port = "80";
 
         // The io_context is required for all I/O
         net::io_context ioc;
@@ -297,12 +297,12 @@ int main(int argc, char** argv)
         // Make the connection on the IP address we get from a lookup
         stream.connect(results);
 
-        // RunTestTwoSequential(stream);
-        // RunTestAFewREcords(stream);
-        // RunTestOldTribes(stream);
-        RunTestAHundredPlusRecords(stream, MAP_TOWN);
-        RunTestAHundredPlusRecords(stream, MAP_MAP1);
-        RunTestAHundredPlusRecords(stream, MAP_MAP3);
+        while (true) {
+            RunTestOldTribes(stream);
+            RunTestTwoSequential(stream);
+            RunTestAFewREcords(stream);
+            RunTestAHundredPlusRecords(stream);
+        }
 
         // Gracefully close the socket
         beast::error_code ec;

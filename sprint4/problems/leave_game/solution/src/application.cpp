@@ -194,7 +194,7 @@ std::vector<Dog::Id> Session::AdvanceTime(model::TimeMs delta_t) {
     //Generate loot after, so that a loot item is not randomly picked up by dog
     GenerateLoot(delta_t);
 
-    std::cerr << "retired dogs" << std::endl;
+    // std::cerr << "retired dogs" << std::endl;
     return GetRetiredDogs();
 }
 
@@ -587,7 +587,7 @@ void GameInterface::AdvanceGameTime(model::TimeMs delta_t) {
         // std::cerr << "serialization error occured: " << ex.what() << std::endl;
     }
     //TODO: Dispatch db write to io
-    std::cerr << "writing to db...\n";
+    //std::cerr << "writing to db...\n";
     player_stat_db_.SavePlayersStats(retired_players);
 }
 
