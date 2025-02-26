@@ -87,8 +87,8 @@ class Session {
 
     std::vector<Dog::Id> AdvanceTime(model::TimeMs delta_t);
 
-    void EraseDog(Dog::Id dog_id);
-    void ClearRetiredDogs();
+    // void EraseDog(Dog::Id dog_id);
+    // void ClearRetiredDogs();
     void EraseRetiredDogs(const std::vector<Dog::Id>& retired_dog_ids);
 
 private:

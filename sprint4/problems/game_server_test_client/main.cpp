@@ -258,6 +258,20 @@ void RunTestTwoSequential(beast::tcp_stream& stream) {
     GetScores(stream);
 }
 
+void RunTestAHundredPlusRecords(beast::tcp_stream& stream) {
+    //Send random move requests for all players, followed by a random tick, repeat Num times
+    //Old tribe
+    auto red_foxes = JoinPlayers(stream, MAP_NAME, 150, "legion");
+    for(int n = 0; n < 35; ++n) {
+        RandomMovePlayers(stream, red_foxes);
+        RandomTick(stream, MAX_TICK_TIME);
+    }
+    StopAllPlayers(stream, red_foxes);
+    Tick(stream, RETIRE_TIME);
+    GetScores(stream);
+}
+
+
 
 //================ Server Testing ============//
 int main(int argc, char** argv)
@@ -280,9 +294,10 @@ int main(int argc, char** argv)
         // Make the connection on the IP address we get from a lookup
         stream.connect(results);
 
-        RunTestTwoSequential(stream);
-        RunTestAFewREcords(stream);
-        RunTestOldTribes(stream);
+        // RunTestTwoSequential(stream);
+        // RunTestAFewREcords(stream);
+        // RunTestOldTribes(stream);
+        RunTestAHundredPlusRecords(stream);
 
         // Gracefully close the socket
         beast::error_code ec;
