@@ -48,4 +48,15 @@ ENTRYPOINT ["/app/game_server", "--config-file", "/app/data/config.json", "--www
 #Commands to launch:
 #sudo docker build -t my_http_server .
 #sudo docker run --rm -p 80:8080 my_http_server
+#
+#создать контейнер docker c постгрес
+#docker run -d --name postgres-container -p 30432:5432 -e TZ=UTC -e POSTGRES_PASSWORD=Mys3Cr3t ubuntu/postgres:14-22.04_beta
 
+#Посмотреть ID имеющихся контейнеров
+#docker ps -a
+
+#запустить контейнер
+#docker start 9d87fa736f29
+
+#контейнер с game_server
+#docker run --rm -a STDERR -e GAME_DB_URL=postgres://postgres:Mys3Cr3t@172.17.0.2:5432/game_server -p 80:8080 sprint4_leave_game_test

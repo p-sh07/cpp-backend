@@ -187,7 +187,6 @@ void GetScores(beast::tcp_stream& stream) {
 }
 
 void GetRecords(beast::tcp_stream& stream) {
-
 }
 
 //=============================================//
@@ -223,21 +222,6 @@ void RunTestOldTribes(beast::tcp_stream& stream) {
     Tick(stream, RETIRE_TIME / 2u);
 }
 
-void RunTestAFewREcords(beast::tcp_stream& stream) {
-    //Send random move requests for all players, followed by a random tick, repeat Num times
-    //Old tribe
-    auto red_foxes = JoinPlayers(stream, "town", 100, "a_few_records");
-    for(int n = 0; n < 350; ++n) {
-        RandomMovePlayers(stream, red_foxes);
-        RandomTick(stream, MAX_TICK_TIME);
-    }
-    GetScores(stream);
-    StopAllPlayers(stream, red_foxes);
-    Tick(stream, RETIRE_TIME);
-
-    GetRecords(stream);
-}
-
 void RunTestTwoSequential(beast::tcp_stream& stream) {
     //Send random move requests for all players, followed by a random tick, repeat Num times
     //Old tribe
@@ -261,10 +245,25 @@ void RunTestTwoSequential(beast::tcp_stream& stream) {
     GetScores(stream);
 }
 
-void RunTestAHundredPlusRecords(beast::tcp_stream& stream, std::string_view map_name = MAP_NAME) {
+void RunTestAFewRecords(beast::tcp_stream& stream, const std::string& map_name = MAP_NAME) {
     //Send random move requests for all players, followed by a random tick, repeat Num times
     //Old tribe
-    auto red_foxes = JoinPlayers(stream, MAP_NAME, 150, "legion");
+    auto red_foxes = JoinPlayers(stream, map_name, 100, "a_few_records");
+    for(int n = 0; n < 350; ++n) {
+        RandomMovePlayers(stream, red_foxes);
+        RandomTick(stream, MAX_TICK_TIME);
+    }
+    GetScores(stream);
+    StopAllPlayers(stream, red_foxes);
+    Tick(stream, RETIRE_TIME);
+
+    GetScores(stream);
+}
+
+void RunTestAHundredPlusRecords(beast::tcp_stream& stream, const std::string& map_name = MAP_NAME) {
+    //Send random move requests for all players, followed by a random tick, repeat Num times
+    //Old tribe
+    auto red_foxes = JoinPlayers(stream, map_name, 150, "legion");
     for(int n = 0; n < 35; ++n) {
         RandomMovePlayers(stream, red_foxes);
         RandomTick(stream, MAX_TICK_TIME);
@@ -273,8 +272,6 @@ void RunTestAHundredPlusRecords(beast::tcp_stream& stream, std::string_view map_
     Tick(stream, RETIRE_TIME);
     GetScores(stream);
 }
-
-
 
 //================ Server Testing ============//
 int main(int argc, char** argv)
@@ -298,9 +295,7 @@ int main(int argc, char** argv)
         stream.connect(results);
 
         while (true) {
-            RunTestOldTribes(stream);
-            RunTestTwoSequential(stream);
-            RunTestAFewREcords(stream);
+            RunTestAFewRecords(stream);
             RunTestAHundredPlusRecords(stream);
         }
 

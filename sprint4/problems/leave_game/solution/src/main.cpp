@@ -93,7 +93,6 @@ void RunWorkers(unsigned n, const Fn& fn) {
 }
 
 constexpr const char GAME_DB_URL[]{"GAME_DB_URL"};
-constexpr const char DEBUG_GAME_DB_URL[]{"DEBUG_DB_URL"};
 
 std::string GetDbUrlFromEnv() {
     std::string url_str = "postgres://postgres:Mys3Cr3t@localhost:30432/playerdb"s;
