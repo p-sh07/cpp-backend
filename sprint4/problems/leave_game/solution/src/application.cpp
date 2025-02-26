@@ -161,12 +161,12 @@ void Session::AddRandomLootItems(size_t num_items) {
 }
 
 void Session::RemoveDog(Dog::Id dog_id) {
-    dogs_.erase(dog_id);
     gatherers_.erase(
         std::ranges::find_if(gatherers_, [dog_id](const DogPtr& dog_ptr) {
             return dog_ptr->GetId() == dog_id;
         })
     );
+    dogs_.erase(dog_id);
 }
 
 void Session::RemoveLootItem(GameObject::Id loot_item_id) {
@@ -488,14 +488,14 @@ const Session::LootItems &PlayerSessionManager::GetSessionLootList(ConstPlayerPt
 }
 
 gamedata::PlayerStats PlayerSessionManager::RetirePlayer(const Map::Id map_id, Dog::Id dog_id) {
-    const auto player      = GetPlayerByMapDogId(map_id, dog_id);
+    const auto player = GetPlayerByMapDogId(map_id, dog_id);
     if(!player) {
         //DEBUG
         std::cerr << "Player nullptr in retire!" << std::endl;
         throw std::runtime_error("");
     }
 
-    const auto dog         = player->GetDog();
+    const auto dog = player->GetDog();
     if(!dog) {
         //DEBUG
         std::cerr << "Dog nullptr in retire!" << std::endl;
