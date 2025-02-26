@@ -455,6 +455,17 @@ SessionPtr PlayerSessionManager::JoinOrCreateSession(Session::Id session_id, con
     return &sessions_.at(existing_session_it->second);
 }
 
+void PlayerSessionManager::RemoveSession(Session::Id session_id) {
+    auto sess_it = sessions_.find(session_id);
+    if(sess_it == sessions_.end()) {
+        return;
+    }
+    auto sess_map_id = sess_it->second.GetMap()->GetId();
+
+    map_to_session_index_.erase(sess_map_id);
+    sessions_.erase(sess_it);
+}
+
 ConstSessionPtr PlayerSessionManager::GetPlayerGameSession(ConstPlayerPtr player) {
     return player->GetSession();
 }

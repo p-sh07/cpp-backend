@@ -160,7 +160,7 @@ using TokenPtr = const Token*;
 //=================================================
 //========= Player & Session Manager ==============
 class PlayerSessionManager {
- public:
+public:
     using Players = std::unordered_map<Player::Id, Player>;
     using Sessions = std::unordered_map<Session::Id, Session>;
     using TokenToPlayer = std::unordered_map<Token, Player::Id, TokenHasher>;
@@ -176,6 +176,7 @@ class PlayerSessionManager {
     PlayerPtr RestorePlayer(Player::Id id, Dog::Id dog_id, Session::Id session_id, Token token);
 
     SessionPtr JoinOrCreateSession(Session::Id session_id, const Map::Id& map_id);
+    void RemoveSession(Session::Id session_id);
 
     TokenPtr GetToken(Player::Id player_id) const;
     TokenPtr GetToken(ConstPlayerPtr player) const;
