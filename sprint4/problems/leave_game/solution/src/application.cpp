@@ -451,6 +451,17 @@ SessionPtr PlayerSessionManager::JoinOrCreateSession(Session::Id session_id, con
     return &sessions_.at(existing_session_it->second);
 }
 
+void PlayerSessionManager::RemoveSession(Session::Id session_id) {
+    auto sess_it = sessions_.find(session_id);
+    if(sess_it == sessions_.end()) {
+        return;
+    }
+    auto sess_map_id = sess_it->second.GetMap()->GetId();
+
+    map_to_session_index_.erase(sess_map_id);
+    sessions_.erase(sess_it);
+}
+
 ConstSessionPtr PlayerSessionManager::GetPlayerGameSession(ConstPlayerPtr player) {
     return player->GetSession();
 }
@@ -473,9 +484,26 @@ const Session::LootItems &PlayerSessionManager::GetSessionLootList(ConstPlayerPt
 }
 
 gamedata::PlayerStats PlayerSessionManager::RetirePlayer(const Map::Id map_id, Dog::Id dog_id) {
-    auto player      = GetPlayerByMapDogId(map_id, dog_id);
-    const auto& dog  = player->GetDog();
-    auto player_sess = player->GetSession();
+    const auto player      = GetPlayerByMapDogId(map_id, dog_id);
+    if(!player) {
+        //DEBUG
+        std::cerr << "Player nullptr in retire!" << std::endl;
+        throw std::runtime_error("");
+    }
+
+    const auto dog         = player->GetDog();
+    if(!dog) {
+        //DEBUG
+        std::cerr << "Dog nullptr in retire!" << std::endl;
+        throw std::runtime_error("");
+    }
+
+    const auto player_sess = player->GetSession();
+    if(!player_sess) {
+        //DEBUG
+        std::cerr << "Session nullptr in retire!" << std::endl;
+        throw std::runtime_error("");
+    }
 
     gamedata::PlayerStats stats{
         dog->GetName(),
@@ -489,9 +517,16 @@ gamedata::PlayerStats PlayerSessionManager::RetirePlayer(const Map::Id map_id, D
     //Erase player's token:
     auto token_it = player_to_token_.at(player->GetId());
     token_to_player_.erase(token_it);
+    player_to_token_.erase(player->GetId());
 
     //Erase player
     players_.erase(player->GetId());
+
+    //Erase empty session?
+    if(player_sess->GetDogCount() == 0) {
+        RemoveSession(player_sess->GetId());
+    }
+
     return stats;
 }
 
