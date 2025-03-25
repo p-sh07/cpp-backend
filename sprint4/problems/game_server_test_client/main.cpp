@@ -295,8 +295,14 @@ int main(int argc, char** argv)
         stream.connect(results);
 
         while (true) {
-            RunTestAFewRecords(stream);
-            RunTestAHundredPlusRecords(stream);
+            RunTestAFewRecords(stream, "map1"s);
+            RunTestAHundredPlusRecords(stream, "map1"s);
+
+            RunTestAFewRecords(stream, "map3"s);
+            RunTestAHundredPlusRecords(stream, "map3"s);
+
+            RunTestAFewRecords(stream, "town"s);
+            RunTestAHundredPlusRecords(stream, "town"s);
         }
 
         // Gracefully close the socket
