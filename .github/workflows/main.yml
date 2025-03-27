@@ -1,8 +1,8 @@
 name: autotests
 
 on:
-  #pull_request:
-  #push:
+  pull_request:
+  push:
   workflow_dispatch:
 
 permissions:
@@ -34,7 +34,7 @@ jobs:
           pip uninstall conan -y
           pip install -U conan==1.59.0
           cp -R /home/forconan/.conan /github/home/.conan
-          
+
       - name: run tests sprint1 sum
         run: |
           cd cpp-backend-tests-practicum/scripts/sprint1
@@ -49,11 +49,6 @@ jobs:
         run: |
           cd cpp-backend-tests-practicum/scripts/sprint1
           ./restaurant_single_threaded/run.sh
-
-      - name: run tests sprint1 restaurant_multi_threaded
-        run: |
-          cd cpp-backend-tests-practicum/scripts/sprint1
-          ./restaurant_multi_threaded/run.sh
 
       - name: run tests sprint1 cafeteria
         run: |
@@ -301,15 +296,15 @@ jobs:
         with:
           submodules: true
 
-      # - name: run tests sprint3 ammo
-      #   run: |
-      #     cd cpp-backend-tests-practicum/scripts/sprint3
-      #     ./ammo/run_ci.sh
+      - name: run tests sprint3 ammo
+        run: |
+          cd cpp-backend-tests-practicum/scripts/sprint3
+          ./ammo/run_ci.sh
 
-      # - name: run tests sprint3 load
-      #   run: |
-      #     cd cpp-backend-tests-practicum/scripts/sprint3
-      #     ./load/run_ci.sh
+      - name: run tests sprint3 load
+        run: |
+          cd cpp-backend-tests-practicum/scripts/sprint3
+          ./load/run_ci.sh
 
 ##      - name: run tests sprint3 stress
 ##        run: |

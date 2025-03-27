@@ -1,4 +1,4 @@
-name: test command_line
+name: test state_serialize
 
 on:
   push:
@@ -71,20 +71,20 @@ jobs:
           pip install -r requirements.txt
           pip show pytest
 
-      - name: run tests sprint4 db_of_books
-        run: |
-          cd cpp-backend-tests-practicum/scripts/sprint4
-          ./db_of_books/run_postgresless.sh
+      # - name: run tests sprint4 db_of_books
+      #   run: |
+      #     cd cpp-backend-tests-practicum/scripts/sprint4
+      #     ./db_of_books/run_postgresless.sh
 
-      - name: run tests sprint4 bookypedia-1
-        run: |
-          cd cpp-backend-tests-practicum/scripts/sprint4
-          ./bookypedia-1/run_postgresless.sh
+      # - name: run tests sprint4 bookypedia-1
+      #   run: |
+      #     cd cpp-backend-tests-practicum/scripts/sprint4
+      #     ./bookypedia-1/run_postgresless.sh
 
-      - name: run tests sprint4 bookypedia-2
-        run: |
-          cd cpp-backend-tests-practicum/scripts/sprint4
-          ./bookypedia-2/run_postgresless.sh
+      # - name: run tests sprint4 bookypedia-2
+      #   run: |
+      #     cd cpp-backend-tests-practicum/scripts/sprint4
+      #     ./bookypedia-2/run_postgresless.sh
 
       - name: run tests sprint4 leave_game
         run: |
