@@ -19,7 +19,7 @@ find_package(Threads REQUIRED)
 
 #Game app source
 add_library(game_lib STATIC
-        src/app_util.h
+        src/util.h
         src/application.h
         src/application.cpp
         src/collision_detector.h
@@ -31,6 +31,7 @@ add_library(game_lib STATIC
         src/loot_generator.cpp
         src/model.h
         src/model.cpp
+        src/domain.h
 )
 
 #Server code

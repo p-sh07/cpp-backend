@@ -188,7 +188,7 @@ class Ticker : public std::enable_shared_from_this<Ticker> {
 class ApiHandler : public std::enable_shared_from_this<ApiHandler> {
  public:
     using Strand = net::strand<net::io_context::executor_type>;
-    ApiHandler(Strand api_strand, std::shared_ptr<app::GameInterface> game_app, model::TimeMs tick_period);
+    ApiHandler(Strand api_strand, std::shared_ptr<app::GameApp> game_app, model::TimeMs tick_period);
 
     ApiHandler(const ApiHandler&) = delete;
     ApiHandler& operator=(const ApiHandler&) = delete;
@@ -219,14 +219,14 @@ class ApiHandler : public std::enable_shared_from_this<ApiHandler> {
 
     bool use_http_tick_debug_ = false;
     Strand strand_;
-    std::shared_ptr<app::GameInterface> game_app_;
+    std::shared_ptr<app::GameApp> game_app_;
     std::shared_ptr<Ticker> ticker_;
 
     std::string_view ExtractMapId(std::string_view uri) const;
     static std::pair<std::string, std::string> ExtractMapIdPlayerName (const std::string& request_body);
 
     std::string ExtractToken(const auto& request) const;
-    app::ConstPlayerPtr AuthorizePlayer(const auto& request) const;
+    app::PlayerPtr AuthorizePlayer(const auto& request) const;
 
     static bool RemoveIfHasPrefix(std::string_view prefix, std::string_view& uri);
 
@@ -324,7 +324,7 @@ class RequestHandler {
  public:
     using Strand = net::strand<net::io_context::executor_type>;
 
-    RequestHandler(fs::path root, Strand api_strand, std::shared_ptr<app::GameInterface> game_app, model::TimeMs tick_period);
+    RequestHandler(fs::path root, Strand api_strand, std::shared_ptr<app::GameApp> game_app, model::TimeMs tick_period);
 
     RequestHandler(const RequestHandler&) = delete;
     RequestHandler& operator=(const RequestHandler&) = delete;

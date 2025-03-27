@@ -4,7 +4,6 @@
 #include <fstream>
 #include <iostream>
 #include <sstream>
-#include <stdexcept>
 
 namespace json_loader {
 
@@ -96,7 +95,7 @@ void print_json(std::ostream& os, json::value const& jv, std::string* indent = n
 std::string PrintMapList(const model::Game::Maps& map_list) {
     json::array map_list_js;
 
-    for(const auto& map : map_list) {
+    for(const auto& [_, map] : map_list) {
         map_list_js.push_back(json::value_from(map));
     }
     std::stringstream ss;
@@ -113,27 +112,27 @@ std::string PrintMap(const Map& map) {
     return ss.str();
 }
 
-json::object MakePlayerListJson(const std::vector<app::ConstPlayerPtr>& players) {
+json::object MakePlayerListJson(const std::vector<app::PlayerPtr>& players) {
     json::object player_list;
     for(const auto& p_ptr : players) {
         player_list.emplace(std::to_string(p_ptr->GetId()),
                             json::object{
-                                {"name", *(p_ptr->GetDog()->GetTag())}
+                                {"name", std::string(p_ptr->GetDog()->GetName())}
                             }
         );
     }
     return player_list;
 }
 
-json::object MakePlayerStateJson(const std::vector<app::ConstPlayerPtr>& players) {
+//TODO: move session to app
+json::object MakePlayerStateJson(const std::vector<app::PlayerPtr>& players) {
     json::object player_state;
     for(const auto& player : players) {
-        const auto& dog = player->GetDog();
         player_state.emplace(std::to_string(player->GetId()), json::object{
-                                 {"pos", json::value_from(dog->GetPos()).as_array()},
-                                 {"speed", json::value_from(dog->GetSpeed()).as_array()},
-                                 {"dir", json::value_from(dog->GetDirection())},
-                                 {"bag", json::value_from(dog->GetBag()).as_array()},
+                                 {"pos", json::value_from(player->GetPos()).as_array()},
+                                 {"speed", json::value_from(player->GetSpeed()).as_array()},
+                                 {"dir", json::value_from(player->GetDir())},
+                                 {"bag", json::value_from(player->GetBagItems()).as_array()},
                                  {"score", json::value_from(player->GetScore())},
                              }
         );
@@ -145,11 +144,11 @@ template<typename LootObjContainer>
 json::object MakeLostObjectsJson(const LootObjContainer& loot_objects) {
     json::object loot_jobj;
     size_t num = 0;
-    for(const auto& item : loot_objects) {
+    for(const auto& [_, item] : loot_objects) {
 
         loot_jobj.emplace(std::to_string(num++), json::object{
-                              {"type", item->GetType()},
-                              {"pos", json::value_from(item->GetPos()).as_array()}
+                              {"type", unsigned(item.type)},
+                              {"pos", json::value_from(item.pos).as_array()}
                           }
         );
     }
@@ -158,31 +157,28 @@ json::object MakeLostObjectsJson(const LootObjContainer& loot_objects) {
 
 json::value MapToValue(const Map& map) {
     json::value jv{
+        //{"dogSpeed", map.GetDogSpeed()},
         {"id", *map.GetId()},
         {"name", map.GetName()},
         {"roads", json::value_from(map.GetRoads())},
         {"buildings", json::value_from(map.GetBuildings())},
         {"offices", json::value_from(map.GetOffices())},
-        {"lootTypes", map.GetLootTypesInfo().AsJsonArray()},
+        {"lootTypes", map.GetLootInfo()->AsJsonArray()},
     };
-    //TODO: Tests fail when dogspeed prints, comment out
-    // if(auto speed = map.GetDogSpeed(); speed.has_value()) {
-    //     jv.as_object().emplace("dogSpeed", *speed);
-    // }
-    if(auto bag_cap = map.GetBagCapacity(); bag_cap.has_value()) {
-        jv.as_object().emplace("bagCapacity", *bag_cap);
+    if(map.GetBagCapacity().has_value()) {
+        jv.as_object().emplace("bagCapacity", *map.GetBagCapacity());
     }
     return jv;
 }
 
-std::string PrintPlayerList(const std::vector<app::ConstPlayerPtr>& players) {
+std::string PrintPlayerList(const std::vector<app::PlayerPtr>& players) {
     std::stringstream ss;
     print_json(ss, std::move(MakePlayerListJson(players)));
 
     return ss.str();
 }
 
-std::string PrintGameState(app::ConstPlayerPtr& player, const std::shared_ptr<app::GameInterface>& game_app) {
+std::string PrintGameState(const app::PlayerPtr player, const std::shared_ptr<app::GameApp>& game_app) {
     std::stringstream ss;
     json::object game_state;
     game_state.emplace("players", std::move(MakePlayerStateJson(game_app->GetPlayerList(player)))
@@ -216,18 +212,12 @@ Map ParseMap(const json::value& map_json) {
     }
 
     //Add LootItem info
-    const auto loot_info_json_ptr = map_json.as_object().if_contains(JsonKeys::loot_types);
-    if(loot_info_json_ptr) {
-        map.AddLootInfo(std::move(loot_info_json_ptr->as_array()));
-    } else {
-        //empty array
-        map.AddLootInfo(json::array{});
-    }
+    map.AddLootInfo(std::move(map_json.at(JsonKeys::loot_types).as_array()));
     return map;
 }
 
 //Needs game ref for default values if not present in config
-void ProcessOptionalMapParams(const json::value& map_json, Map& map, const Game& game) {
+void ProcessOptionalMapParams(const json::value& map_json, Map& map) {
     const auto& map_obj = map_json.as_object();
     //Add speed, if specified in config
     if(auto it = map_obj.find(JsonKeys::dog_speed); it != map_obj.end()) {
@@ -239,33 +229,37 @@ void ProcessOptionalMapParams(const json::value& map_json, Map& map, const Game&
     }
 }
 
-void ProcessOptionalGameParams(const json::object game_obj, Game& game) {
+//TODO: Implement Settings -> json reader parse settings
+
+gamedata::Settings ParseOptionalGameParams(const json::object& game_obj) {
+    gamedata::Settings settings;
     //Modify default speed, if specified in config
     if(auto it = game_obj.find(JsonKeys::dog_speed_dflt); it != game_obj.end()) {
-        game.ModifyDefaultDogSpeed(it->value().as_double());
+        settings.default_dog_speed = it->value().as_double();
     }
 
     //Modify default bag capacity, if specified in config
     if(auto it = game_obj.find(JsonKeys::bag_cap_dflt); it != game_obj.end()) {
-        game.ModifyDefaultBagCapacity(it->value().as_int64());
+        settings.default_bag_capacity = it->value().as_int64();
     }
 
     //LootItem gen config
     if(auto it = game_obj.find(JsonKeys::loot_gen); it != game_obj.end()) {
         //NB: Currently period is given as a double in seconds in json! Converting to chrono::duration in msec
-        game.ConfigLootGen(util::ConvertSecToMsec(it->value().at("period").as_double())
-                                 , it->value().at("probability").as_double()
-        );
+        settings.loot_gen_interval = util::ConvertSecToMsec(it->value().at("period").as_double());
+        settings.loot_gen_prob = it->value().at("probability").as_double();
     }
+    return settings;
 }
 
-const char ParseMove(const std::string& request_body) {
+char ParseMove(const std::string& request_body) {
     auto j_obj = json::parse(request_body).as_object();
     if(auto it = j_obj.find("move"); it != j_obj.end()) {
         auto mv_cmd = it->value().as_string();
+
         return mv_cmd.empty() ? char{} : mv_cmd[0];
     }
-    throw std::invalid_argument("cannot parse move command");
+    return app::MOVE_CMD_ERR;
 }
 
 //Return time in seconds, assume timeDelta is always in ms
@@ -292,13 +286,12 @@ model::Game LoadGame(const std::filesystem::path& json_path) {
         }
 
         // Загрузить модель игры из файла
-        Game game;
-        ProcessOptionalGameParams(game_config_json.as_object(), game);
+        Game game(ParseOptionalGameParams(game_config_json.as_object()));
 
         for(const auto& json_map : map_array_ptr->as_array()) {
             auto new_map = ParseMap(json_map);
 
-            ProcessOptionalMapParams(json_map, new_map, game);
+            ProcessOptionalMapParams(json_map, new_map);
             game.AddMap(std::move(new_map));
         }
         return game;
@@ -314,7 +307,7 @@ model::Game LoadGame(const std::filesystem::path& json_path) {
 
         BOOST_LOG_TRIVIAL(info) << logging::add_value(log_message, "error")
                                 << logging::add_value(log_msg_data, additional_data);
-        return {};
+        return Game{gamedata::Settings{}};
     }
 
 }
@@ -324,6 +317,20 @@ model::Game LoadGame(const std::filesystem::path& json_path) {
 //===========================================================
 //================= Tag Invoke overloads ====================
 namespace geom {
+namespace json = boost::json;
+
+void tag_invoke(const json::value_from_tag&, json::value& jv, Point const& pt) {
+    jv = json::array{
+        static_cast<int>(pt.x),
+        static_cast<int>(pt.y)
+    };
+}
+
+Point tag_invoke(const json::value_to_tag<Point>&, json::value const& jv) {
+    const auto& arr = jv.as_array();
+    return {value_to<int>(arr.at(0)), value_to<int>(arr.at(1))};
+}
+
 //TODO: When throws errors from here, it doesn't get reported
 void tag_invoke(const json::value_from_tag&, json::value& jv, Point2D const& pt) {
     jv = json::array{
@@ -346,29 +353,20 @@ void tag_invoke(const json::value_from_tag&, json::value& jv, Vec2D const& speed
 
 Vec2D tag_invoke(const json::value_to_tag<Vec2D>&, json::value const& jv) {
     auto ja = jv.as_array();
-    return Vec2D(value_to<double>(jv.at(0)), value_to<double>(jv.at(1)));
+    Vec2D sp{value_to<Dimension2D>(jv.at(0)), value_to<Dimension2D>(jv.at(1))};
+    return sp;
 }
 } //namespace geom
 
 namespace model {
-void tag_invoke(const json::value_from_tag&, json::value& jv, Point const& pt) {
-    jv = json::array{
-        static_cast<int>(pt.x),
-        static_cast<int>(pt.y)
-    };
-}
+namespace json = boost::json;
 
-Point tag_invoke(const json::value_to_tag<Point>&, json::value const& jv) {
-    const auto& arr = jv.as_array();
-    return {value_to<int>(arr.at(0)), value_to<int>(arr.at(1))};
-}
-
-void tag_invoke(const json::value_from_tag&, json::value& jv, Direction const& dir) {
+void tag_invoke(const json::value_from_tag&, json::value& jv, Dir const& dir) {
     jv = std::string{static_cast<char>(dir)};
 }
 
-Direction tag_invoke(const json::value_to_tag<Direction>&, json::value const& jv) {
-    Direction dir(value_to<Direction>(jv.at("dir")));
+Dir tag_invoke(const json::value_to_tag<Dir>&, json::value const& jv) {
+    Dir dir(value_to<Dir>(jv.at("dir")));
     return dir;
 }
 
@@ -455,17 +453,18 @@ Office tag_invoke(const json::value_to_tag<Office>&, json::value const& jv) {
     };
 }
 
-//BagContent Items
-//TODO: can split into LootItem tag invoke & BagItems. Can you use array(bag.begin, bag.end) constructor?
-void tag_invoke(const json::value_from_tag&, json::value& jv, Dog::BagContent const& bag) {
-    json::array ja;
-    for(const auto& item : bag) {
-        ja.emplace_back(json::object{
-            {"id", item.type},
-            {"type", item.id}
-        });
-    }
-    jv = std::move(ja);
-}
+// Bag Items
+// TODO: can split into LootItem tag invoke & BagItems. Can you use array(bag.begin, bag.end) constructor?
+ void tag_invoke(const json::value_from_tag&, json::value& jv, Dog::Bag const& bag) {
+     json::array ja;
+     for(const auto& item : bag) {
+         ja.emplace_back(json::object{
+             {"id", item.id},
+             {"type", item.type}
+         });
+     }
+     jv = std::move(ja);
+ }
+
 }  // namespace model
 

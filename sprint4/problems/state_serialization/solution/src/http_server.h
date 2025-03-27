@@ -65,8 +65,8 @@ class SessionBase {
     HttpRequest request_;
 
     void Read();
-    void OnRead(const beast::error_code& ec, [[maybe_unused]] std::size_t bytes_read);
-    void OnWrite(bool close, const beast::error_code& ec, [[maybe_unused]] std::size_t bytes_written);
+    void OnRead(beast::error_code ec, [[maybe_unused]] std::size_t bytes_read);
+    void OnWrite(bool close, beast::error_code ec, [[maybe_unused]] std::size_t bytes_written);
     void Close();
 
     // Обработку запроса делегируем подклассу
@@ -78,11 +78,12 @@ template<typename Body, typename Fields>
 void SessionBase::Write(http::response<Body, Fields>&& response) {
     // Запись выполняется асинхронно, поэтому response перемещаем в область кучи
     auto safe_response = std::make_shared<http::response<Body, Fields>>(std::move(response));
-        auto self = GetSharedThis();
-        http::async_write(stream_, *safe_response,
-                          [safe_response, self](beast::error_code ec, std::size_t bytes_written) {
-                              self->OnWrite(safe_response->need_eof(), ec, bytes_written);
-                          });
+
+    auto self = GetSharedThis();
+    http::async_write(stream_, *safe_response,
+                      [safe_response, self](beast::error_code ec, std::size_t bytes_written) {
+                          self->OnWrite(safe_response->need_eof(), ec, bytes_written);
+                      });
 }
 
 template<typename RequestHandler>
@@ -98,11 +99,7 @@ class Session : public SessionBase, public std::enable_shared_from_this<Session<
     RequestHandler request_handler_;
 
     std::shared_ptr<SessionBase> GetSharedThis() override {
-        auto shared = this->shared_from_this();
-        if(!shared) {
-            std::cerr << "********* Attempting  to access nullptr" << std::endl;
-        }
-        return shared;
+        return this->shared_from_this();
     }
 
     void HandleRequest(HttpRequest&& request) override {

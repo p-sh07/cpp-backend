@@ -4,27 +4,18 @@
 
 //DEBUG
 #include <iostream>
+#include <boost/log/exceptions.hpp>
 //#define GATHER_DEBUG
 
 namespace model {
 using namespace std::literals;
 
-Distance operator*(const Speed & v, TimeMs t) {
-    double time_sec = std::chrono::duration<double>(t).count();
-    return {v.x * time_sec, v.y * time_sec};
-}
-
-Point2D operator+(Point2D pt_dbl, Distance dist_int) {
-    return {pt_dbl.x + 1.0 * dist_int.x, pt_dbl.y + 1.0 * dist_int.y};
-}
-
-Point to_int_pt(Point2D pt_double) {
-    return Point(std::round(pt_double.x), std::round(pt_double.y));
-}
+//TODO: change value depending on accuracy
+static constexpr double EPSILON = 0.0000000001;
 
 //==== Random int generator for use in game model
 int GenRandomNum(int limit1, int limit2) {
-    ///'static' allows to reuse generator in the same thread, since expensive to init
+    ///'static' allows to reuse generator in the same thread, since expencive to init
     static thread_local std::mt19937 gen_local{std::random_device()()};
 
     //when min max are swapped:
@@ -76,27 +67,15 @@ Point Road::GetEnd() const {
 Point Road::GetRandomPt() const {
     if(IsHorizontal()) {
         auto rand_x = GenRandomNum(start_.x, end_.x);
-        return {static_cast<Coord>(rand_x), start_.y};
+        Point pt{static_cast<Coord>(rand_x), start_.y};
+        std::cerr << "selecting random between: " << start_.x << " & " << end_.x << " == " << rand_x << '\n';
+        return pt;
     }
     auto rand_y = GenRandomNum(start_.y, end_.y);
-    return {start_.x, static_cast<Coord>(rand_y)};
+    Point pt{start_.x, static_cast<Coord>(rand_y)};
+    std::cerr << "selecting random between: " << start_.y << " & " << end_.y << " == " << rand_y << '\n';
+    return pt;
     //return {static_cast<Coord>(start_.x, util::random_num(start_.y, end_.y))};
-}
-
-Coord Road::GetMaxCoordX() const {
-    return IsHorizontal() ? std::max(start_.x, end_.x) : start_.x;
-}
-
-Coord Road::GetMinCoordX() const {
-    return IsHorizontal() ? std::min(start_.x, end_.x) : start_.x;
-}
-
-Coord Road::GetMaxCoordY() const {
-    return IsVertical() ? std::max(start_.y, end_.y) : start_.y;
-}
-
-Coord Road::GetMinCoordY() const {
-    return IsVertical() ? std::min(start_.y, end_.y) : start_.y;
 }
 
 //=================================================
@@ -110,7 +89,7 @@ const Rectangle& Building::GetBounds() const {
 }
 
 //=================================================
-//=================== Office ======================
+//=================== Office ====================
 Office::Office(Office::Id id, Point position, Offset offset)
     : id_{std::move(id)}
     , position_{position}
@@ -129,206 +108,12 @@ Offset Office::GetOffset() const {
     return offset_;
 }
 
-//=================================================
-//=================== Objects ======================
-CollisionObject::CollisionObject(GameObject::Id id, Point2D pos, double width)
-    : GameObject(id)
-    , pos_(pos)
-    , width_(width) {}
-
-Point2D CollisionObject::GetPos() const {
-    return pos_;
-}
-
-Point2D CollisionObject::GetPrevPos() const {
-    return prev_pos_;
-}
-
-CollisionObject& CollisionObject::SetPos(Point2D pos) {
-    prev_pos_ = pos_;
-    pos_ = pos;
-    return *this;
-}
-
-double CollisionObject::GetWidth() const {
+double Office::GetWidth() const {
     return width_;
 }
 
-collision_detector::Item CollisionObject::AsCollisionItem() const {
-    return {GetPos(), GetWidth()};
-}
-
-bool CollisionObject::IsCollectible() const {
-    return false;
-}
-
-bool CollisionObject::IsItemsReturn() const {
-    return false;
-}
-
-LootItemInfo CollisionObject::Collect() {
-    return {};
-}
-
-Speed DynamicObject::GetSpeed() const {
-    return speed_;
-}
-
-DynamicObject& DynamicObject::SetSpeed(Speed speed) {
-    speed_ = speed;
-    return *this;
-}
-
-Direction DynamicObject::GetDirection() const {
-    return direction_;
-}
-
-DynamicObject& DynamicObject::SetDirection(Direction dir) {
-    direction_ = dir;
-    return *this;
-}
-
-DynamicObject& DynamicObject::SetMovement(Direction dir, double speed_value) {
-    SetDirection(dir);
-
-    switch(dir) {
-        case Direction::NORTH:
-            SetSpeed({0.0, -speed_value});
-            break;
-        case Direction::WEST:
-            SetSpeed({-speed_value, 0.0});
-            break;
-        case Direction::SOUTH:
-            SetSpeed({0, speed_value});
-            break;
-        case Direction::EAST:
-            SetSpeed({speed_value, 0.0});
-            break;
-
-        default:SetSpeed({0.0, 0.0});
-            break;
-    }
-    return *this;
-}
-
-void DynamicObject::Stop() {
-    SetSpeed({0.0, 0.0});
-}
-
-Point2D DynamicObject::ComputeMoveEndPoint(TimeMs delta_t) const {
-    //converts to seconds
-    double delta_t_sec = std::chrono::duration<double>(delta_t).count();
-    return {GetPos().x + delta_t_sec * speed_.x, GetPos().y + delta_t_sec * speed_.y};
-}
-
-collision_detector::Gatherer DynamicObject::AsGatherer() const {
-    return {GetPrevPos(), GetPos(), GetWidth()};
-}
-
-LootItem::LootItem(GameObject::Id id, Point2D pos, double width, LootItem::Type type, Score value)
-    : CollisionObject(id, pos, width)
-    , type_(type)
-    , value_(value) {
-}
-
-LootItem::Type LootItem::GetType() const {
-    return type_;
-}
-
-Score LootItem::GetValue() const {
-    return value_;
-}
-
-bool LootItem::IsCollectible() const {
-    return true;
-}
-
-LootItemInfo LootItem::Collect() {
-    const bool can_collect_item = !is_collected_;
-
-    //If item is not yet collected, update status
-    if(can_collect_item) {
-        is_collected_ = true;
-    }
-
-    return {GetId(), type_, value_, can_collect_item};
-}
-
-
-ItemsReturnPoint::ItemsReturnPoint(GameObject::Id id, const Office& office, double width)
-: CollisionObject(id, ToGeomPt(office.GetPosition()), width)
-, tag_(office.GetId()) {
-}
-
-bool ItemsReturnPoint::IsItemsReturn() const {
-    return true;
-}
-
-
-//=================================================
-//=================== Dog =========================
-// Dog::Dog(Id id, Point pos, double width, Tag tag, size_t bag_cap)
-//     : DynamicObject(id, ToGeomPt(pos), width)
-//     , tag_(std::move(tag))
-//     , bag_capacity_(bag_cap) {
-// }
-
-Dog::Dog(Id id, Point2D pos, double width, Tag tag, size_t bag_cap)
-    : DynamicObject(id, pos, width)
-    , tag_(std::move(tag))
-    , bag_capacity_(bag_cap) {
-}
-
-Dog::Tag Dog::GetTag() const {
-    return tag_;
-}
-
-Dog& Dog::SetBagCap(size_t capacity) {
-    bag_capacity_ = capacity;
-    return *this;
-}
-
-//For restoring game state
-bool Dog::TryCollectItem(LootItemInfo loot_info) {
-    if(BagIsFull() || !loot_info.can_collect) {
-        return false;
-    }
-    bag_.push_back(std::move(loot_info));
-    return true;
-}
-
-void Dog::ClearBag() {
-    bag_.clear();
-}
-
-bool Dog::BagIsFull() const {
-    return bag_.size() >= bag_capacity_;
-}
-
-const Dog::BagContent& Dog::GetBag() const {
-    return bag_;
-}
-
-size_t Dog::GetBagCap() const {
-    return bag_capacity_;
-}
-
-Score Dog::GetScore() const {
-    return score_;
-}
-
-void Dog::AddScore(Score points) {
-    score_ += points;
-}
-
-
 //=================================================
 //================ Map ============================
-Map::Map(Map::Id id, std::string name)
-    : id_(std::move(id))
-    , name_(std::move(name)) {
-}
-
 void Map::AddOffice(Office office) {
     if(warehouse_id_to_index_.contains(office.GetId())) {
         throw std::invalid_argument("Duplicate warehouse");
@@ -341,13 +126,22 @@ void Map::AddOffice(Office office) {
     } catch(...) {
         // Удаляем офис из вектора, если не удалось вставить в unordered_map
         offices_.pop_back();
-        throw std::runtime_error("Failed to add office to map");;
+        throw;
     }
 }
 
-Point2D Map::GetRandomRoadPt() const {
+Point Map::GetRandomRoadPt() const {
     auto& random_road = roads_.at(GenRandomNum(roads_.size()));
-    return ToGeomPt(random_road.GetRandomPt());
+    return random_road.GetRandomPt();
+}
+
+Point Map::GetFirstRoadPt() const {
+    return roads_.at(0).GetStart();
+}
+
+Map::Map(Map::Id id, std::string name)
+    : id_(std::move(id))
+    , name_(std::move(name)) {
 }
 
 const Map::Id& Map::GetId() const {
@@ -374,6 +168,10 @@ const Map::Offices& Map::GetOffices() const {
     return offices_;
 }
 
+size_t Map::GetLootItemValue(LootItem::Type type) const {
+    return loot_types_->GetItemValue(type);
+}
+
 void Map::AddRoad(const Road& road) {
     auto rd = roads_.emplace_back(road);
 
@@ -390,8 +188,8 @@ void Map::SetDogSpeed(double speed) {
     dog_speed_ = speed;
 }
 
-const Road* Map::FindVertRoad(Point2D point) const {
-    auto it = RoadXtoIndex_.find(static_cast<Coord>(std::round(point.x)));
+const Road* Map::FindVertRoad(Point2D pt) const {
+    auto it = RoadXtoIndex_.find(static_cast<Coord>(std::round(pt.x)));
     if(it == RoadXtoIndex_.end()) {
         return nullptr;
     }
@@ -405,23 +203,23 @@ const Road* Map::FindVertRoad(Point2D point) const {
     };
 
     for(const auto road_idx : it->second) {
-        const auto road = &roads_.at(road_idx);
+        const auto road = &roads_[road_idx];
         //skip Horizontal roads
-        if(road->IsVertical() && pt_is_on_road(road, point)) {
-            return &roads_.at(road_idx);
+        if(road->IsVertical() && pt_is_on_road(road, pt)) {
+            return &roads_[road_idx];
         }
     }
     return nullptr;
 }
 
-const Road* Map::FindHorRoad(Point2D point) const {
+const Road* Map::FindHorRoad(Point2D pt) const {
     auto pt_is_on_road = [&](const Road* rd, const Point2D& pt) {
         Point check{static_cast<Coord>(std::round(pt.x)), static_cast<Coord>(std::round(pt.y))};
         return (check.x >= std::min(rd->GetStart().x, rd->GetEnd().x))
             && (std::max(rd->GetStart().x, rd->GetEnd().x) >= check.x);
     };
 
-    auto it = RoadYtoIndex_.find(static_cast<Coord>(std::round(point.y)));
+    auto it = RoadYtoIndex_.find(static_cast<Coord>(std::round(pt.y)));
     if(it == RoadYtoIndex_.end()) {
         return nullptr;
     }
@@ -430,65 +228,21 @@ const Road* Map::FindHorRoad(Point2D point) const {
         const auto road = &roads_[road_idx];
 
         //skip vertical roads
-        if(road->IsHorizontal() && pt_is_on_road(road, point)) {
+        if(road->IsHorizontal() && pt_is_on_road(road, pt)) {
             return &roads_[road_idx];
         }
     }
     return nullptr;
 }
 
-Map::MoveResult Map::ComputeRoadMove(Point2D start, Point2D end) const {
-    //TODO: on map Town dog sometimes skips to a different road, debug this
-    //Case 0: no move
-    if(start == end) {
-        return {false, end};
-    }
+LootItem::Type Map::GetRandomLootTypeNum() const {
+    auto rand_type = GenRandomNum(loot_types_->Size());
+    // assert(rand_type >= 0 && rand_type < loot_types_->Size());
+    return static_cast<LootItem::Type>(rand_type);
+}
 
-    const auto roadV = FindVertRoad(start);
-    const auto roadH = FindHorRoad(start);
-
-    //Case 1: start point is not on road
-    if(!roadH && !roadV) {
-        return {true, start};
-    }
-
-    //move for max dist or until road limit is hit
-    const Road* preferred_road;
-    Point2D move_pos = end;
-    double road_limit, move_coord;
-
-    //Cases 2 & 3: Move vertically (Y coord changes)
-    if(start.x == end.x) {
-        //choose vertical road if available
-        preferred_road = roadV ? roadV : roadH;
-
-        if(start.y < end.y) {
-            //Case 2: move in Increasing Y
-            road_limit = 1.0 * preferred_road->GetMaxCoordY() + 0.4;
-            move_coord = std::min(road_limit, end.y);
-        } else {
-            //Case 3: move in Decreasing Y
-            road_limit = 1.0 * preferred_road->GetMinCoordY() - 0.4;
-            move_coord = std::max(road_limit, end.y);
-        }
-        move_pos.y = move_coord;
-    } else {
-        //Cases 4 & 5: Move in X coord -> prefer horizontal road
-        preferred_road = roadH ? roadH : roadV;
-
-        if(start.x < end.x) {
-            //Case 4: move in Increasing X
-            road_limit = 1.0 * preferred_road->GetMaxCoordX() + 0.4;
-            move_coord = std::min(road_limit, end.x);
-        } else {
-            //Case 5: move in Decreasing X
-            road_limit = 1.0 * preferred_road->GetMinCoordX() - 0.4;
-            move_coord = std::max(road_limit, end.x);
-        }
-        move_pos.x = move_coord;
-    }
-
-    return {move_coord == road_limit, move_pos};
+const gamedata::LootTypeInfo* Map::GetLootInfo() const {
+    return loot_types_.get();
 }
 
 std::optional<size_t> Map::GetBagCapacity() const {
@@ -499,51 +253,443 @@ void Map::SetBagCapacity(size_t cap) {
     bag_capacity_ = cap;
 }
 
-Point2D Map::GetFirstRoadPt() const {
-    return ToGeomPt(roads_.at(0).GetStart());
+//=================================================
+//=================== Dog =========================
+Dog::Dog(size_t id, std::string name, Point2D position, size_t bag_capacity)
+    : id_(id)
+    , name_(name)
+    , pos_(position)
+    , bag_capacity_(bag_capacity) {
 }
 
-Score Map::GetLootItemValue(LootType type) const {
-    return loot_types_->GetItemValue(type);
+std::string_view Dog::GetName() const {
+    return name_;
 }
 
-size_t Map::GetLootTypesSize() const {
-    return loot_types_->Size();
+size_t Dog::GetId() const {
+    return id_;
 }
 
-const gamedata::LootTypesInfo& Map::GetLootTypesInfo() const {
-    return *loot_types_;
+Point2D Dog::GetPos() const {
+    return pos_;
+}
+
+Point2D Dog::GetPrevPos() const {
+    return prev_pos_;
+}
+
+Speed Dog::GetSpeed() const {
+    return speed_;
+}
+
+Dir Dog::GetDir() const {
+    return direction_;
+}
+
+Dog& Dog::Stop() {
+    speed_ = {0, 0};
+    return *this;
+}
+
+Dog& Dog::SetSpeed(Speed sp) {
+    speed_ = sp;
+    return *this;
+}
+
+Dog& Dog::SetDir(Dir dir) {
+    direction_ = dir;
+    return *this;
+}
+
+Dog& Dog::SetMove(Dir dir, double speed_value) {
+    direction_ = dir;
+    switch(dir) {
+        case Dir::NORTH:SetSpeed({0.0, -speed_value});
+            break;
+        case Dir::WEST:SetSpeed({-speed_value, 0.0});
+            break;
+        case Dir::SOUTH:SetSpeed({0, speed_value});
+            break;
+        case Dir::EAST:SetSpeed({speed_value, 0.0});
+            break;
+
+        default:SetSpeed({0.0, 0.0});
+            break;
+    }
+    return *this;
+}
+
+Dog& Dog::AddScore(Score points) {
+    score_ += points;
+    return *this;
+}
+
+Dog& Dog::SetScore(Score total) {
+    score_ = total;
+    return *this;
+}
+
+Dog& Dog::SetPos(Point2D pos) {
+    prev_pos_ = pos_;
+    pos_ = pos;
+    return *this;
+}
+
+Dog& Dog::SetBagCap(size_t capacity) {
+    bag_capacity_ = capacity;
+    return *this;
+}
+
+Point2D Dog::ComputeMaxMove(TimeMs delta_t) const {
+    //TODO: check this
+    if(speed_.x < EPSILON && speed_.y < EPSILON) {
+        return pos_;
+    }
+
+    //This converts time to seconds
+    double delta_t_sec = std::chrono::duration<double>(delta_t).count();
+    return {pos_ + delta_t_sec * speed_};
+}
+
+Score Dog::GetScore() const {
+    return score_;
+}
+
+bool Dog::CollectLootItem(LootItem& item) {
+    if(BagIsFull() && item.collected) {
+        return false;
+    }
+    bag_.push_back(
+        {item.id, item.type}
+    );
+    item.collected = true;
+    return true;
+}
+
+void Dog::UnloadAllItems() {
+    bag_.clear();
+}
+
+bool Dog::BagIsFull() const {
+    return bag_.size() >= bag_capacity_;
+}
+
+const Dog::Bag& Dog::GetBagItems() const {
+    return bag_;
+}
+
+//=================================================
+//=================== Session =====================
+Session::Session(Id id, const Map& map, gamedata::Settings settings)
+    : id_(id)
+    , map_(map)
+    , settings_(std::move(settings))
+    , loot_generator_(settings_.loot_gen_interval, settings_.loot_gen_prob) {
+}
+
+[[maybe_unused]] Dog* Session::AddDog(Dog::Id id, Dog::Name name, Point2D pos) {
+    auto [dog_it, success] = dogs_.emplace(
+        id,
+        Dog{id, std::move(name), pos, GetDogBagCapacity()}
+    );
+
+    //Failed to add dog
+    if(!success) {
+        //TODO: Throw?
+        return nullptr;
+    }
+
+    return &(dog_it->second);
+}
+
+[[maybe_unused]] LootItem* Session::AddLootItem(LootItem::Id id, LootItem::Type type, Point2D pos) {
+    auto item_score_value = map_.GetLootItemValue(type);
+
+    auto [item_it, success] = loot_items_.emplace(
+        id,
+        LootItem{id, type, item_score_value, pos}
+    );
+
+    if(!success) {
+        //TODO: Throw?
+        return nullptr;
+    }
+
+    return &(item_it->second);
+}
+
+[[maybe_unused]] Dog* Session::AddDog(std::string name) {
+    return AddDog(next_dog_id_++, std::move(name), GetSpawnPoint());
+}
+
+[[maybe_unused]] LootItem* Session::AddLootItem(LootItem::Type type) {
+    return AddLootItem(next_loot_id_++, type, map_.GetRandomRoadPt());
+}
+
+void Session::AddRandomLootItems(size_t num_items) {
+    for(int i = 0; i < num_items; ++i) {
+        AddLootItem(map_.GetRandomLootTypeNum());
+    }
+}
+
+size_t Session::GetId() const {
+    return id_;
+}
+
+const Map::Id& Session::GetMapId() const {
+    return map_.GetId();
+}
+
+const Session::Dogs& Session::GetAllDogs() const {
+    return dogs_;
+}
+
+const Session::LootItems& Session::GetLootItems() const {
+    return loot_items_;
+}
+
+void Session::AdvanceTime(TimeMs delta_t) {
+    GenerateLoot(delta_t);
+    MoveAllDogs(delta_t);
+    ProcessCollisions(delta_t);
+}
+
+Point2D Session::ComputeDogMove(Dog& dog, const Road* road, TimeMs delta_t) {
+    //Maximum point dog can reach in delta_t if no road limit is hit
+    auto max_move = dog.ComputeMaxMove(delta_t);
+    switch(dog.GetDir()) {
+        case Dir::NORTH: {
+            auto road_limit_y = 1.0 * std::min(road->GetStart().y, road->GetEnd().y) - 0.4;
+
+            //Choose the least value (closest to starting point, it is the limit)
+            auto move_y_dist = std::max(road_limit_y, max_move.y);
+
+            if(move_y_dist == road_limit_y) {
+                dog.Stop();
+            }
+            return {dog.GetPos().x, move_y_dist};
+        }
+        case Dir::SOUTH: {
+            auto road_limit_y = 1.0 * std::max(road->GetStart().y, road->GetEnd().y) + 0.4;
+            auto move_y_dist = std::min(road_limit_y, max_move.y);
+
+            if(move_y_dist == road_limit_y) {
+                dog.Stop();
+            }
+            return {dog.GetPos().x, move_y_dist};
+        }
+        case Dir::WEST: {
+            auto road_limit_x = 1.0 * std::min(road->GetStart().x, road->GetEnd().x) - 0.4;
+            auto move_x_dist = std::max(road_limit_x, max_move.x);
+
+            if(move_x_dist == road_limit_x) {
+                dog.Stop();
+            }
+            return {move_x_dist, dog.GetPos().y};
+        }
+        case Dir::EAST: {
+            auto road_limit_x = 1.0 * std::max(road->GetStart().x, road->GetEnd().x) + 0.4;
+            auto move_x_dist = std::min(road_limit_x, max_move.x);
+
+            if(move_x_dist == road_limit_x) {
+                dog.Stop();
+            }
+            return {move_x_dist, dog.GetPos().y};
+        }
+    }
+    return {dog.GetPos().x, dog.GetPos().y};
+}
+
+size_t Session::GetDogBagCapacity() const {
+    return map_.GetBagCapacity().has_value()
+               ? map_.GetBagCapacity().value()
+               : settings_.default_bag_capacity;
+}
+
+Point2D Session::GetSpawnPoint() const {
+    return settings_.randomised_dog_spawn
+               ? map_.GetRandomRoadPt()
+               : map_.GetFirstRoadPt();
+}
+
+void Session::MoveDog(Dog& dog, TimeMs delta_t) {
+    auto start = dog.GetPos();
+    auto dir = dog.GetDir();
+
+    const auto roadV = map_.FindVertRoad(start);
+    const auto roadH = map_.FindHorRoad(start);
+
+    if(!roadH && !roadV) {
+        dog.Stop();
+        throw std::runtime_error("Dog is not on a road!");
+    }
+
+    //move dog for max move or until road limit is hit
+    const Road* preferred_road;
+    Point2D new_pos;
+
+    if(dir == Dir::NORTH || dir == Dir::SOUTH) {
+        //choose vertical road if moving vertically and is available
+        preferred_road = roadV ? roadV : roadH;
+        new_pos = ComputeDogMove(dog, preferred_road, delta_t);
+    } else {
+        preferred_road = roadH ? roadH : roadV;
+        new_pos = ComputeDogMove(dog, preferred_road, delta_t);
+    }
+
+    const auto roadV_check = map_.FindVertRoad(new_pos);
+    const auto roadH_check = map_.FindHorRoad(new_pos);
+
+    if(!roadV_check && !roadH_check) {
+        dog.Stop();
+        throw std::runtime_error("Dog has moved outside of a road!");
+    }
+
+    dog.SetPos(new_pos);
+}
+
+void Session::MoveAllDogs(TimeMs delta_t) {
+    for(auto& [_, dog] : dogs_) {
+        MoveDog(dog, delta_t);
+    }
+}
+
+void Session::ProcessCollisions(TimeMs delta_t) {
+    CollisionDetector collision_detector(dogs_, loot_items_, map_.GetOffices(), settings_);
+    auto events = collision_detector::FindGatherEvents(collision_detector);
+
+    //Process events in chronological time:
+    for(const auto& collision_event : events) {
+        auto idx = collision_event.item_id;
+        auto& dog = dogs_.at(collision_event.gatherer_id);
+
+        if(collision_detector.IsLootItem(idx)) {
+            auto loot_item = loot_items_.at(collision_detector.GetLootIdFromGatherEvent(idx));
+
+            //TODO:check for datarace, mb do this through io/strand
+            if(!dog.BagIsFull() && !loot_item.collected) {
+                dog.CollectLootItem(loot_item);
+            }
+        } else if(collision_detector.IsOffice(idx)) {
+            for (const auto& item : dog.GetBagItems()) {
+                dog.AddScore(item.points);
+            }
+            dog.UnloadAllItems();
+        } else {
+            //TODO: Use cerr for now, fix this later
+            //throw std::logic_error("Invalid collect event index");
+            std::cerr << "-invalid collect event index in collision detector" << std::endl;
+        }
+    }
+
+    //Remove collected items from map
+    //Do this after collision event processing to keep all GatherEvent indexes valid!
+    for(auto it = loot_items_.begin(); it != loot_items_.end(); ++it) {
+        if(it->second.collected) {
+            loot_items_.erase(it);
+        }
+    }
+}
+
+void Session::GenerateLoot(TimeMs delta_t) {
+#ifdef GATHER_DEBUG
+    if(loot_items_.empty()) {
+        AddLootItem(0, {0.0, 50.0});
+    }
+#else
+    auto num_of_new_items = loot_generator_.Generate(delta_t, GetLootCount(), GetDogCount());
+    AddRandomLootItems(num_of_new_items);
+#endif
+}
+
+const Map* Session::GetMap() const {
+    return &map_;
+}
+
+size_t Session::GetDogCount() const {
+    return dogs_.size();
+}
+
+size_t Session::GetLootCount() const {
+    return loot_items_.size();
+}
+
+const Dog* Session::GetDog(const Dog::Id id) {
+    const auto dog_it = dogs_.find(id);
+    return dog_it == dogs_.end() ? nullptr : &(dog_it->second);
 }
 
 
 //=================================================
 //=================== Game ========================
 void Game::AddMap(Map map) {
-    const size_t index = maps_.size();
-    if(auto [it, inserted] = map_id_to_index_.emplace(map.GetId(), index); !inserted) {
+    if(auto [it, inserted] = maps_.emplace(map.GetId(), std::move(map)); !inserted) {
         throw std::invalid_argument("Map with id "s + *map.GetId() + " already exists"s);
-    } else {
-        try {
-            maps_.emplace_back(std::move(map));
-        } catch(...) {
-            map_id_to_index_.erase(it);
-            throw;
+    }
+}
+
+void Game::SetRandomDogSpawn(bool enable) {
+    settings_.randomised_dog_spawn = enable;
+}
+
+Map* Game::FindMap(const Map::Id& id) {
+    if(auto it = maps_.find(id); it != maps_.end()) {
+        return &(it->second);
+    }
+    return nullptr;
+}
+
+const Map* Game::FindMap(const Map::Id& id) const {
+    if(auto it = maps_.find(id); it != maps_.end()) {
+        return &(it->second);
+    }
+    return nullptr;
+}
+
+Session* Game::FindSession(const Map::Id& map_id) {
+    auto map_ptr = FindMap(map_id);
+    if(!map_ptr) {
+        throw std::invalid_argument("Incorrect map id, map not found");
+    }
+
+    //No session for map
+    auto session_it = sessions_.find(map_id);
+    if(session_it == sessions_.end()) {
+        return nullptr;
+    }
+    //Session exists
+    return &sessions_.at(map_id);
+}
+
+Session* Game::MakeSession(const Map::Id& map_id, Session::Strand strand) {
+    auto map_ptr = FindMap(map_id);
+    if(!map_ptr) {
+        throw std::invalid_argument("Incorrect map id, map not found");
+    }
+    try {
+        //TODO: Make session with strand
+        auto [sess_it, success] = sessions_.emplace(
+            map_id,
+            Session{next_session_id_++, *map_ptr, settings_}
+        );
+        if(!success) {
+            throw std::runtime_error("Failed to create Game Session");
         }
+        return &(sess_it->second);
+    } catch(...) {
+        sessions_.erase(map_id);
+
+        //TODO: make sure throw is caught
+        std::cerr << "failed to create session" << std::endl;
+        //throw std::runtime_error("failed to create session");
+        return nullptr;
     }
 }
 
-MapPtr Game::FindMap(const Map::Id& id) {
-    if(const auto it = map_id_to_index_.find(id); it != map_id_to_index_.end()) {
-        return &maps_.at(it->second);
+void Game::AdvanceTimeInSessions(TimeMs delta_t) {
+    for(auto& [_, session] : sessions_) {
+        session.AdvanceTime(delta_t);
     }
-    return nullptr;
-}
-
-ConstMapPtr Game::FindMap(const Map::Id& id) const {
-    if(const auto it = map_id_to_index_.find(id); it != map_id_to_index_.end()) {
-        return &maps_.at(it->second);
-    }
-    return nullptr;
 }
 
 const Game::Maps& Game::GetMaps() const {
@@ -552,24 +698,6 @@ const Game::Maps& Game::GetMaps() const {
 
 const gamedata::Settings& Game::GetSettings() const {
     return settings_;
-}
-
-void Game::ModifyDefaultDogSpeed(double speed) {
-    settings_.default_dog_speed = speed;
-}
-
-void Game::ModifyDefaultBagCapacity(size_t capacity) {
-    settings_.default_bag_capacity = capacity;
-}
-
-void Game::EnableRandomDogSpawn(bool enable) {
-    //is disabled by default
-    settings_.randomised_dog_spawn = enable;
-}
-
-void Game::ConfigLootGen(TimeMs base_period, double probability) {
-    settings_.loot_gen_interval = base_period;
-    settings_.loot_gen_prob = probability;
 }
 
 } //namespace model

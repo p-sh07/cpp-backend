@@ -1,7 +1,5 @@
 #include <boost/serialization/vector.hpp>
 #include <boost/serialization/deque.hpp>
-#include <boost/serialization/shared_ptr.hpp>
-#include <boost/serialization/unordered_map.hpp>
 #include <boost/archive/text_iarchive.hpp>
 #include <boost/archive/text_oarchive.hpp>
 // #include <boost/serialization/>
@@ -12,7 +10,7 @@
 //Debug
 #include <iostream>
 #include <fstream>
-
+/*
 namespace geom {
 
 template <typename Archive>
@@ -38,11 +36,6 @@ void serialize(Archive& ar, Vec2D& vec, [[maybe_unused]] const unsigned version)
 namespace model {
 template <typename Archive>
 void serialize(Archive& ar, Map::Id& obj, [[maybe_unused]] const unsigned version) {
-    ar&(*obj);
-}
-
-template <typename Archive>
-void serialize(Archive& ar, Dog::Tag& obj, [[maybe_unused]] const unsigned version) {
     ar&(*obj);
 }
 
@@ -91,10 +84,12 @@ public:
         ar& width_;
         ar& speed_;
         ar& direction_;
-        ar& tag_;
+        ar& name_;
         ar& bag_capacity_;
         ar& score_;
-        ar& bag_content_;
+        ar& bag_;
+        ar& ingame_time_;
+        ar& inactive_time_;
     }
 
 private:
@@ -102,11 +97,13 @@ private:
     model::Point2D pos_;
     double width_;
     model::Speed speed_;
-    model::Direction direction_ {model::Direction::NORTH};;
-    model::Dog::Tag tag_ {""};
+    model::Dir direction_ {model::Dir::NORTH};;
+    std::string name_ {""};
     size_t bag_capacity_ {0u};
     model::Score score_ {0u};
-    model::Dog::BagContent bag_content_;
+    model::Dog::Bag bag_;
+    int64_t ingame_time_;
+    int64_t inactive_time_;
 };
 
 struct LootItemRepr {
@@ -225,3 +222,4 @@ private:
 
 
 }  // namespace serialization
+*/

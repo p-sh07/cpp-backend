@@ -5,11 +5,6 @@
 #include <filesystem>
 #include <random>
 
-//DEBUG
-#ifdef DEBUG
-#include <iostream>
-#endif
-
 namespace util {
 
 /**

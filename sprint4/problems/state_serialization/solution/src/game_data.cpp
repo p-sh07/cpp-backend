@@ -6,24 +6,19 @@
 
 namespace gamedata {
 
-boost::json::array LootTypesInfo::AsJsonArray() const {
+boost::json::array LootTypeInfo::AsJsonArray() const {
     return map_loot_types_;
 }
-LootTypesInfo::LootTypesInfo(boost::json::array map_loot_types)
+LootTypeInfo::LootTypeInfo(boost::json::array map_loot_types)
     : map_loot_types_(std::move(map_loot_types)) {
 }
 
-size_t LootTypesInfo::Size() {
+size_t LootTypeInfo::Size() {
     return map_loot_types_.size();
 }
 
-const size_t LootTypesInfo::Size() const {
+const size_t LootTypeInfo::Size() const {
     return map_loot_types_.size();
-}
-
-size_t LootTypesInfo::GetItemValue(LootItemType type) const {
-    auto val = map_loot_types_.at(type).as_object().at("value").as_int64();
-    return static_cast<size_t>(val);
 }
 
 }

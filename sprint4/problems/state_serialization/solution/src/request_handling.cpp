@@ -164,7 +164,7 @@ ErrInfo ApiError::GetInfo(ErrCode ec) const {
 
 //==================================================================
 //======================= Api Request Handler ======================
-ApiHandler::ApiHandler(Strand api_strand, std::shared_ptr<app::GameInterface> game_app, model::TimeMs tick_period)
+ApiHandler::ApiHandler(Strand api_strand, std::shared_ptr<app::GameApp> game_app, model::TimeMs tick_period)
     : strand_(api_strand)
     , game_app_(std::move(game_app))
     , use_http_tick_debug_(tick_period.count() == 0) {
@@ -208,7 +208,7 @@ std::string ApiHandler::ExtractToken(const auto& request) const {
     return std::string{token_str};
 }
 
-app::ConstPlayerPtr ApiHandler::AuthorizePlayer(const auto& request) const {
+app::PlayerPtr ApiHandler::AuthorizePlayer(const auto& request) const {
     /// -->>  Authorise player
     app::Token token{std::move(ExtractToken(request))};
 
@@ -311,13 +311,15 @@ StringResponse ApiHandler::HandleApiRequest(const StringRequest& req) {
                 }
 
                 auto player = AuthorizePlayer(req);
-                const auto move_command = json_loader::ParseMove(req.body());
+                const auto move_char_cmd = json_loader::ParseMove(req.body());
 
-                if(!game_app_->MoveCommandValid(move_command)){
+                const std::string allowed = "LURD"s;
+                if(!isblank(move_char_cmd) && allowed.find(move_char_cmd) == allowed.npos) {
                     throw ApiError(ErrCode::token_invalid_argument);
                 }
 
-                game_app_->SetPlayerMovement(player, move_command);
+                game_app_->MovePlayer(player, move_char_cmd);
+
                 return to_html(http::status::ok, "{}");
             }
 
@@ -458,7 +460,7 @@ StringResponse FileHandler::ReportFileError(unsigned version, bool keep_alive) c
 
 //==================================================================
 //================== Request Handling Interface ====================
-RequestHandler::RequestHandler(fs::path root, Strand api_strand, std::shared_ptr<app::GameInterface> game_app, model::TimeMs tick_period)
+RequestHandler::RequestHandler(fs::path root, Strand api_strand, std::shared_ptr<app::GameApp> game_app, model::TimeMs tick_period)
 : file_handler_(std::make_shared<FileHandler>(std::move(root)))
 , api_handler_(std::make_shared<ApiHandler>(api_strand, std::move(game_app), tick_period)) {
 }
