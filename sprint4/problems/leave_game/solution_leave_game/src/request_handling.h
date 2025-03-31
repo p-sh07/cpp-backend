@@ -215,7 +215,19 @@ class ApiHandler : public std::enable_shared_from_this<ApiHandler> {
         static constexpr std::string_view player_list{"players"sv};
         static constexpr std::string_view player_action{"player/action"sv};
         static constexpr std::string_view time_tick{"tick"sv};
+        static constexpr std::string_view player_stats{"records"sv};
+
+        //Player Records url param keys
+        static constexpr std::string_view records_offset{"start"sv};
+        static constexpr std::string_view records_limit{"maxItems"sv};
     };
+
+    struct RecordsRequestParams {
+        std::optional<size_t> start {};
+        std::optional<size_t> maxItems {};
+    };
+
+    static constexpr size_t max_player_record_request_num_ {100u};
 
     bool use_http_tick_debug_ = false;
     Strand strand_;
@@ -224,9 +236,10 @@ class ApiHandler : public std::enable_shared_from_this<ApiHandler> {
 
     std::string_view ExtractMapId(std::string_view uri) const;
     static std::pair<std::string, std::string> ExtractMapIdPlayerName (const std::string& request_body);
+    static RecordsRequestParams ExtractRecordsUrlParams(const std::string_view url_params);
 
     std::string ExtractToken(const auto& request) const;
-    app::PlayerPtr AuthorizePlayer(const auto& request) const;
+    app::ConstPlayerPtr AuthorizePlayer(const auto& request) const;
 
     static bool RemoveIfHasPrefix(std::string_view prefix, std::string_view& uri);
 
@@ -247,7 +260,7 @@ void ApiHandler::Execute(http::request<Body, http::basic_fields<Allocator>>&& re
     //currently all api requests performed inside one strand consecutively
     //TODO: switch to one strand per Session
     try {
-        auto handle = [self = shared_from_this(), send,
+        auto handle = [self = shared_from_this(), send = std::forward<decltype(send)>(send),
             req = std::move(req), version, keep_alive] {
             try {
                 return send(self->HandleApiRequest(req));
@@ -362,9 +375,8 @@ void RequestHandler::operator()(tcp::endpoint&&, http::request<Body, http::basic
         //Throws ServerError if the request cannot be processed
         //AssertRequestValid(req);
 
-        std::cerr << req << std::endl;
         if(api_handler_->IsApiRequest(req)) {
-            return api_handler_->Execute(std::move(req), send);
+            return api_handler_->Execute(std::move(req), std::forward<decltype(send)>(send));
         }
         // Возвращаем результат обработки запроса к файлу
         file_handler_->Execute(std::move(req), send);
@@ -376,30 +388,3 @@ void RequestHandler::operator()(tcp::endpoint&&, http::request<Body, http::basic
 }
 
 } // namespace http_handler
-
-/**
- * Изменение в протоколе взаимодействия с клиентом
-В ответе на запрос к /api/v1/game/state теперь нужно отдавать содержимое рюкзака игроков. Для этого в информацию об игроке добавьте поле bag. Его тип — массив, содержащий информацию о собранных предметах. Информация задаётся в виде объекта со следующими полями:
-id (целое число) — идентификатор предмета. Совпадает с тем идентификатором, который имел предмет до того, как его нашли.
-type (целое число) — тип предмета. Тип также не должен меняться при подборе.
-Следует передавать предметы в том порядке, в котором они были собраны. Вот пример ответа сервера:
-{
-   "players":{
-      "13":{
-         "pos":[10.5,3.8],
-         "speed":[0.5, 0],
-         "dir":"L",
-         "bag":[
-            {"id":9, "type":4},
-            {"id":8, "type":4}
-         ]
-      }
-   },
-   "lostObjects":{
-      "11":{
-         "type":3,
-         "pos":[13.2,17.2]
-      }
-   }
-}
- */
