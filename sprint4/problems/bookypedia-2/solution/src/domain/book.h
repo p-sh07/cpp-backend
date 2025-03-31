@@ -1,31 +1,25 @@
-//
-// Created by Pavel on 15.12.2024.
-//
-#pragma once
-
-
 #pragma once
 #include <string>
 #include <vector>
 
-#include "author.h"
 #include "../util/tagged_uuid.h"
+#include "author.h"
 
 namespace domain {
 
 namespace detail {
-    struct BookTag {};
+struct BookTag {};
 }  // namespace detail
 
 using BookId = util::TaggedUUID<detail::BookTag>;
 
 class Book {
 public:
-    Book(BookId id, AuthorId author_id, std::string title, int publication_year)
+    Book(BookId id, AuthorId author_id, std::string title, int year)
         : id_(std::move(id))
         , author_id_(std::move(author_id))
         , title_(std::move(title))
-        , publication_year_(publication_year) {
+        , publication_year_(year) {
     }
 
     const BookId& GetId() const noexcept {
@@ -54,11 +48,8 @@ private:
 class BookRepository {
 public:
     virtual void Save(const Book& book) = 0;
-    virtual std::vector<std::pair<std::string, int>> GetAllBooks() const = 0;
-    virtual std::vector<std::pair<std::string, int>> GetAllBooksByAuthor(const std::string& author_id) const = 0;
-    virtual Book LoadBook(const std::string& book_id) const = 0;
-    virtual bool DeleteBook(const std::string& book_id) = 0;
-    virtual bool ModifyBookInfo(const std::string& book_id, const std::vector<std::string>& tags_, std::string new_title = "", int new_pub_year = -1) = 0;
+    virtual std::vector<Book> GetAllBooks() = 0;
+    virtual std::vector<Book> GetBooksBy(const std::string& author_name) = 0;
 
 protected:
     ~BookRepository() = default;

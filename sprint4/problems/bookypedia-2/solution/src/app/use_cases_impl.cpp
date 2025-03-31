@@ -1,9 +1,11 @@
 #include "use_cases_impl.h"
-
 #include "../domain/author.h"
 #include "../domain/book.h"
 
-#include <stdexcept>
+#include <ranges>
+#include <algorithm>
+#include <sstream>
+#include <optional>
 
 namespace app {
 using namespace domain;
@@ -12,52 +14,56 @@ void UseCasesImpl::AddAuthor(const std::string& name) {
     authors_.Save({AuthorId::New(), name});
 }
 
-void UseCasesImpl::AddBook(const std::string& title, const std::string& author_id, int publication_year) {
-    books_.Save({BookId::New(), domain::AuthorId::FromString(author_id), title, publication_year});
+std::vector<std::string> UseCasesImpl::GetAllAuthors(){
+    std::vector<std::string> list_of_authors;
+    std::ranges::transform(
+        authors_.GetAllAuthors(),
+        std::back_inserter(list_of_authors),
+        [](auto& author) -> std::string {
+            return author.GetName();
+        }
+    );
+    return list_of_authors;
 }
 
-void UseCasesImpl::AddBookWithAuthor(const std::string& author_name, const std::string& book_title, int publication_year) {
-    //TODO:
-}
-
-void UseCasesImpl::DeleteAuthor(const std::string& author_id) {
-    //TODO:
-}
-
-void UseCasesImpl::EditAuthorName(const std::string& author_id, const std::string& new_name) {
-    //TODO:
-}
-
-void UseCasesImpl::DeleteBook(const std::string& book_id) {
-    //TODO:
-}
-
-void UseCasesImpl::EditBook(const std::string& book_id, const std::string& new_title, int new_pub_year) {
-    //TODO:
-}
-
-std::vector<std::pair<std::string, std::string>> UseCasesImpl::GetAllAuthors() const {
-    return authors_.GetAllAuthors();
-}
-
-std::vector<std::pair<std::string, int>> UseCasesImpl::GetAllBooks() const {
-    return books_.GetAllBooks();
-}
-
-BookInfo UseCasesImpl::GetBookInfo(const std::string& book_id) const {
-    //TODO:
-    auto book = books_.LoadBook(book_id);
-}
-
-std::optional<std::string> UseCasesImpl::GetAuthorId(const std::string& author_name) const {
-    auto id = authors_.FindAuthorByName(author_name);
-    if(!id) {
-        return std::nullopt;
+std::optional<std::string> UseCasesImpl::GetAuthorIdBy(const std::string& author_name) {
+    auto author = authors_.GetAuthorBy(author_name);
+    if(author) {
+        return author.value().GetId().ToString();
     }
-    return {id.value().ToString()};
-}
+    return std::nullopt;
+};
 
-std::vector<std::pair<std::string, int>> UseCasesImpl::GetBooksByAuthor(const std::string& author_id) const {
-    return books_.GetAllBooksByAuthor(author_id);
-}
+void UseCasesImpl::AddBook(const std::string& author_id, const std::string& title, int year) {
+    books_.Save({BookId::New(), AuthorId::FromString(author_id), title, year});
+};
+
+std::vector<std::string> UseCasesImpl::GetAllBooks() {
+    std::vector<std::string> list_of_books;
+    std::ranges::transform(
+        books_.GetAllBooks(),
+        std::back_inserter(list_of_books),
+        [](auto& book) -> std::string {
+            std::stringstream ss;
+            ss << book.GetTitle() << ", " << book.GetPublicationYear();
+            return ss.str();
+        }
+    );
+    return list_of_books;
+};
+
+std::vector<std::string> UseCasesImpl::GetBooksBy(const std::string& author_name) {
+    std::vector<std::string> list_of_books;
+    std::ranges::transform(
+        books_.GetBooksBy(author_name),
+        std::back_inserter(list_of_books),
+        [](auto& book) -> std::string {
+            std::stringstream ss;
+            ss << book.GetTitle() << ", " << book.GetPublicationYear();
+            return ss.str();
+        }
+    );
+    return list_of_books;
+};
+
 }  // namespace app

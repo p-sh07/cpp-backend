@@ -1,8 +1,8 @@
 #pragma once
 #include <pqxx/pqxx>
 
-#include "app/use_cases_impl.h"
-#include "postgres/postgres.h"
+#include "postgres.h"
+#include "use_cases_impl.h"
 
 namespace bookypedia {
 
@@ -18,7 +18,7 @@ public:
 
 private:
     postgres::Database db_;
-    app::UseCasesImpl use_cases_{db_.GetAuthors()};
+    app::UseCasesImpl use_cases_{db_.GetAuthors(), db_.GetBooks()};
 };
 
 }  // namespace bookypedia

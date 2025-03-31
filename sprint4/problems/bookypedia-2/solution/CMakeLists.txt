@@ -19,7 +19,7 @@ find_package(Threads REQUIRED)
 
 add_library(libbookypedia STATIC
 	src/menu/menu.cpp
-	src/menu/menu.hd
+	src/menu/menu.h
 	src/ui/view.cpp
 	src/ui/view.h
 	src/app/use_cases.h
@@ -33,9 +33,9 @@ add_library(libbookypedia STATIC
 	src/util/tagged_uuid.h
 	src/postgres/postgres.cpp
 	src/postgres/postgres.h
-		src/domain/book.cpp
-		src/domain/book.h
-		src/domain/book_fwd.h
+	src/domain/book.cpp
+	src/domain/book.h
+	src/domain/book_fwd.h
 )
 target_link_libraries(libbookypedia PUBLIC CONAN_PKG::boost Threads::Threads CONAN_PKG::libpq CONAN_PKG::libpqxx)
 

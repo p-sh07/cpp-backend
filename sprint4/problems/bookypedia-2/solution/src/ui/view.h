@@ -1,10 +1,8 @@
 #pragma once
 #include <iosfwd>
-#include <optional>
-#include <string>
 #include <vector>
-
-#include "../domain/book.h"
+#include <string>
+#include <optional>
 
 namespace menu {
 class Menu;
@@ -15,46 +13,20 @@ class UseCases;
 }
 
 namespace ui {
-namespace detail {
-
-struct AddBookParams {
-    std::string title;
-    std::string author_id;
-    int publication_year = 0;
-};
-
-struct AuthorInfo {
-    std::string id;
-    std::string name;
-};
-
-struct BookInfo {
-    std::string title;
-    int publication_year;
-};
-
-}  // namespace detail
 
 class View {
 public:
     View(menu::Menu& menu, app::UseCases& use_cases, std::istream& input, std::ostream& output);
 
 private:
-    bool AddAuthor(std::istream& cmd_input) const;
-    bool AddBook(std::istream& cmd_input) const;
-    bool ShowAuthors() const;
-    bool ShowBooks() const;
-    bool ShowAuthorBooks() const;
+    bool AddAuthor(std::istream& cmd_input);
+    bool ShowAuthors();
+    bool AddBook(std::istream& cmd_input);
+    bool ShowBooks();
+    bool ShowAuthorBooks();
 
-    std::optional<detail::AddBookParams> GetBookParams(std::istream& cmd_input) const;
-    std::optional<std::string> GetAuthorId(const std::string& author_name) const;
-    std::optional<std::string> RequestAuthorName(std::istream& cmd_input) const;
-    std::optional<std::string> SelectAuthor() const;
-    std::optional<std::string> AddAuthorOnAccept(const std::string& author_name, std::istream& cmd_input) const;
-
-    std::vector<detail::AuthorInfo> GetAuthors() const;
-    std::vector<detail::BookInfo> GetBooks() const;
-    std::vector<detail::BookInfo> GetAuthorBooks(const std::string& author_id) const;
+    std::vector<std::string> ShowAuthorsList();
+    std::optional<size_t> ChooseAuthor(const std::vector<std::string>& authors);
 
     menu::Menu& menu_;
     app::UseCases& use_cases_;
