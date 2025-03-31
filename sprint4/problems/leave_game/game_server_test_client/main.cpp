@@ -192,7 +192,7 @@ void GetRecords(beast::tcp_stream& stream) {
 
 //=============================================//
 //=================== PARAMS ===================//
-static constexpr auto MAP_NAME = "map3"s;
+static const auto MAP_NAME = "map3"s;
 static constexpr auto NUM_PLAYERS = 10u;
 static constexpr auto NUM_ITERATIONS = 200u;
 static constexpr auto MAX_TICK_TIME = 10000u;
@@ -200,10 +200,10 @@ static constexpr auto RETIRE_TIME = 15000u;
 
 //=============================================//
 
-void RunTestOldTribes(beast::tcp_stream& stream) {
+void RunTestOldTribes(beast::tcp_stream& stream, const std::string& map_name = MAP_NAME) {
     //Send random move requests for all players, followed by a random tick, repeat Num times
     //Old tribe
-    auto elder_tribe = JoinPlayers(stream, MAP_NAME, NUM_PLAYERS, "Old");
+    auto elder_tribe = JoinPlayers(stream, map_name, NUM_PLAYERS, "Old");
     for(int n = 0; n < NUM_ITERATIONS; ++n) {
         RandomMovePlayers(stream, elder_tribe);
         RandomTick(stream, MAX_TICK_TIME);
@@ -212,7 +212,7 @@ void RunTestOldTribes(beast::tcp_stream& stream) {
     StopAllPlayers(stream, elder_tribe);
 
     //young tribe
-    auto young_tribe = JoinPlayers(stream, MAP_NAME, NUM_PLAYERS, "Young");
+    auto young_tribe = JoinPlayers(stream, map_name, NUM_PLAYERS, "Young");
     for(int n = 0; n < NUM_ITERATIONS; ++n) {
         RandomMovePlayers(stream, young_tribe);
         RandomTick(stream, MAX_TICK_TIME);
@@ -220,10 +220,10 @@ void RunTestOldTribes(beast::tcp_stream& stream) {
     Tick(stream, RETIRE_TIME / 2u);
 }
 
-void RunTestAFewREcords(beast::tcp_stream& stream) {
+void RunTestAFewREcords(beast::tcp_stream& stream, const std::string& map_name = MAP_NAME) {
     //Send random move requests for all players, followed by a random tick, repeat Num times
     //Old tribe
-    auto red_foxes = JoinPlayers(stream, "town", 100, "a_few_records");
+    auto red_foxes = JoinPlayers(stream, map_name, 100, "a_few_records");
     for(int n = 0; n < 350; ++n) {
         RandomMovePlayers(stream, red_foxes);
         RandomTick(stream, MAX_TICK_TIME);
@@ -235,10 +235,10 @@ void RunTestAFewREcords(beast::tcp_stream& stream) {
     GetRecords(stream);
 }
 
-void RunTestTwoSequential(beast::tcp_stream& stream) {
+void RunTestTwoSequential(beast::tcp_stream& stream, const std::string& map_name = MAP_NAME) {
     //Send random move requests for all players, followed by a random tick, repeat Num times
     //Old tribe
-    auto red_foxes = JoinPlayers(stream, MAP_NAME, 100, "red_fox");
+    auto red_foxes = JoinPlayers(stream, map_name, 100, "red_fox");
     for(int n = 0; n < 35; ++n) {
         RandomMovePlayers(stream, red_foxes);
         RandomTick(stream, MAX_TICK_TIME);
@@ -248,7 +248,7 @@ void RunTestTwoSequential(beast::tcp_stream& stream) {
     GetScores(stream);
 
     //orange_racoons
-    auto orange_raccoons = JoinPlayers(stream, MAP_NAME, 100, "or_racc");
+    auto orange_raccoons = JoinPlayers(stream, map_name, 100, "or_racc");
     for(int n = 0; n < 35; ++n) {
         RandomMovePlayers(stream, orange_raccoons);
         RandomTick(stream, MAX_TICK_TIME);
@@ -280,9 +280,19 @@ int main(int argc, char** argv)
         // Make the connection on the IP address we get from a lookup
         stream.connect(results);
 
-        RunTestTwoSequential(stream);
-        RunTestAFewREcords(stream);
-        RunTestOldTribes(stream);
+        while (true) {
+            RunTestTwoSequential(stream, "map1");
+            RunTestAFewREcords(stream, "map1");
+            RunTestOldTribes(stream, "map1");
+
+            RunTestTwoSequential(stream, "map3");
+            RunTestAFewREcords(stream, "map3");
+            RunTestOldTribes(stream, "map3");
+
+            RunTestTwoSequential(stream, "town");
+            RunTestAFewREcords(stream, "town");
+            RunTestOldTribes(stream, "town");
+        }
 
         // Gracefully close the socket
         beast::error_code ec;
