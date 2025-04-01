@@ -4,6 +4,8 @@
 
 #include "bookypedia.h"
 
+#define TEST_DEBUG
+
 using namespace std::literals;
 
 namespace {
@@ -19,18 +21,13 @@ bookypedia::AppConfig GetConfigFromEnv() {
     }
     return config;
 }
-
 }  // namespace
 
 int main([[maybe_unused]] int argc, [[maybe_unused]] const char* argv[]) {
     try {
-        bookypedia::Application app{GetConfigFromEnv()};
-
-        //for testing
-        //bookypedia::AppConfig config;
-        //config.db_url = "postgres://postgres:Mys3Cr3t@localhost:30432/yandex_test";
-        //bookypedia::Application app{config};
-        
+        // bookypedia::Application app{GetConfigFromEnv()};
+        assert(argc == 2);
+        bookypedia::Application app{{argv[1]}};
         app.Run();
     } catch (const std::exception& e) {
         std::cerr << e.what() << std::endl;

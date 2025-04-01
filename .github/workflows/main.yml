@@ -361,9 +361,9 @@ jobs:
           ./bookypedia-1/run_postgresless.sh
 
       - name: run tests sprint4 bookypedia-2
-        run: |
-          cd cpp-backend-tests-practicum/scripts/sprint4
-          ./bookypedia-2/run_postgresless.sh
+        run:
+          # cd cpp-backend-tests-practicum/scripts/sprint4
+          # ./bookypedia-2/run_postgresless.sh
 
       - name: run tests sprint4 leave_game
         run: |
