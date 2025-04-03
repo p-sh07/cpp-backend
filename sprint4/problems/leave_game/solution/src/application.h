@@ -118,9 +118,6 @@ private:
     void GenerateLoot(model::TimeMs delta_t);
     void ProcessCollisions() const;
     std::vector<Dog::Id> GetRetiredDogs();
-
-    // void HandleCollision(const model::LootItemPtr& loot, const DogPtr& dog) const;
-    // void HandleCollision(const model::ItemsReturnPointPtr& office, const DogPtr& dog) const;
 };
 
 using SessionPtr = Session*;

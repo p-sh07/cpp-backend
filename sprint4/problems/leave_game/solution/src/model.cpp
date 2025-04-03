@@ -14,8 +14,8 @@ Distance operator*(const Speed & v, TimeMs t) {
     return {v.x * time_sec, v.y * time_sec};
 }
 
-Point2D operator+(Point2D pt_dbl, Distance dist_int) {
-    return {pt_dbl.x + 1.0 * dist_int.x, pt_dbl.y + 1.0 * dist_int.y};
+Point2D operator+(Point2D pt_dbl, Distance int_dist) {
+    return {pt_dbl.x + 1.0 * int_dist.x, pt_dbl.y + 1.0 * int_dist.y};
 }
 
 Point to_int_pt(Point2D pt_double) {
@@ -306,32 +306,25 @@ bool Dog::TryCollectItem(LootItemInfo loot_info) {
 
 void Dog::ProcessCollision(const CollisionObjectPtr& obj) {
     //Only two options for now, so use this method:
-    // std::cerr << " --- inside pr. coll" << std::endl;
     if(!obj) {
-        // std::cerr << "nullptr object!" << std::endl;
         return;
     }
     // 1.Is a loot item
     if(obj->IsCollectible()) {
-        // std::cerr << "collect" << std::endl;
         try {
-        TryCollectItem(obj->Collect());
+            TryCollectItem(obj->Collect());
         } catch(std::exception& ex) {
             std::cerr << " ---> exception ocurred in collect item: " << ex.what() << std::endl;
         }
     }
     // 2.Is an office
     else if(obj->IsItemsReturn()) {
-        // std::cerr << "return" << std::endl;
         try {
             auto bag = GetBag();
-            // std::cerr << "bag.sz = " << bag.size() << std::endl;
-        for(const auto& item : GetBag()) {
-            // std::cerr << "add value: " << item.value << std::endl;
-            AddScore(item.value);
-        }
-        // std::cerr << "clearing bag" << std::endl;
-        ClearBag();
+            for(const auto& item : GetBag()) {
+                AddScore(item.value);
+            }
+            ClearBag();
         } catch(std::exception& ex) {
             std::cerr << " ---> exception ocurred in add score: " << ex.what() << std::endl;
         }
@@ -400,15 +393,19 @@ void Dog::AddTime(TimeMs delta_t) {
     if(!move_cmd_received_ && IsStopped()) {
         inactive_time_ += delta_t;
 
+//TODO: This doesn't work, but why
+/**
         //when dog expires, decrease ingame time by the extra tick time after expiry
-        // if(IsExpired()) {
-        //     auto tick_time_diff = inactive_time_ - max_inactive_time_;
-        //     ingame_time_ -= tick_time_diff;
-        // }
+        if (IsExpired()) {
+            auto tick_time_diff = inactive_time_ - max_inactive_time_;
+            ingame_time_ -= tick_time_diff;
+        }
+*/
     }
     /** NB: This function must be called LAST during tick,
      *  because it depends on player cmd being already processed,
-     *  resets bool move_cmd_received */
+     *  resets bool move_cmd_received
+     */
     move_cmd_received_ = false;
 }
 

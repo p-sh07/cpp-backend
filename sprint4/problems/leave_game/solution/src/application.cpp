@@ -111,10 +111,7 @@ DogPtr Session::AddDog(Dog dog) {
 
     //Dog with this id already exists
     if (!success) {
-        if (dog_map_it->second.GetName() != dog.GetName()) {
-            throw std::runtime_error("Different dog with this id already exists");
-        }
-        return &dog_map_it->second;
+        throw std::runtime_error("Failed to add dog");
     }
     return gatherers_.emplace_back(&dog_map_it->second);
 }
@@ -131,10 +128,7 @@ DogPtr Session::AddDog(Dog::Id id, std::string name) {
     });
 
     if (!success) {
-        if (dog_map_it->second.GetName() != name) {
-            throw std::runtime_error("Different dog with this id already exists");
-        }
-        return &dog_map_it->second;
+        throw std::runtime_error("Failed to add dog");
     }
     //Update default dog expiry time
     &dog_map_it->second.SetRetireTime(settings_.default_inactivity_timeout_ms_);
@@ -183,24 +177,12 @@ void Session::RemoveLootItem(GameObject::Id loot_item_id) {
 std::vector<Dog::Id> Session::AdvanceTime(model::TimeMs delta_t) {
     session_time_ += delta_t;
 
-    // std::cerr << std::endl << "moving dogs...\n";
-
     MoveAllDogs(delta_t);
-
-    // std::cerr << "collisions"  << std::endl;
     ProcessCollisions();
-
-    // std::cerr << "loot" << std::endl;
-    //Generate loot after, so that a loot item is not randomly picked up by dog
     GenerateLoot(delta_t);
 
-    // std::cerr << "retired dogs" << std::endl;
     return GetRetiredDogs();
 }
-
-// void Session::EraseDog(Dog::Id dog_id) {
-//     dogs_.erase(dog_id);
-// }
 
 void Session::AddOffices(const Map::Offices& offices) {
     for (const auto& office : map_->GetOffices()) {
@@ -218,10 +200,7 @@ void Session::MoveDog(Dog& dog, model::TimeMs delta_t) const {
     using model::operator+;
     using model::operator*;
 
-    // std::cerr << " -> computing max move\n";
     model::Point2D max_move_pt  = dog.GetPos() + dog.GetSpeed() * delta_t;
-
-    // std::cerr << " -> computing dog pos\n";
     Map::MoveResult move_result = map_->ComputeRoadMove(dog.GetPos(), max_move_pt);
 
     if (move_result.road_edge_reached_) {
@@ -233,23 +212,14 @@ void Session::MoveDog(Dog& dog, model::TimeMs delta_t) const {
 }
 
 void Session::MoveAllDogs(model::TimeMs delta_t) {
-    // std::cerr << "=inside MoveAllDogs, dogs sz = " << dogs_.size() << '\n';
     for (auto& dog : dogs_ | vw::values) {
-        // std::cerr << "moving dog " << std::endl; 
-        // std::cerr << dog.GetId() << "...\n";
         MoveDog(dog, delta_t);
     }
 }
 
 void Session::GenerateLoot(model::TimeMs delta_t) {
-#ifdef GATHER_DEBUG
-    if(loot_items_.empty()) {
-        AddLootItem(0, {0.0, 50.0});
-    }
-#else
     auto num_of_new_items = loot_generator_.Generate(delta_t, GetLootCount(), GetDogCount());
     AddRandomLootItems(num_of_new_items);
-#endif
 }
 
 //---------------------------------------------------------
@@ -257,51 +227,35 @@ void Session::ProcessCollisions() const {
     try {
         //NB: this used to be a member of Session, but recent changes introduced bugs:
         // - refs to object/gatherer container were becoming invalidated - could be due to std::move or unordered_map/rehash?
-        // std::cerr << " -> init detector" << std::endl;
         model::CollisionDetector collision_detector{objects_, gatherers_};
 
-        // std::cerr << " -> find collisions" << std::endl; 
         auto collision_events = collision_detector.FindCollisions();
 
-        // std::cerr << "process:" << std::endl; 
         for (const auto& event : collision_events) {
-            // std::cerr << " -> processing: gath.sz = " << gatherers_.size();
-            // std::cerr << " id = " << event.gatherer_id << std::endl;
             const auto& dog = gatherers_.at(event.gatherer_id);
             if(dog) {
-                // std::cerr << " --> going into dog: " << dog->GetId() << std::endl;
                 dog->ProcessCollision(objects_.at(event.item_id));
             } else {
-                std::cerr << "nullptr gatherer!" << std::endl;
-                //gatherers_.erase(event.gatherer_id);
+                throw std::runtime_error("nullptr gatherer!");
             }
             
         }
-    } catch (...) {
-        std::cerr << "collision detection error";
+    } catch (std::exception& ex) {
+        std::cerr << "collision detection error: " << ex.what() << std::endl;
     }
 }
 
 std::vector<Dog::Id> Session::GetRetiredDogs() {
     std::vector<Dog::Id> retired;
     retired.reserve(dogs_.size());
-    // std::cerr << " -> dogs.sz = " << dogs_.size() << std::endl;
+
     for(const auto&[id, dog] : dogs_) {
-        // std::cerr << " --> proc. dog: " << id << '\n';
         if(dog.IsExpired()) {
-            // std::cerr << " --> ins. dog: " << id << '\n';
             retired.push_back(id);
         }
     }
     return retired;
 }
-
-// void Session::ClearRetiredDogs() {
-//     //no parameter version: erase all expired dogs
-//     std::erase_if(dogs_, [](const auto& item) {
-//         return item.second.IsExpired();
-//     });
-// }
 
 void Session::EraseRetiredDogs(const std::vector<Dog::Id>& retired_dog_ids) {
     rg::for_each(retired_dog_ids, [&](const auto dog_id) {
@@ -448,7 +402,6 @@ SessionPtr PlayerSessionManager::JoinOrCreateSession(Session::Id session_id, con
         } catch (std::exception& ex) {
             //DEBUG
             std::cerr << "Failed to create new session on map: " << ex.what();
-            throw std::runtime_error("Failed to make a new session on map");
         }
     }
     //A session exists and can be joined
@@ -477,7 +430,6 @@ std::vector<ConstPlayerPtr> PlayerSessionManager::GetAllPlayersInSession(ConstPl
     const auto& map_id  = player_session->GetMapId();
 
     for (const auto& dog_id : player_session->GetDogs() | vw::keys) {
-        // std::cerr << dog_id << std::endl;
         result.push_back(GetPlayerByMapDogId(map_id, dog_id));
     }
     return result;
@@ -497,7 +449,6 @@ gamedata::PlayerStats PlayerSessionManager::RetirePlayer(const Map::Id map_id, D
         dog->GetScore(),
         dog->GetIngameTime().count()
     };
-    //std::cerr << "retiring player: " << player->GetId() << ", " << dog->GetName() << " after: " << dog->GetIngameTime().count() / 1000.0 << " sec" << std::endl;
     //Erase player's dog
     player_sess->RemoveDog(dog_id);
 
@@ -595,10 +546,9 @@ void GameInterface::AdvanceGameTime(model::TimeMs delta_t) {
         //TODO: add listener for player retirement?
     } catch (std::exception& ex) {
         //TODO: Logger
-        // std::cerr << "serialization error occured: " << ex.what() << std::endl;
+        std::cerr << "serialization error occured: " << ex.what() << std::endl;
     }
     //TODO: Dispatch db write to io
-    //std::cerr << "writing to db...\n";
     player_stat_db_.SavePlayersStats(retired_players);
 }
 

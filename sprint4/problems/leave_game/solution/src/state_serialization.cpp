@@ -19,11 +19,12 @@ model::Dog serialization::DogRepr::Restore() const {
     dog.SetDirection(direction_);
     dog.AddScore(score_);
     dog.RestoreTimers(model::TimeMs{ingame_time_}, model::TimeMs{inactive_time_});
-    for (const auto& item : bag_content_) {
-        if (!dog.TryCollectItem(item)) {
-            throw std::runtime_error("Failed to put bag content");
-        }
+
+    //Throws if any item collect returns false
+    if(range::any_of(bag_content_, [&dog](auto& item) { return !dog.TryCollectItem(item); })) {
+        throw std::runtime_error("Failed to put bag content");
     }
+
     return dog;
 }
 
@@ -100,9 +101,8 @@ serialization::PsmRepr::PsmRepr(const app::PlayerSessionManager& psm) {
 }
 
 app::PlayerSessionManager serialization::PsmRepr::Restore(const app::GamePtr& game) const {
+
     //Restores loot items and dogs inside session
-    size_t next_session_id = 0u;
-    size_t next_p = 0u;
     app::PlayerSessionManager::Sessions restored_sessions;
     for(const auto sess_repr : session_reprs_) {
         auto id = sess_repr.GetId();
@@ -158,7 +158,7 @@ void serialization::StateSerializer::SaveGameState(const app::PlayerSessionManag
 
 app::PlayerSessionManager serialization::StateSerializer::Restore(app::GamePtr game) const {
     if(!fs::exists(save_dir_ / save_file_)) {
-        return std::move(app::PlayerSessionManager{game});
+        return app::PlayerSessionManager{game};
     }
 
     std::ifstream saved_state{save_dir_ / save_file_};
@@ -172,5 +172,5 @@ app::PlayerSessionManager serialization::StateSerializer::Restore(app::GamePtr g
     PsmRepr psm_repr{};
     in >> psm_repr;
 
-    return std::move(psm_repr.Restore(game));
+    return psm_repr.Restore(game);
 }

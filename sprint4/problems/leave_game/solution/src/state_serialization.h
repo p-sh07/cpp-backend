@@ -1,3 +1,4 @@
+#pragma once
 #include <boost/serialization/vector.hpp>
 #include <boost/serialization/deque.hpp>
 #include <boost/archive/text_iarchive.hpp>
@@ -7,9 +8,10 @@
 #include "application.h"
 #include "model.h"
 
-//Debug
 #include <iostream>
 #include <fstream>
+#include <ranges>
+
 
 namespace geom {
 
@@ -66,6 +68,7 @@ void serialize(Archive& ar, Token& obj, [[maybe_unused]] const unsigned version)
 }  // namespace app
 
 namespace serialization {
+namespace range = std::ranges;
 using namespace std::literals;
 
 // DogRepr (DogRepresentation) - сериализованное представление класса Dog

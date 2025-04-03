@@ -72,7 +72,7 @@ inline Point ToIntPt(Point2D pt_double) {
 
 
 //==== Op overloads ==========//
-Point2D operator+(Point2D pos, Distance dist);
+Point2D operator+(Point2D pos, Distance int_dist);
 Distance operator*(const Speed& v, TimeMs t);
 
 
