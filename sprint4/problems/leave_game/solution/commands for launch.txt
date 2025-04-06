@@ -1,0 +1,6 @@
+commands for launch:
+
+psql -p 30432 -U postgres -W -h localhost 
+
+sudo docker run --rm -a STDERR -e GAME_DB_URL=postgres://postgres:Mys3Cr3t@172.17.0.2:5432/playerdb -p 80:8080 my_http_server
+
